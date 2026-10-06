@@ -3,8 +3,22 @@
 //  Arranque, guardado y bucle principal
 // =====================================================================
 
+// Calidad adaptable: como mucho 2 píxeles por punto, y si va lento se baja sola
+let quality = 2;
+const fpsMeter = { frames: 0, t: 0, good: 0 };
+function adaptQuality(dt) {
+  fpsMeter.frames++; fpsMeter.t += dt;
+  if (fpsMeter.t < 2) return;
+  const fps = fpsMeter.frames / fpsMeter.t;
+  fpsMeter.frames = 0; fpsMeter.t = 0;
+  const max = Math.min(2, window.devicePixelRatio || 1);
+  if (fps < 40 && quality > 0.75) { quality = Math.max(0.75, Math.min(quality, dpr) - 0.5); fpsMeter.good = 0; resize(); }
+  else if (fps > 56 && quality < max) { if (++fpsMeter.good >= 3) { quality = Math.min(max, quality + 0.25); fpsMeter.good = 0; resize(); } }
+  else fpsMeter.good = 0;
+}
+
 function resize() {
-  dpr = window.devicePixelRatio || 1;
+  dpr = Math.min(window.devicePixelRatio || 1, quality);
   cw = window.innerWidth; ch = window.innerHeight;
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
@@ -227,8 +241,10 @@ function init() {
 
   let last = performance.now();
   function frame(now) {
-    const dt = Math.min(0.1, (now - last) / 1000);
+    const realDt = (now - last) / 1000;
+    const dt = Math.min(0.1, realDt);
     last = now;
+    if (!document.hidden && realDt < 1) adaptQuality(realDt);
     time += dt;
     handleKeysPan(dt);
     if (handMining) {

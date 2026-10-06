@@ -454,6 +454,12 @@ const forestOf = (n) => Math.min(1, n / 24);
 // Se taló o plantó un árbol: se redibuja su chunk de árboles y su píxel del mapa
 function treeChanged(x, y) {
   treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
+  // Los árboles van dibujados en el suelo: se redibujan los sectores que toca su copa
+  const keys = new Set();
+  for (const [ox, oy] of [[-1.3, -1.3], [2.3, -1.3], [-1.3, 2.3], [2.3, 2.3]]) {
+    keys.add(Math.floor(wrapX(x + ox) / CHUNK) + ',' + Math.floor(wrapY(y + oy) / CHUNK));
+  }
+  for (const k of keys) chunkCache.delete(k);
   if (pixelMap) {
     const g = pixelMap.getContext('2d');
     g.fillStyle = rgbStr(tilePixel(x, y));
@@ -531,6 +537,25 @@ function chunkTrees(cx, cy) {
   return list;
 }
 
+// Los árboles del sector y los de los vecinos cuya copa se mete en él (así no hay cortes)
+function drawChunkTrees(g, cx, cy) {
+  if (typeof TREE_SPRITES === 'undefined' || !TREE_SPRITES.length) return;
+  const nx = Math.ceil(W / CHUNK), ny = Math.ceil(H / CHUNK);
+  const size = CHUNK * TILE;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const ux = cx + dx, uy = cy + dy;
+    const mx = ((ux % nx) + nx) % nx, my = ((uy % ny) + ny) % ny;
+    const shiftX = (ux - mx) * CHUNK, shiftY = (uy - my) * CHUNK;   // vecino del otro lado del mapa
+    for (const [x, y, v, sc, ox, oy] of chunkTrees(mx, my)) {
+      if (at(x, y)) continue;
+      const s = 64 * sc;
+      const px = (x + shiftX - cx * CHUNK) * TILE + 16 + ox - s / 2, py = (y + shiftY - cy * CHUNK) * TILE + 16 + oy - s / 2;
+      if (px > size || py > size || px + s < 0 || py + s < 0) continue;
+      g.drawImage(TREE_SPRITES[v], px, py, s, s);
+    }
+  }
+}
+
 function getChunk(cx, cy) {
   const key = cx + ',' + cy;
   let c = chunkCache.get(key);
@@ -547,6 +572,7 @@ function getChunk(cx, cy) {
       if (inBounds(tx, ty)) drawTile(g, tx, ty, x * TILE, y * TILE);
     }
   }
+  drawChunkTrees(g, cx, cy);
   chunkCache.set(key, c);
   if (chunkCache.size > MAX_CHUNKS) chunkCache.delete(chunkCache.keys().next().value);
   return c;

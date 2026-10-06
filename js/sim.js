@@ -362,6 +362,7 @@ function removeEntity(e, opts = {}) {
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
   if (RAILISH.has(e.type)) railDirty = true;
+  if (typeof treeAt === 'function' && treeAt(e.x, e.y)) treeChanged(e.x, e.y);
   powerDirty = true;
   undergroundDirty = true;
   fluidDirty = true;

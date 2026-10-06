@@ -1440,7 +1440,6 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
     ctx.fillStyle = '#ff5a3c';
     for (const b of S.biters) if (biterVisible(b)) ctx.fillRect(b.x * TILE - 6, b.y * TILE - 6, 12, 12);
   } else {
-    drawTrees(ctx, vx0, vy0, vx1, vy1);
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
     for (const b of S.biters) {
