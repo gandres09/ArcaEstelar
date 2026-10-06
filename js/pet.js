@@ -11,8 +11,8 @@ const PET_COLORS = [
   { name: 'Blanco', body: '#ece6da', dark: '#bdb4a3', ear: '#c9a27a' },
   { name: 'Dorado', body: '#d9a441', dark: '#a8772a', ear: '#a8772a' },
 ];
-const PET_HUNGER_TIME = 1200;   // segundos de juego hasta tener la panza vacía
-const PET_STARVE_TIME = 600;    // segundos con la panza vacía hasta que se escapa
+const PET_HUNGER_TIME = 1800;   // media hora de juego con la panza llena (se va vaciando)
+const PET_STARVE_TIME = 1800;   // media hora con hambre; después se escapa
 const PET_MAX_LEVEL = 10;
 const PET_ANIMS = ['idle', 'walk', 'sit', 'happy', 'eat', 'rest', 'sad', 'spin'];
 // Cariño necesario para cada nivel (nivel 2: 40, nivel 5: 400, nivel 10: 1800)

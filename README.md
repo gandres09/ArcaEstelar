@@ -14,7 +14,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
   El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
 - **Perrito de compañía**: te sigue o se queda sentado donde lo dejes; se lo alimenta, se lo acaricia, se le pone
   nombre y se elige su color (marrón, negro, blanco o dorado). Sube hasta el nivel 10 con comida, mimos y compañía
-  (collar, medallita, pañuelo, vuelta de alegría y corona); si pasa mucho tiempo con la panza vacía, se escapa y se
+  (collar, medallita, pañuelo, vuelta de alegría y corona); dura media hora de juego con la panza llena; después pasa media hora con hambre y, si nadie le da de comer, se escapa y se
   puede adoptar otro. En línea, cada uno ve el perro de los demás con su nivel.
 - **Gráficos** con terreno orgánico (pasto, tierra, arena, agua con profundidad y espuma), bosques, yacimientos con
   rocas y cristales, edificios con relieve, cintas por nivel (amarilla, roja y azul), humo y luces de noche.
