@@ -219,7 +219,8 @@ function netPlayerState() {
 }
 
 function netSendPresence() {
-  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null };
+  chatPrune();
+  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -531,6 +532,90 @@ function netSaveMine() {
 
 // --------------------------- Los otros jugadores ---------------------------
 
+// --------------------------- Chat ---------------------------
+// Cada uno manda sus últimos mensajes dentro de su presencia (así funciona
+// igual dentro de Claude y con código de sala); los demás muestran los nuevos.
+
+const CHAT = { out: [], seen: new Map(), log: [], unread: 0, open: false, mySay: null };
+const CHAT_KEEP = 45000;   // un mensaje viaja en la presencia durante 45 s
+
+function chatPrune() {
+  const now = Date.now();
+  while (CHAT.out.length && now - CHAT.out[0][0] > CHAT_KEEP) CHAT.out.shift();
+}
+
+function chatSend(text) {
+  text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (!text || !NET.on) return false;
+  let id = Date.now();
+  if (CHAT.out.length && id <= CHAT.out[CHAT.out.length - 1][0]) id = CHAT.out[CHAT.out.length - 1][0] + 1;
+  CHAT.out.push([id, text]);
+  if (CHAT.out.length > 4) CHAT.out.shift();
+  CHAT.mySay = { text, until: performance.now() + 6000 };
+  chatAdd(NET.nick || 'Vos', text, true, netColor(NET.uid, NET.cid));
+  NET.presAt = 0;   // que salga ya
+  return true;
+}
+
+function chatReceive(peer, a, list) {
+  if (!Array.isArray(list)) return;
+  let last = CHAT.seen.get(peer);
+  // Recién llegado: solo lo de los últimos segundos, no todo lo viejo
+  if (last === undefined) last = Date.now() - 20000;
+  for (const m of list) {
+    if (!Array.isArray(m) || !(m[0] > last) || typeof m[1] !== 'string') continue;
+    last = m[0];
+    const text = m[1].replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!text) continue;
+    const who = a.nick || netNameOf(a.by) || 'Jugador';
+    a.say = text; a.sayUntil = performance.now() + 6000;
+    chatAdd(who, text, false, netColor(a.by));
+    if (!CHAT.open) { CHAT.unread++; toast(`💬 <b>${escapeHtml(who)}:</b> ${escapeHtml(text)}`); sfx('click'); }
+  }
+  CHAT.seen.set(peer, last);
+}
+
+function chatAdd(who, text, me, col) {
+  CHAT.log.push({ who, text, me, col, t: Date.now() });
+  if (CHAT.log.length > 60) CHAT.log.shift();
+  chatRender();
+}
+
+function chatRender() {
+  const chip = $('chat-chip');
+  if (chip) {
+    chip.hidden = !NET.on;
+    $('chat-badge').hidden = !CHAT.unread;
+    $('chat-badge').textContent = CHAT.unread > 9 ? '9+' : CHAT.unread;
+  }
+  if (!NET.on && CHAT.open) chatToggle(false);
+  const box = $('chat-log');
+  if (!box || !CHAT.open) return;
+  box.innerHTML = CHAT.log.length
+    ? CHAT.log.map((m) => `<div class="chat-msg${m.me ? ' me' : ''}"><b style="color:${m.col}">${escapeHtml(m.who)}</b> ${escapeHtml(m.text)}</div>`).join('')
+    : '<p class="muted small">Todavía no hay mensajes. ¡Saludá!</p>';
+  box.scrollTop = box.scrollHeight;
+}
+
+function chatToggle(force) {
+  CHAT.open = force === undefined ? !CHAT.open : force;
+  $('chat').hidden = !CHAT.open;
+  if (CHAT.open) { CHAT.unread = 0; chatRender(); setTimeout(() => $('chat-in').focus(), 30); }
+  chatRender();
+}
+
+function initChat() {
+  $('chat-chip').addEventListener('click', () => chatToggle());
+  $('chat-close').addEventListener('click', () => chatToggle(false));
+  $('chat-form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    if (chatSend($('chat-in').value)) $('chat-in').value = '';
+  });
+  // Escribir no mueve el personaje ni dispara atajos
+  for (const t of ['keydown', 'keyup']) $('chat').addEventListener(t, (ev) => { ev.stopPropagation(); if (ev.key === 'Escape') chatToggle(false); });
+  setInterval(chatRender, 1000);
+}
+
 function netUpdateAvatars(peers, dt) {
   const seen = new Set();
   for (const p of peers) {
@@ -556,6 +641,7 @@ function netUpdateAvatars(peers, dt) {
       pet.step += Math.abs(wdx(pet.x - px)) * 3 + dt * (anim === 'walk' ? 8 : 0);
       Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
     } else a.pet = null;
+    chatReceive(p.peer, a, p.presence.c);
   }
   for (const k of NET.avatars.keys()) if (!seen.has(k)) NET.avatars.delete(k);
 }

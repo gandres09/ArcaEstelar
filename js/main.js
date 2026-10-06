@@ -318,6 +318,7 @@ async function init() {
   setInterval(checkAchievements, 2000);
   setInterval(() => renderMinimap(minimap), 500);
   $('btn-online').addEventListener('click', () => openModal('online'));
+  initChat();
   // Atajo al nombre de jugador (vive en la ventana En línea)
   $('btn-name').addEventListener('click', () => {
     openModal('online');

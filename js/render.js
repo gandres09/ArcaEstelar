@@ -1148,6 +1148,7 @@ function drawPlayer(g, lod) {
   }
   drawAvatar(g, p, x, y, '#ffb347', '#d9782a');
   if (NET.on) drawNameTag(g, x, y, NET.nick || 'Vos', '#ffb347', NET.role === 'host');
+  if (NET.on && CHAT.mySay && performance.now() < CHAT.mySay.until) drawSpeech(g, x, y, CHAT.mySay.text);
 }
 
 // Un personaje visto de arriba (el propio en naranja; los demás con su color)
@@ -1205,7 +1206,30 @@ function drawRemotePlayers(g, lod) {
     drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
     const pr = a.by && NET.profiles[a.by];
     drawNameTag(g, x, y, a.nick || (pr && pr.name) || 'Jugador', col, a.host);
+    if (a.say && performance.now() < a.sayUntil) drawSpeech(g, x, y, a.say);
   }
+}
+
+// Globito de chat arriba del nombre (corta en renglones de ~24 letras)
+function drawSpeech(g, x, y, text) {
+  g.font = '500 11px Barlow, system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (g.measureText(t).width > 150 && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  const shown = lines.slice(0, 4);
+  if (lines.length > 4) shown[3] += '…';
+  const w = Math.min(170, Math.max(...shown.map((l) => g.measureText(l).width)) + 16), h = shown.length * 13 + 8;
+  const top = y - 40 - h;
+  g.fillStyle = 'rgba(255,255,255,0.95)';
+  rrect(g, x - w / 2, top, w, h, 7); g.fill();
+  g.beginPath(); g.moveTo(x - 5, top + h); g.lineTo(x + 5, top + h); g.lineTo(x, top + h + 5); g.closePath(); g.fill();
+  g.fillStyle = '#1b1f24';
+  shown.forEach((l, i) => g.fillText(l, x, top + 10.5 + i * 13));
 }
 
 // Cartelito con el nombre arriba de un personaje

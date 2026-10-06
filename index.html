@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=202610062123">
+  <link rel="stylesheet" href="style.css?v=202610062127">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -20,6 +20,7 @@
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
       <button id="net-chip" type="button" class="chip btn-chip" hidden title="Jugar en línea">🌐</button>
+      <button id="chat-chip" type="button" class="chip btn-chip" hidden title="Chat">💬<span id="chat-badge" hidden></span></button>
     </div>
     <div id="ship-mini" title="Progreso de la etapa">
       <span id="stage-icon">🚀</span>
@@ -66,6 +67,11 @@
   <div id="toolbar" class="panel"></div>
 
   <div id="tooltip" class="panel" hidden></div>
+  <div id="chat" class="panel" hidden>
+    <div class="chat-head"><b>💬 Chat</b><button type="button" class="close" id="chat-close">✕</button></div>
+    <div id="chat-log"></div>
+    <form id="chat-form" autocomplete="off"><input id="chat-in" type="text" maxlength="120" placeholder="Escribí un mensaje…" enterkeyhint="send"><button type="submit" class="small-btn primary">Enviar</button></form>
+  </div>
   <div id="invite" class="panel" hidden></div>
   <div id="toast"></div>
 
@@ -282,25 +288,25 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=202610062123"></script>
-  <script src="js/world.js?v=202610062123"></script>
-  <script src="js/sim.js?v=202610062123"></script>
-  <script src="js/enemies.js?v=202610062123"></script>
-  <script src="js/trains.js?v=202610062123"></script>
-  <script src="js/robots.js?v=202610062123"></script>
-  <script src="js/fluids.js?v=202610062123"></script>
-  <script src="js/player.js?v=202610062123"></script>
-  <script src="js/online.js?v=202610062123"></script>
-  <script src="js/p2p.js?v=202610062123"></script>
-  <script src="js/cloud.js?v=202610062123"></script>
-  <script src="js/pet.js?v=202610062123"></script>
-  <script src="js/render.js?v=202610062123"></script>
-  <script src="js/audio.js?v=202610062123"></script>
-  <script src="js/ui.js?v=202610062123"></script>
-  <script src="js/progress.js?v=202610062123"></script>
-  <script src="js/blueprints.js?v=202610062123"></script>
-  <script src="js/input.js?v=202610062123"></script>
-  <script src="js/dragdrop.js?v=202610062123"></script>
-  <script src="js/main.js?v=202610062123"></script>
+  <script src="js/data.js?v=202610062127"></script>
+  <script src="js/world.js?v=202610062127"></script>
+  <script src="js/sim.js?v=202610062127"></script>
+  <script src="js/enemies.js?v=202610062127"></script>
+  <script src="js/trains.js?v=202610062127"></script>
+  <script src="js/robots.js?v=202610062127"></script>
+  <script src="js/fluids.js?v=202610062127"></script>
+  <script src="js/player.js?v=202610062127"></script>
+  <script src="js/online.js?v=202610062127"></script>
+  <script src="js/p2p.js?v=202610062127"></script>
+  <script src="js/cloud.js?v=202610062127"></script>
+  <script src="js/pet.js?v=202610062127"></script>
+  <script src="js/render.js?v=202610062127"></script>
+  <script src="js/audio.js?v=202610062127"></script>
+  <script src="js/ui.js?v=202610062127"></script>
+  <script src="js/progress.js?v=202610062127"></script>
+  <script src="js/blueprints.js?v=202610062127"></script>
+  <script src="js/input.js?v=202610062127"></script>
+  <script src="js/dragdrop.js?v=202610062127"></script>
+  <script src="js/main.js?v=202610062127"></script>
 </body>
 </html>
