@@ -47,7 +47,7 @@ const at = (x, y) => grid[tIdx(x, y)];
 const sizeOf = (type) => (type === 'hub' ? 3 : type === 'nest' ? 2 : BUILDINGS[type]?.size || 1);
 const isBelt = (type) => BELTS.has(type);
 const hasTech = (id) => !id || !!S.techs[id];
-const isUnlocked = (type) => hasTech(BUILDINGS[type].tech);
+const isUnlocked = (type) => hasTech(BUILDINGS[type].tech) && (!BUILDINGS[type].character || !!(S && S.character));
 const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : BUILDINGS[e.type]?.hp || 100);
 const isPlayer = (e) => e && e.type !== 'nest';
 
@@ -1139,6 +1139,7 @@ function update(dt) {
   NET.sim--;
   const invBefore = NET.on ? { ...S.inv } : null;
   updatePlayer(dt);
+  updateRpg(dt);
   if (invBefore) netInvDelta(invBefore);
   NET.sim++;
   updateTrains(dt);

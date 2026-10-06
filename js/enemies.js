@@ -105,6 +105,7 @@ function chooseBiterKind() {
 function spawnBiter(nest, kind) {
   const a = Math.random() * Math.PI * 2;
   S.biters.push({
+    id: S.nextId++,
     x: nest.x + 1 + Math.cos(a) * 1.8, y: nest.y + 1 + Math.sin(a) * 1.8,
     kind, hp: BITERS[kind].hp * (1 + S.evo * 0.5), nest: nest.id, state: 'idle', cd: 0, ang: a,
   });
@@ -176,6 +177,7 @@ function expandNests(dt) {
 // --------------------------- Bichos ---------------------------
 
 function biterStep(b, dt) {
+  if (S.character && rpgBiterHook(b, dt)) return;
   const k = BITERS[b.kind];
   if (b.state === 'idle') {
     b.ang += (Math.random() - 0.5) * 2 * dt;

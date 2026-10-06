@@ -247,16 +247,18 @@ function updatePlayer(dt) {
   const p = S.player;
   unstick(p);
   updatePet(p, dt);
+  // La armadura (y sus bonus) cambian la velocidad
+  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0));
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {
     // El teclado manda: cancela el camino y la extracción
     p.path = null; p.mine = null;
     const l = Math.hypot(inp.x, inp.y);
-    vx = inp.x / l * PLAYER_SPEED; vy = inp.y / l * PLAYER_SPEED;
+    vx = inp.x / l * pspd; vy = inp.y / l * pspd;
   } else if (p.path && p.path.length) {
     // Avanza por los puntos del camino sin pasarse
-    let budget = PLAYER_SPEED * dt;
+    let budget = pspd * dt;
     while (budget > 0 && p.path && p.path.length) {
       const wp = p.path[0];
       const dx = wdx(wp.x - p.x), dy = wdy(wp.y - p.y), d = Math.hypot(dx, dy);
@@ -269,7 +271,7 @@ function updatePlayer(dt) {
         p.step += d * 1.5;
         p.moving = true;
       } else {
-        vx = dx / d * PLAYER_SPEED; vy = dy / d * PLAYER_SPEED;
+        vx = dx / d * pspd; vy = dy / d * pspd;
         break;
       }
     }
@@ -286,7 +288,7 @@ function updatePlayer(dt) {
     p.ang = Math.atan2(vy, vx);
     p.step += dt * 10;
     // Atascado contra algo: abandona el camino
-    if (Math.hypot(p.x - bx, p.y - by) < PLAYER_SPEED * dt * 0.2) { if ((p.stuck += dt) > 0.6) { p.path = null; p.stuck = 0; } }
+    if (Math.hypot(p.x - bx, p.y - by) < pspd * dt * 0.2) { if ((p.stuck += dt) > 0.6) { p.path = null; p.stuck = 0; } }
     else p.stuck = 0;
   }
   p.x = wrapX(p.x); p.y = wrapY(p.y);

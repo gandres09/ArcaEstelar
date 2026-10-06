@@ -65,7 +65,8 @@ function updatePet(p, dt) {
   if (d.mode === 'sit') { d.anim = d.happyT > 0 ? (d.level >= 8 && d.happyT > 2 ? 'spin' : 'happy') : 'sit'; return; }
   // Sigue a su dueño: al costado y un poco atrás, para que no se pisen los carteles
   const side = p.ang + Math.PI * 0.62;
-  const tx = p.x + Math.cos(side) * 1.4, ty = p.y + Math.sin(side) * 1.4;
+  // Si hay pelea, va a morder; si no, al costado de su dueño
+  const tx = d.fight ? d.fight.x : p.x + Math.cos(side) * 1.4, ty = d.fight ? d.fight.y : p.y + Math.sin(side) * 1.4;
   const dx = wdx(tx - d.x), dy = wdy(ty - d.y), dist = Math.hypot(dx, dy);
   if (dist > 30) { d.x = wrapX(tx); d.y = wrapY(ty); return; }   // se quedó muy atrás: aparece al lado
   if (dist > 0.7) {

@@ -6,7 +6,7 @@
 
 const TILE = 32;
 let W = 640, H = 480;                             // tamaño del mapa en casillas (da la vuelta en los bordes)
-const MAP_SIZE = [640, 480];                      // tamaño de las partidas nuevas
+const MAP_SIZE = [1600, 1200];                    // tamaño de las partidas nuevas (enorme, para explorar)
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];  // derecha, abajo, izquierda, arriba
 const DIR_ARROWS = ['→', '↓', '←', '↑'];
 const SAVE_KEY = 'mini-fabrica-v4';
@@ -73,6 +73,12 @@ const ITEMS = {
   warp_drive:     { name: 'Motor de curvatura', color: '#8a7dff', shape: 'part' },
   habitat:        { name: 'Módulo de hábitat',  color: '#9ad17f', shape: 'part' },
   shield:         { name: 'Escudo deflector',   color: '#59c3ff', shape: 'module' },
+
+  // Partes de monstruos (para armas y armaduras)
+  quitina:        { name: 'Quitina',            color: '#9c7a3c', shape: 'part' },
+  colmillo:       { name: 'Colmillo',           color: '#efe6cf', shape: 'part' },
+  cristal:        { name: 'Cristal antiguo',    color: '#62e0d0', shape: 'part' },
+  corazon:        { name: 'Corazón de bestia',  color: '#d9455f', shape: 'part' },
 };
 const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
@@ -192,6 +198,8 @@ const BUILDINGS = {
                  desc: 'Procesa petróleo: plástico, azufre, baterías y combustible de cohete. Usa 210 kW.' },
   lab:         { name: 'Laboratorio',         cat: 'producción', speed: 1, power: 60, hp: 150, cost: { iron_plate: 10, gear: 10, copper_plate: 10 },
                  desc: 'Investiga usando packs de ciencia. Más laboratorios, más rápido. Usa 60 kW.' },
+  armory:      { name: 'Armería',             cat: 'producción', size: 2, hp: 300, character: true, cost: { iron_plate: 20, stone: 10, wood: 10 },
+                 desc: 'Fabricá y mejorá armas y armaduras con materiales de la fábrica y partes de monstruos.' },
 
   sensor:      { name: 'Sensor',              cat: 'energía', hp: 80, cost: { iron_plate: 2, circuit: 5, cable: 5 }, tech: 'signal_network',
                  desc: 'Lee lo que hay en el edificio al que apunta (cofre, Nave, tanque, acumulador, cinta) y lo manda a un canal de la red de señales.' },

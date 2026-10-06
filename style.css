@@ -479,3 +479,14 @@ img { -webkit-user-drag: none; }
 #chat-form { display: flex; gap: 6px; }
 #chat-in { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; user-select: text; -webkit-user-select: text; }
 @media (max-width: 760px) { #chat { top: calc(104px + env(safe-area-inset-top, 0px)); bottom: auto; left: 8px; right: 8px; width: auto; padding: 6px 8px; gap: 4px; } #chat-log { max-height: 84px; font-size: 12px; } }
+/* ---- Aventura ---- */
+#hero-chip.warn { border-color: var(--bad); color: #ffb0a8; animation: blink 1s infinite; }
+.hero-stats { background: var(--panel-2); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.hero-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 6px; font-size: 13px; }
+.hero-grid b { text-align: right; font-weight: 600; }
+.gear-row { display: flex; align-items: center; gap: 8px; padding: 6px; margin: 4px 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; }
+.gear-row.on { border-color: var(--ok); }
+.gear-row .ico { width: 34px; height: 34px; flex-shrink: 0; }
+.gear-info { flex: 1; min-width: 0; font-size: 13px; }
+.gear-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.pick.tier { min-width: 36px; line-height: 1.2; font: 700 13px "Chakra Petch", system-ui, sans-serif; padding: 6px 8px; }

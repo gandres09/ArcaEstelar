@@ -125,6 +125,7 @@ function startNewGame(seed, peaceful, character = true) {
   rebuildGrid();
   if (character) S.player = newPlayer(cx + 0.5, cy + 3.5);
   generateNests(seed);
+  if (character) { ensureRpg(S.player); ensureWorldRpg(); }
   view.x = cx * TILE + TILE / 2;
   view.y = cy * TILE + TILE / 2;
   view.zoom = character ? (window.innerWidth < 760 ? 0.85 : 1.3) : (window.innerWidth < 760 ? 0.55 : 0.9);
@@ -323,6 +324,8 @@ async function init() {
   setInterval(() => renderMinimap(minimap), 500);
   $('btn-online').addEventListener('click', () => openModal('online'));
   initChat();
+  initRpgUi();
+  $('btn-gear').addEventListener('click', () => openModal('gear'));
   // Atajo al nombre de jugador (vive en la ventana En línea)
   $('btn-name').addEventListener('click', () => {
     openModal('online');

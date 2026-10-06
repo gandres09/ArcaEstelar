@@ -109,6 +109,12 @@ function netApply(a) {
         return true;
       }
       case 'tr': { const t = trainAt(a.x, a.y); if (t) removeTrain(t, true); return true; }
+      // Aventura: golpes, botín y ruinas de los demás jugadores
+      case 'hc': { const c = (S.creatures || []).find((k) => k.id === a.id); if (c) { c.hp -= a.d; c.angry = true; if (c.hp <= 0 && !c.dead) killCreature(c, false); } return true; }
+      case 'hb': { const b = S.biters.find((k) => k.id === a.id); if (b && !b.dead) { b.hp -= a.d; if (b.hp <= 0) { b.dead = true; dropLoot(b.x, b.y, [['quitina', 0.35, 1, 1]], 1); } } return true; }
+      case 'hn': { const n = at(a.x, a.y); if (n && n.type === 'nest') damageEntity(n, a.d); return true; }
+      case 'pk': if (S.drops) S.drops = S.drops.filter((d) => d.id !== a.id); return true;
+      case 'rl': { const r = (S.ruins || []).find((k) => k.id === a.id); if (r) r.looted = true; return true; }
       case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; } return true; }
     }
     return true;
@@ -220,7 +226,8 @@ function netPlayerState() {
 
 function netSendPresence() {
   chatPrune();
-  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null };
+  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
+    hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -457,7 +464,15 @@ async function netJoinInner(wid, meta) {
   const hostAlive = netWorldHostAlive(wid);
   let ok;
   if (NET.canWrite && !hostAlive) ok = await netTryHost(false);
-  if (!ok) ok = await netLoadSnapshot(meta, true);
+  // Si justo se estaba escribiendo una foto nueva, se reintenta con la más reciente
+  for (let i = 0; i < 6 && !ok; i++) {
+    let m = NET.worlds[wid] || meta;
+    if (i) {
+      await new Promise((r) => setTimeout(r, 1200));
+      try { const d = await worldDoc(wid).get(); if (d.exists) m = d.data(); } catch (_) { /* se usa la que hay */ }
+    }
+    ok = await netLoadSnapshot(m, true);
+  }
   if (!ok) return netJoinFail('No se pudo cargar el mundo. Probá de nuevo en unos segundos.');
   if (!NET.role) NET.role = 'client';
   netStart();
@@ -643,6 +658,7 @@ function netUpdateAvatars(peers, dt) {
       Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
     } else a.pet = null;
     chatReceive(p.peer, a, p.presence.c);
+    a.hpr = Number.isFinite(p.presence.hp) ? p.presence.hp : 100;
   }
   for (const k of NET.avatars.keys()) if (!seen.has(k)) NET.avatars.delete(k);
 }

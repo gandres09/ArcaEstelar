@@ -13,13 +13,13 @@ const KEY_GROUPS = [
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'efurnace'],
   ['assembler', 'assembler2', 'chem'],
-  ['lab'],
+  ['lab', 'armory'],
   ['pole', 'bigpole', 'radar'],
   ['offshore', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
-const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos'];
+const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos', 'gear'];
 
 // --------------------------- Íconos ---------------------------
 
@@ -350,6 +350,7 @@ function currentHint() {
   if (!countType('generator') && !countType('steam_engine') && !countType('solar') && !countType('fusion_plant')) return 'Las ensambladoras y los laboratorios necesitan <b>electricidad</b>: poné un <b>Generador a carbón</b>, cargale carbón y llevá la energía con <b>Postes</b>.';
   if (!countType('assembler')) return 'Poné una <b>Ensambladora</b> al alcance de un <b>Poste</b>, elegí la receta <b>Engranaje</b> y alimentala con placas de hierro.';
   if (!countType('lab')) return 'Fabricá <b>Ciencia roja</b> (cobre + engranaje) y llevala a un <b>Laboratorio</b>.';
+  if (playerOn() && !countType('armory') && S.playTime > 1200) return '⚔️ Lejos de la nave hay criaturas, ruinas con cofres y guaridas con jefes. Construí una <b>Armería</b> para fabricar armas y armaduras (tocá ❤️ arriba para ver tu equipo).';
   if (!S.research.current && nextTech()) return `Abrí <b>Investigación</b> y elegí qué investigar. Sugerencia: <b>${TECHS[nextTech()].name}</b>.`;
   if (S.techs.steam_power && !countType('steam_engine')) return 'Energía a vapor: poné una <b>Bomba de agua</b> en la orilla de un lago, apuntando a una <b>Caldera</b> (cargala con carbón), y la caldera apuntando a <b>Máquinas de vapor</b> en fila. Conectalas con postes.';
   if (!S.peaceful && S.biters.some((b) => b.state === 'attack')) return '⚠️ Hay bichos atacando. Poné <b>Torretas</b> con <b>Munición</b> y <b>Muros</b> alrededor de la fábrica.';
@@ -401,6 +402,12 @@ function updateTopbar() {
   $('research-chip').textContent = r ? `🔬 ${techName(r)} ${Math.floor(100 * S.research.progress / techUnits(r))} %` : '🔬 Elegí investigación';
   $('research-chip').classList.toggle('warn', !r && !!nextTech());
   $('alert').hidden = !(lastAttack && S.playTime - lastAttack.t < 30);
+  if (playerOn()) {
+    const p = S.player;
+    $('hero-chip').textContent = heroChipText();
+    $('hero-chip').classList.toggle('warn', p.hp < playerStats(p).maxHp * 0.35);
+    if (!$('gear').hidden) renderGearModalSoft();
+  }
   const st = Math.min(3, stageOf()), frac = stageProgress();
   $('stage-icon').textContent = STAGES[st - 1].icon;
   $('ship-mini').title = `Etapa ${st} de 3: ${STAGES[st - 1].name}. ${STAGES[st - 1].desc}`;
@@ -459,6 +466,9 @@ function inspectorContent(e) {
     `${NO_DIR.has(e.type) ? '' : ` <span class="muted">${DIR_ARROWS[e.dir]}</span>`}` +
     `<button type="button" class="close" data-act="close">✕</button></div>`;
   switch (e.type) {
+    case 'armory':
+      h += armoryHtml();
+      break;
     case 'hub':
       h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
       break;
@@ -938,6 +948,11 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       if (e.fuel) { giveItem(e.fuelType, e.fuel); e.fuel = 0; e.fuelType = null; }
       break;
     case 'ctake': withdrawFrom(e, v); break;
+    case 'gsel': armorySel.b = v; break;
+    case 'gtier': armorySel.t = +v; break;
+    case 'gcraft': craftGear(armorySel.b, armorySel.t); break;
+    case 'gup': upgradeGear(v); break;
+    case 'gearopen': openModal('gear'); return;
     case 'put': {
       const n = depositTo(e, v, +b.dataset.max || 50);
       if (!n) toast('No acepta más de eso.');
@@ -1063,6 +1078,7 @@ function openModal(id) {
   if (id === 'ach') renderAchievements();
   if (id === 'online') netRenderModal();
   if (id === 'planos') renderBlueprints();
+  if (id === 'gear') renderGearModal();
   if (id === 'menu') { $('import-box').hidden = true; $('export-text').hidden = true; }
 }
 
@@ -1243,6 +1259,7 @@ function showWin(final = true) {
 }
 
 function updateUI() {
+  document.body.classList.toggle('has-player', playerOn());   // también con el panel lateral cerrado (celular)
   netUpdateChip();
   updateToolbar();
   updateTopbar();

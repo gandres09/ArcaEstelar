@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=202610062143">
+  <link rel="stylesheet" href="style.css?v=202610062238">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -19,6 +19,7 @@
       <span id="evo" class="chip" title="Evolución de los enemigos"></span>
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
+      <button id="hero-chip" type="button" class="chip btn-chip player-only" title="Tu personaje y tu equipo">❤️ 100 · ⭐ 1</button>
       <button id="net-chip" type="button" class="chip btn-chip" hidden title="Jugar en línea">🌐</button>
       <button id="chat-chip" type="button" class="chip btn-chip" hidden title="Chat">💬<span id="chat-badge" hidden></span></button>
     </div>
@@ -105,6 +106,7 @@
           <label class="check"><input type="checkbox" id="mute"> Silenciar todo</label>
         </div>
         <hr>
+        <button id="btn-gear" type="button" class="player-only">⚔️ Equipo y nivel</button>
         <button id="btn-pet" type="button">🐕 Perrito</button>
         <button id="btn-bp" type="button">📐 Planos</button>
         <button id="btn-name" type="button">👤 Mi nombre de jugador</button>
@@ -170,6 +172,16 @@
         <li>Tenés un <b>perrito</b> que te acompaña. Tocalo para alimentarlo, acariciarlo, ponerle nombre, elegir su color o dejarlo sentado (por ejemplo, cuidando tu base). Sube de <b>nivel</b> con comida y mimos, y gana collar, medallita, pañuelo y hasta una corona. La comida le dura media hora de juego; después tiene hambre, y si pasa otra media hora sin comer, <b>se escapa</b>.</li>
         <li>¿Preferís el modo de antes, sin personaje? Elegí <b>Clásico</b> en <b>Nuevo juego</b>.</li>
       </ul>
+      <h3>⚔️ Aventura</h3>
+      <ul>
+        <li>Afuera hay <b>criaturas</b>: cuanto más lejos de la nave, más fuertes. Tu personaje <b>ataca solo</b> al enemigo más cercano que esté al alcance de su arma; vos te movés.</li>
+        <li>Matar y explorar da <b>experiencia</b>: cada nivel da más vida y más daño. Arriba ves tu vida y tu nivel (❤️ · ⭐); tocalos para ver tu equipo.</li>
+        <li>Construí una <b>Armería</b> para fabricar <b>espadas, martillos, pistolas, rifles, lanzallamas y armaduras</b>. Van del nivel I (hierro) al V (estelar) y piden materiales de la fábrica y <b>partes de monstruos</b> (quitina, colmillos, cristales, corazones de bestia).</li>
+        <li>A veces cae equipo <b style="color:#5aa0ff">raro</b>, <b style="color:#b67cff">épico</b> o <b style="color:#f0a742">legendario</b>, con bonus especiales. Mejorarlo en la Armería conserva los bonus.</li>
+        <li>Hay <b>ruinas</b> con cofres para saquear (puntos celestes en el mapa) y <b>guaridas</b> con jefes (puntos rojos). Tu perrito muerde a lo que se acerca.</li>
+        <li>Si te derrotan, volvés a la nave con tu equipo; tu <b>mochila</b> queda donde caíste y la recuperás pasando por ahí.</li>
+      </ul>
+
       <h3>En el celular</h3>
       <ul>
         <li>Elegí un edificio abajo, <b>tocá</b> dónde va para ver cómo queda y <b>tocá de nuevo</b> para construirlo.</li>
@@ -249,6 +261,16 @@
     </div>
   </div>
 
+  <div id="gear" class="modal" hidden>
+    <div class="modal-box panel">
+      <div class="modal-head">
+        <h1>⚔️ Equipo</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="gear-body"></div>
+    </div>
+  </div>
+
   <div id="ach" class="modal" hidden>
     <div class="modal-box panel wide">
       <div class="modal-head">
@@ -288,25 +310,27 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=202610062143"></script>
-  <script src="js/world.js?v=202610062143"></script>
-  <script src="js/sim.js?v=202610062143"></script>
-  <script src="js/enemies.js?v=202610062143"></script>
-  <script src="js/trains.js?v=202610062143"></script>
-  <script src="js/robots.js?v=202610062143"></script>
-  <script src="js/fluids.js?v=202610062143"></script>
-  <script src="js/player.js?v=202610062143"></script>
-  <script src="js/online.js?v=202610062143"></script>
-  <script src="js/p2p.js?v=202610062143"></script>
-  <script src="js/cloud.js?v=202610062143"></script>
-  <script src="js/pet.js?v=202610062143"></script>
-  <script src="js/render.js?v=202610062143"></script>
-  <script src="js/audio.js?v=202610062143"></script>
-  <script src="js/ui.js?v=202610062143"></script>
-  <script src="js/progress.js?v=202610062143"></script>
-  <script src="js/blueprints.js?v=202610062143"></script>
-  <script src="js/input.js?v=202610062143"></script>
-  <script src="js/dragdrop.js?v=202610062143"></script>
-  <script src="js/main.js?v=202610062143"></script>
+  <script src="js/data.js?v=202610062238"></script>
+  <script src="js/world.js?v=202610062238"></script>
+  <script src="js/sim.js?v=202610062238"></script>
+  <script src="js/enemies.js?v=202610062238"></script>
+  <script src="js/trains.js?v=202610062238"></script>
+  <script src="js/robots.js?v=202610062238"></script>
+  <script src="js/fluids.js?v=202610062238"></script>
+  <script src="js/player.js?v=202610062238"></script>
+  <script src="js/online.js?v=202610062238"></script>
+  <script src="js/p2p.js?v=202610062238"></script>
+  <script src="js/cloud.js?v=202610062238"></script>
+  <script src="js/pet.js?v=202610062238"></script>
+  <script src="js/rpg.js?v=202610062238"></script>
+  <script src="js/render.js?v=202610062238"></script>
+  <script src="js/rpgdraw.js?v=202610062238"></script>
+  <script src="js/audio.js?v=202610062238"></script>
+  <script src="js/ui.js?v=202610062238"></script>
+  <script src="js/progress.js?v=202610062238"></script>
+  <script src="js/blueprints.js?v=202610062238"></script>
+  <script src="js/input.js?v=202610062238"></script>
+  <script src="js/dragdrop.js?v=202610062238"></script>
+  <script src="js/main.js?v=202610062238"></script>
 </body>
 </html>
