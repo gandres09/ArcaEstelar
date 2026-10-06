@@ -318,6 +318,11 @@ async function init() {
   setInterval(checkAchievements, 2000);
   setInterval(() => renderMinimap(minimap), 500);
   $('btn-online').addEventListener('click', () => openModal('online'));
+  // Atajo al nombre de jugador (vive en la ventana En línea)
+  $('btn-name').addEventListener('click', () => {
+    openModal('online');
+    setTimeout(() => { const i = $('net-nick'); if (i) { i.focus(); i.select(); } }, 50);
+  });
   $('btn-bp').addEventListener('click', () => openModal('planos'));
   initBlueprints();
   initPet();
