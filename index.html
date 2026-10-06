@@ -77,7 +77,8 @@
       </div>
       <div class="menu-list">
         <button id="btn-save" type="button">💾 Guardar ahora</button>
-        <p class="muted small">La partida también se guarda sola cada 10 segundos en este navegador.</p>
+        <p id="cloud-status" class="muted small">La partida también se guarda sola cada 10 segundos en este navegador.</p>
+        <button id="btn-cloud-load" type="button" hidden>☁️ Cargar copia de la nube</button>
         <button id="btn-export" type="button">📤 Copiar código de partida</button>
         <button id="btn-import-open" type="button">📥 Cargar código de partida</button>
         <div id="import-box" hidden>
@@ -286,6 +287,7 @@
   <script src="js/fluids.js"></script>
   <script src="js/player.js"></script>
   <script src="js/online.js"></script>
+  <script src="js/cloud.js"></script>
   <script src="js/pet.js"></script>
   <script src="js/render.js"></script>
   <script src="js/audio.js"></script>

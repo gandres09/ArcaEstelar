@@ -68,7 +68,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Química**: bombas de petróleo y planta química para plástico, azufre, baterías y combustible de cohete.
 - **Construcción cómoda**: doble toque para construir, cintas de punto a punto, deshacer, copiar y pegar zonas
   y desarmar zonas enteras.
-- **Guardado** automático en el navegador y como código para copiar y cargar en otro lado.
+- **Guardado** automático en el navegador y en la nube (una copia privada en tu cuenta que vuelve sola si el navegador borra la partida, por ejemplo Safari en iPhone), y como código para copiar y cargar en otro lado.
 
 ## La nave
 

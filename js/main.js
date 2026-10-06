@@ -36,6 +36,7 @@ function save() {
   if (NET.busy) return false;
   if (NET.on) return netSaveMine();   // en línea: el mundo lo guarda el anfitrión
   try {
+    S.savedAt = Date.now();
     const raw = serialize();
     // Las partidas grandes se guardan comprimidas (el navegador deja unos pocos MB)
     if (raw.length < 900000) { localStorage.setItem(SAVE_KEY, raw); return true; }
@@ -180,7 +181,8 @@ async function importGame() {
 async function init() {
   resize();
   window.addEventListener('resize', resize);
-  if (!(await loadAsync())) {
+  const fresh = !(await loadAsync());
+  if (fresh) {
     startNewGame((Math.random() * 2 ** 31) | 0, false);
     openModal('help');
   }
@@ -218,7 +220,11 @@ async function init() {
   $('chart').addEventListener('pointermove', (ev) => { const r = $('chart').getBoundingClientRect(); chartHover = { x: ev.clientX - r.left }; renderChart(); });
   $('chart').addEventListener('pointerleave', () => { chartHover = null; renderChart(); });
   $('btn-win-close').addEventListener('click', closeModals);
-  $('btn-save').addEventListener('click', () => toast(save() ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.'));
+  $('btn-save').addEventListener('click', async () => {
+    const ok = save();
+    if (CLOUD.on && !NET.on) toast((await cloudSave(true)) ? '💾 Partida guardada en este navegador y en la nube.' : (ok ? '💾 Guardada en el navegador. La nube no respondió; se reintenta sola.' : 'No se pudo guardar. Usá “Copiar código de partida”.'));
+    else toast(ok ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.');
+  });
   $('btn-export').addEventListener('click', exportGame);
   $('btn-import-open').addEventListener('click', () => { $('import-box').hidden = false; $('import-text').focus(); });
   $('btn-import').addEventListener('click', importGame);
@@ -261,7 +267,8 @@ async function init() {
   initPet();
   $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
-  netInit();
+  initCloud();
+  netInit().catch(() => {}).then(() => cloudInit(fresh));
 
   let last = performance.now();
   function frame(now) {
