@@ -244,7 +244,8 @@ function handleTap(t) {
   if (tool === 'hand') {
     const tr = trainNear(t.x, t.y);
     const e = at(t.x, t.y);
-    if (tr) openInspector(tr);
+    if (playerOn() && petAt(t)) openPetPanel();
+    else if (tr) openInspector(tr);
     else if (e && e.type !== 'nest') openInspector(e);
     else { closeInspector(); if (playerOn()) handGround(t); }
     return;
@@ -468,7 +469,8 @@ function endPointer(ev) {
       if (tool === 'hand') {
         const tr = trainNear(d.tile.x, d.tile.y);
         const e = at(d.tile.x, d.tile.y);
-        if (tr) openInspector(tr);
+        if (playerOn() && petAt(d.tile)) openPetPanel();
+        else if (tr) openInspector(tr);
         else if (e && e.type !== 'nest') openInspector(e);
         else { if (!handMining) closeInspector(); if (playerOn()) handGround(d.tile); }
       } else if (tool === 'delete') {

@@ -246,6 +246,7 @@ function updatePlayer(dt) {
   if (!playerOn()) return;
   const p = S.player;
   unstick(p);
+  updatePet(p, dt);
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {

@@ -213,11 +213,13 @@ function netPlayerState() {
   const p = S.player;
   if (!p) return null;
   const r = (v) => Math.round(v * 100) / 100;
-  return [r(p.x), r(p.y), r(p.ang), p.moving ? 1 : 0, p.mining ? 1 : 0, r(p.step || 0)];
+  const d = p.pet;
+  const pet = d ? [r(d.x), r(d.y), r(d.ang), Math.max(0, PET_ANIMS.indexOf(d.anim)), d.color | 0, Math.round(d.food * 100)] : [];
+  return [r(p.x), r(p.y), r(p.ang), p.moving ? 1 : 0, p.mining ? 1 : 0, r(p.step || 0), ...pet];
 }
 
 function netSendPresence() {
-  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, p: netPlayerState(), q: null };
+  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -527,6 +529,18 @@ function netUpdateAvatars(peers, dt) {
     const k = Math.min(1, dt * 12);
     a.x = wrapX(a.x + wdx(x - a.x) * k); a.y = wrapY(a.y + wdy(y - a.y) * k);
     Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n) });
+    // Su perro: se acerca suave y, si lo acarician o come, salen corazones
+    const pp = p.presence.p;
+    if (pp.length >= 12 && Number.isFinite(pp[6]) && Number.isFinite(pp[7])) {
+      if (!a.pet) a.pet = { x: pp[6], y: pp[7], step: 0 };
+      const pet = a.pet;
+      const anim = PET_ANIMS[pp[9]] || 'idle';
+      if ((anim === 'happy' || anim === 'eat') && pet.anim !== anim) spawnHearts(pet.x, pet.y, 3);
+      const px = pet.x;
+      pet.x = wrapX(pet.x + wdx(pp[6] - pet.x) * k); pet.y = wrapY(pet.y + wdy(pp[7] - pet.y) * k);
+      pet.step += Math.abs(wdx(pet.x - px)) * 3 + dt * (anim === 'walk' ? 8 : 0);
+      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, name: cleanNick(p.presence.pn) || 'Perrito' });
+    } else a.pet = null;
   }
   for (const k of NET.avatars.keys()) if (!seen.has(k)) NET.avatars.delete(k);
 }

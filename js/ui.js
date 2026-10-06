@@ -397,6 +397,7 @@ let inspected = null;
 let inspectorHtml = '';
 
 function openInspector(e) {
+  if ($('pet-panel')) $('pet-panel').hidden = true;
   inspected = e;
   inspectorHtml = '';
   $('inspector').hidden = false;

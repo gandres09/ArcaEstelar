@@ -1449,6 +1449,9 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
     }
   }
   drawTrains(ctx, lod);
+  if (!lod && playerOn() && S.player.pet) drawPet(ctx, S.player.pet, true);
+  if (!lod && NET.on) for (const a of NET.avatars.values()) if (a.pet) drawPet(ctx, a.pet, true);
+  if (!lod) drawPetHearts(ctx, rdt);
   if (playerOn()) drawPlayer(ctx, lod);
   if (NET.on) drawRemotePlayers(ctx, lod);
   if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);

@@ -220,6 +220,7 @@ function init() {
   $('btn-online').addEventListener('click', () => openModal('online'));
   $('btn-bp').addEventListener('click', () => openModal('planos'));
   initBlueprints();
+  initPet();
   $('net-chip').addEventListener('click', () => openModal('online'));
   netInit();
 

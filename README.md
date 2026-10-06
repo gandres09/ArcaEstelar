@@ -12,6 +12,8 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Personaje**: arrancás con cero ítems. Extraés a mano, fabricás a mano y construís dentro de tu alcance; si
   mandás a construir lejos, camina hasta ahí. Lleva una mochila y cerca del Núcleo usa también lo guardado ahí.
   El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
+- **Perrito de compañía**: te sigue o se queda sentado donde lo dejes; se lo alimenta, se lo acaricia, se le pone
+  nombre y se elige su color (marrón, negro, blanco o dorado). En línea, cada uno ve el perro de los demás.
 - **Gráficos** con terreno orgánico (pasto, tierra, arena, agua con profundidad y espuma), bosques, yacimientos con
   rocas y cristales, edificios con relieve, cintas por nivel (amarilla, roja y azul), humo y luces de noche.
 - **Tres etapas**: 🚀 lanzar la nave a la órbita (desde ahí se ve todo el mapa) · 🌱 borrar todos los nidos con
@@ -118,6 +120,7 @@ lubricante), baterías, procesadores con silicio y titanio.
 - `js/enemies.js`: polución, nidos, bichos y torretas.
 - `js/trains.js`: vías, estaciones y trenes.
 - `js/robots.js`: planos y robots de construcción.
+- `js/pet.js`: el perrito (seguir, sentarse, comer, mimos y su dibujo).
 - `js/online.js`: el modo en línea (presencia de los jugadores, acciones y fotos del mundo).
 - `js/player.js`: el personaje (caminar, alcance, mochila, extraer y fabricar a mano).
 - `js/audio.js`: efectos de sonido y música.
