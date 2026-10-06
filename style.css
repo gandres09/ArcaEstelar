@@ -191,7 +191,13 @@ body:not(.has-player) .player-only { display: none !important; }
   z-index: 5;
   border-color: var(--accent);
 }
-.confirm-text { font-size: 13px; }
+.confirm-text { font-size: 13px; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; justify-content: center; }
+.tc-head { display: inline-flex; align-items: center; gap: 6px; }
+.tc-head .ico { width: 26px; height: 26px; }
+.tc-cost { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.tc-cost .cost-item { margin-right: 4px; }
+.tc-note { font-size: 12px; }
+.cost-item .have { font-size: 11px; margin-left: 2px; }
 .confirm-cost { margin-left: 8px; }
 
 /* ---- Barra de herramientas ---- */

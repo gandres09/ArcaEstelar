@@ -34,6 +34,9 @@ const sameTile = (a, b) => a && b && wrapX(a.x) === wrapX(b.x) && wrapY(a.y) ===
 const anchorFor = (type, t) => { const s = sizeOf(type); return { x: t.x - Math.floor(s / 2), y: t.y - Math.floor(s / 2) }; };
 const isLineTool = (t) => isBelt(t) || t === 'rail';
 
+// Cualquier toque (también en la barra o los menús) dice si se usa el dedo o el mouse
+document.addEventListener('pointerdown', (ev) => { pointerType = ev.pointerType; if (ev.pointerType !== 'mouse') hover = null; }, true);
+
 function screenToWorld(sx, sy) {
   return { x: (sx - cw / 2) / view.zoom + view.x, y: (sy - ch / 2) / view.zoom + view.y };
 }
@@ -247,7 +250,7 @@ function handleTap(t) {
     if (playerOn() && petAt(t)) openPetPanel();
     else if (tr) openInspector(tr);
     else if (e && e.type !== 'nest') openInspector(e);
-    else { closeInspector(); if (playerOn()) handGround(t); }
+    else { closeInspector(); showTapInfo(t); if (playerOn()) handGround(t); }
     return;
   }
   if (tool === 'delete') {
@@ -419,6 +422,7 @@ canvas.addEventListener('pointermove', (ev) => {
   }
   if (panning) {
     followCam = false;
+    tapInfo = null;
     view.x -= (ev.clientX - panning.x) / view.zoom;
     view.y -= (ev.clientY - panning.y) / view.zoom;
     panning.x = ev.clientX; panning.y = ev.clientY;

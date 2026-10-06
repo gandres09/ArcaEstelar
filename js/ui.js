@@ -49,11 +49,18 @@ function buildingIcon(type) {
   return iconCache[key];
 }
 
-function costHtml(cost) {
+function costHtml(cost, detail = false) {
   return Object.entries(cost).map(([k, n]) => {
     const have = Math.floor(avail(k));
-    return `<span class="cost-item ${have < n ? 'bad' : ''}">${itemImg(k, 'ico-s')}${n}</span>`;
+    const short = have < n;
+    return `<span class="cost-item ${short ? 'bad' : ''}" title="${ITEMS[k].name}">${itemImg(k, 'ico-s')}${n}${detail ? `<small class="have">${short ? ` (tenés ${fmt(have)})` : ''}</small>` : ''}</span>`;
   }).join('');
+}
+
+// Qué falta para pagar un costo: "3 engranajes, 2 placas de hierro"
+function missingText(cost) {
+  return Object.entries(cost).filter(([k, n]) => avail(k) < n)
+    .map(([k, n]) => `${ITEMS[k].name.toLowerCase()} ×${n - Math.floor(avail(k))}`).join(', ');
 }
 
 function costText(cost) {
@@ -140,9 +147,6 @@ function selectTool(id) {
   tool = id;
   clearPlans();
   if (id !== 'hand') closeInspector();
-  if (BUILDINGS[id] && isTouch()) {
-    toast(isLineTool(id) ? 'Tocá dónde empieza la cinta y después dónde termina.' : `Tocá dónde va ${BUILDINGS[id].name.toLowerCase()}, y otra vez para construir.`);
-  }
   updateToolbar();
   updateConfirm();
 }
@@ -181,8 +185,17 @@ function updateConfirm() {
       btns = pastePos ? ['rotate', 'ok', 'cancel'] : ['rotate', 'cancel'];
     } else { text = `Clic para pegar ${clipboard.items.length} edificios · R gira`; btns = ['cancel']; }
     btns.unshift('save');
+  } else if (BUILDINGS[tool]) {
+    // Ficha del edificio elegido: qué pide y qué falta
+    const d = BUILDINGS[tool];
+    const miss = missingText(d.cost);
+    const how = isTouch() ? (isLineTool(tool) ? 'Tocá dónde empieza y dónde termina.' : 'Tocá dónde va.') : (isLineTool(tool) ? 'Clic y arrastrá.' : 'Clic dónde va · R gira.');
+    text = `<span class="tc-head"><img class="ico" src="${buildingIcon(tool)}" alt=""><b>${d.name}</b></span>` +
+      `<span class="tc-cost">Pide: ${costHtml(d.cost, true)}</span>` +
+      `<span class="tc-note ${miss ? 'bad' : 'muted'}">${miss ? 'Te falta: ' + miss : how}</span>`;
+    btns = ['close'];
   }
-  const labels = { ok: '✔ Construir', cancel: '✕', flip: '↺ Esquina', rotate: '🔄 Girar', save: '💾 Guardar plano' };
+  const labels = { close: '✕', ok: '✔ Construir', cancel: '✕', flip: '↺ Esquina', rotate: '🔄 Girar', save: '💾 Guardar plano' };
   if (area && area.mode === 'delete') labels.ok = '✔ Desarmar';
   if (tool === 'paste') labels.ok = '✔ Pegar';
   const html = text ? `<span class="confirm-text">${text}</span>` + btns.map((b) => `<button type="button" data-c="${b}" class="${b === 'ok' ? 'primary' : ''}">${labels[b]}</button>`).join('') : '';
@@ -194,6 +207,7 @@ $('confirm').addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-c]');
   if (!b) return;
   switch (b.dataset.c) {
+    case 'close': selectTool('hand'); break;
     case 'cancel':
       if (tool === 'paste' && !pastePos) selectTool('hand');
       clearPlans();
@@ -1003,19 +1017,80 @@ function toast(html) {
   setTimeout(() => d.remove(), 3500);
 }
 
+// Qué hay en una casilla del suelo (mineral, agua, árbol), para el cartelito
+function groundInfo(x, y, touch) {
+  if (!tileExplored(x, y)) return '<b>Sin explorar</b><br><span class="muted">Construí cerca o poné un radar</span>';
+  const o = oreAt(x, y);
+  if (o === 'water') return '<b>Agua</b><br><span class="muted">Poné una bomba de agua en la orilla</span>';
+  if (o === 'oil') return `<b>${ITEMS[o].name}</b><br>Rinde: <b>${fmt(oreAmountAt(x, y))}</b><br><span class="muted">Necesita una bomba de petróleo</span>`;
+  if (o) {
+    const v = veinInfo(x, y);
+    return `<b>${ITEMS[o].name}</b><br>Para minar acá: <b>${fmt(oreAmountAt(x, y))}</b>` +
+      (v.tiles > 1 ? `<br>En toda la veta: <b>${fmt(v.total)}</b> <span class="muted">(${v.tiles} casillas)</span>` : '') +
+      `<br><span class="muted">${touch ? (playerOn() ? 'Tu personaje va a picar' : 'Mantené apretado para extraer') : 'Mantené clic para extraer'}</span>`;
+  }
+  if (treeAt(x, y)) return `<b>Árbol</b><br>Da <b>${WOOD_PER_TREE}</b> de madera<br><span class="muted">${playerOn() ? (touch ? 'Tu personaje lo va a talar' : 'Clic para talar') : 'Mantené apretado para talar'}. Absorbe polución.</span>`;
+  return '';
+}
+
+// Total de una veta (las casillas vecinas con el mismo mineral). Se recuerda
+// qué casillas forman cada veta y la suma se hace en el momento.
+let veinCache = new Map(), veinCacheOf = null;
+function veinInfo(x, y) {
+  if (veinCacheOf !== oreType) { veinCache = new Map(); veinCacheOf = oreType; }
+  const start = tIdx(x, y);
+  let v = veinCache.get(start);
+  if (!v) {
+    const type = oreType[start], idxs = [], seen = new Set([start]), stack = [[wrapX(x), wrapY(y)]];
+    while (stack.length && idxs.length < 30000) {
+      const [cx, cy] = stack.pop();
+      idxs.push(tIdx(cx, cy));
+      for (const [dx, dy] of DIRS) {
+        const nx = wrapX(cx + dx), ny = wrapY(cy + dy), ni = tIdx(nx, ny);
+        if (!seen.has(ni) && oreType[ni] === type) { seen.add(ni); stack.push([nx, ny]); }
+      }
+    }
+    v = { idxs };
+    for (const i of idxs) veinCache.set(i, v);
+  }
+  let total = 0, tiles = 0;
+  for (const i of v.idxs) if (oreAmt[i] > 0) { total += oreAmt[i]; tiles++; }
+  return { total, tiles };
+}
+
+// En táctil: al tocar el suelo con la mano aparece un globito unos segundos
+let tapInfo = null;
+function showTapInfo(t) {
+  if (at(t.x, t.y)) { tapInfo = null; return; }
+  tapInfo = { x: t.x, y: t.y, until: performance.now() + 4000 };
+  updateTooltip();
+}
+
 function updateTooltip() {
   const el = $('tooltip');
   let html = '';
+  if (tapInfo && isTouch() && performance.now() < tapInfo.until && !launchAnim) {
+    html = groundInfo(tapInfo.x, tapInfo.y, true);
+    if (html) {
+      el.innerHTML = html;
+      el.hidden = false;
+      // Pegado a la casilla aunque la cámara se mueva
+      const sx = (wdx(tapInfo.x + 0.5 - view.x / TILE) * TILE) * view.zoom + cw / 2;
+      const sy = (wdy(tapInfo.y + 0.5 - view.y / TILE) * TILE) * view.zoom + ch / 2;
+      const tw = el.offsetWidth, th = el.offsetHeight, gap = TILE * view.zoom * 0.6 + 6;
+      el.style.left = Math.max(8, Math.min(sx - tw / 2, cw - tw - 8)) + 'px';
+      el.style.top = Math.max(8, Math.min(sy - th - gap > 70 ? sy - th - gap : sy + gap, ch - th - 100)) + 'px';
+      return;
+    }
+  }
+  if (tapInfo && performance.now() >= tapInfo.until) tapInfo = null;
   if (hover && !panning && !launchAnim && !isTouch()) {
     if (tool === 'hand') {
       const e = at(hover.x, hover.y);
-      const o = oreAt(hover.x, hover.y);
-      if (!tileExplored(hover.x, hover.y)) html = '<b>Sin explorar</b><br><span class="muted">Construí cerca o poné un radar</span>';
+      if (!tileExplored(hover.x, hover.y)) html = groundInfo(hover.x, hover.y, false);
       else if (e && e.type === 'nest') html = '<b>Nido enemigo</b><br><span class="muted">Destruilo con torretas cerca</span>';
       else if (e) html = `<b>${e.type === 'hub' ? 'Núcleo' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
-      else if (o === 'water') html = '<b>Agua</b><br><span class="muted">Poné una bomba de agua en la orilla</span>';
-      else if (o) html = `<b>${ITEMS[o].name}</b> (${fmt(oreAmountAt(hover.x, hover.y))})` + (o === 'oil' ? '<br><span class="muted">Necesita una bomba de petróleo</span>' : '<br><span class="muted">Mantené clic para extraer</span>');
-      else if (treeAt(hover.x, hover.y)) html = `<b>Árbol</b><br><span class="muted">${playerOn() ? 'Clic para talar' : 'Mantené clic para talar'}: ${WOOD_PER_TREE} de madera. Absorbe polución.</span>`;
+      else html = groundInfo(hover.x, hover.y, false);
     } else if (BUILDINGS[tool] && !beltPlan) {
       const a = anchorFor(tool, hover);
       const res = canPlace(tool, a.x, a.y);
