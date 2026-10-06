@@ -150,12 +150,21 @@ function mineOre(x, y) {
   const id = oreType[i];
   if (!id) return null;
   if (id === 8) return 'water';
+  const before = oreStep(i);
   if (--oreAmt[i] <= 0) {
     oreType[i] = 0;
     oreAmt[i] = 0;
     invalidateTile(x, y);
-  }
+  } else if (id !== 7 && oreStep(i) !== before) invalidateChunkOf(x, y);   // se ve más chico
   return ORE_IDS[id];
+}
+
+// Cuánto queda de un yacimiento, en escalones de 10 % (para redibujarlo cuando baja)
+function oreLeft(i) { return Math.min(1, oreAmt[i] / Math.max(1, oreBase[i] || oreAmt[i])); }
+function oreStep(i) { return Math.ceil(oreLeft(i) * 10); }
+function invalidateChunkOf(x, y) {
+  x = wrapX(x); y = wrapY(y);
+  chunkCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
 }
 
 // --------------------------- Dibujo del mapa ---------------------------
@@ -213,7 +222,7 @@ function tilePixel(x, y) {
   const o = oreAt(x, y);
   if (o === 'water') return [WATER_SHALLOW, WATER_MID, WATER_DEEP][waterDepth(x, y)];
   const base = terrainAt(x + 0.5, y + 0.5);
-  if (!o) return treeDensity(x, y) > 0.45 ? mixRgb(base, [24, 46, 24], 0.55) : base;
+  if (!o) return treeAt(x, y) ? mixRgb(base, [24, 46, 24], 0.55) : base;
   return mixRgb(base, hexToRgb(ITEMS[o].color), o === 'oil' ? 0.7 : 0.55);
 }
 
@@ -387,11 +396,13 @@ function drawTile(g, x, y, px, py) {
   }
 
   // Minerales: rocas con volumen (la tierra ya se tiñó en bloques suaves)
-  const amt = oreAmt[tIdx(x, y)];
-  const count = amt > 500 ? 5 : amt > 200 ? 4 : amt > 60 ? 3 : 2;
+  // Menos rocas y más chicas a medida que se pica
+  const left = oreLeft(tIdx(x, y));
+  const count = Math.max(1, Math.ceil(left * 5));
+  const shrink = 0.5 + 0.5 * left;
   for (let k = 0; k < count; k++) {
     const ox = px + 6 + hash(x, y, 10 + k) * 20, oy = py + 7 + hash(x, y, 20 + k) * 19;
-    const r = 3 + hash(x, y, 30 + k) * 3.5;
+    const r = (3 + hash(x, y, 30 + k) * 3.5) * shrink;
     if (o === 'quartz' || o === 'titanium_ore') crystal(g, ox, oy + r, r * 2.2, ITEMS[o].color);
     else rock(g, ox, oy, r, ITEMS[o].color, o === 'coal' ? 0.25 : 0.35);
   }
@@ -438,6 +449,16 @@ function treeAt(x, y) {
 }
 
 const forestOf = (n) => Math.min(1, n / 24);
+
+// Se taló o plantó un árbol: se redibuja su chunk de árboles y su píxel del mapa
+function treeChanged(x, y) {
+  treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
+  if (pixelMap) {
+    const g = pixelMap.getContext('2d');
+    g.fillStyle = rgbStr(tilePixel(x, y));
+    g.fillRect(x, y, 1, 1);
+  }
+}
 function treeCellChange(x, y, k) {
   const c = Math.floor(y / POLL_CELL) * PW + Math.floor(x / POLL_CELL);
   treeCount[c] = Math.max(0, treeCount[c] + k);
@@ -448,9 +469,10 @@ function treeCellChange(x, y, k) {
 function chopTree(x, y) {
   x = wrapX(x); y = wrapY(y);
   const i = y * W + x;
-  if (planted.has(i)) { planted.delete(i); treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK)); }
+  if (planted.has(i)) planted.delete(i);
   else if (!chopped.has(i) && naturalTreeAt(x, y)) chopped.add(i);
   else return false;
+  treeChanged(x, y);
   treeCellChange(x, y, -1);
   return true;
 }
@@ -462,7 +484,7 @@ function plantTree(x, y) {
   if (treeAt(x, y) || oreType[i] !== 0) return false;
   if (chopped.has(i)) chopped.delete(i);
   else planted.set(i, makeTree(x, y));
-  treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
+  treeChanged(x, y);
   treeCellChange(x, y, 1);
   return true;
 }
@@ -487,6 +509,7 @@ function decodeTrees(t) {
   if (t && Array.isArray(t.p)) for (const i of t.p) planted.set(i, makeTree(i % W, Math.floor(i / W)));
   treeCache.clear();
   computeForest();
+  for (const i of [...chopped, ...planted.keys()]) treeChanged(i % W, Math.floor(i / W));
 }
 
 // Árboles de cada chunk (naturales sin talar + plantados)
