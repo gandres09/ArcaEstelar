@@ -29,6 +29,7 @@ function loadFrom(raw) {
   generateMap(S.seed);
   if (ore) decodeOre(ore);
   loadPollution(poll);
+  prodHist = [];
   decodeFog(fog);
   if (v) Object.assign(view, v);
   undoStack.length = 0;
@@ -147,12 +148,31 @@ function init() {
   $('btn-help').addEventListener('click', () => openModal('help'));
   $('btn-help-close').addEventListener('click', closeModals);
   $('btn-stats').addEventListener('click', () => openModal('stats'));
+  $('btn-ach').addEventListener('click', () => openModal('ach'));
+  $('chart-picker').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-chart]');
+    if (b) { toggleChartItem(b.dataset.chart); renderChartPicker(); }
+  });
+  $('chart').addEventListener('pointermove', (ev) => { const r = $('chart').getBoundingClientRect(); chartHover = { x: ev.clientX - r.left }; renderChart(); });
+  $('chart').addEventListener('pointerleave', () => { chartHover = null; renderChart(); });
   $('btn-win-close').addEventListener('click', closeModals);
   $('btn-save').addEventListener('click', () => toast(save() ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.'));
   $('btn-export').addEventListener('click', exportGame);
   $('btn-import-open').addEventListener('click', () => { $('import-box').hidden = false; $('import-text').focus(); });
   $('btn-import').addEventListener('click', importGame);
   $('btn-new').addEventListener('click', () => openModal('newgame'));
+  // Sonido
+  $('vol-sfx').value = audio.settings.sfx;
+  $('vol-music').value = audio.settings.music;
+  $('mute').checked = audio.settings.muted;
+  const onAudio = () => {
+    audio.settings.sfx = +$('vol-sfx').value;
+    audio.settings.music = +$('vol-music').value;
+    audio.settings.muted = $('mute').checked;
+    initAudio(); applyAudioSettings(); saveAudioSettings();
+  };
+  for (const id of ['vol-sfx', 'vol-music', 'mute']) $(id).addEventListener('input', onAudio);
+  $('vol-sfx').addEventListener('change', () => sfx('place'));
   $('btn-new-go').addEventListener('click', () => {
     startNewGame((Math.random() * 2 ** 31) | 0, $('opt-peaceful').checked);
     toolbarKey = '';
@@ -171,6 +191,7 @@ function init() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
   setInterval(save, 10000);
   setInterval(updateUI, 250);
+  setInterval(checkAchievements, 2000);
   setInterval(() => renderMinimap(minimap), 500);
 
   let last = performance.now();
@@ -188,8 +209,10 @@ function init() {
       }
     }
     if (!launchAnim || launchAnim.t < 8) update(dt);
+    sampleProduction(dt);
     updateLaunch(dt);
     render(ctx);
+    updateAudio(activeOnScreen);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

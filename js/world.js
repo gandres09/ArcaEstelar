@@ -68,11 +68,11 @@ function generateMap(seed) {
   }
 
   // Yacimientos iniciales alrededor del Núcleo
-  patch(cx - 15, cy - 9, 5.5, 1, 1200);
-  patch(cx + 15, cy - 9, 5.5, 2, 1200);
-  patch(cx - 13, cy + 10, 4.5, 3, 1100);
-  patch(cx + 13, cy + 10, 4.5, 4, 900);
-  patch(cx - 2, cy + 22, 3.5, 1, 900);
+  patch(cx - 15, cy - 9, 5.5, 1, 420);
+  patch(cx + 15, cy - 9, 5.5, 2, 380);
+  patch(cx - 13, cy + 10, 4.5, 3, 380);
+  patch(cx + 13, cy + 10, 4.5, 4, 320);
+  patch(cx - 2, cy + 22, 3.5, 1, 380);
 
   // Recursos en anillos: más lejos, más raros y más ricos
   const ring = (id, dmin, dmax, count, rmin, rmax, rich) => {
@@ -85,8 +85,8 @@ function generateMap(seed) {
       placed++;
     }
   };
-  ring(5, 28, 50, 4, 3, 5, 900);
-  ring(6, 60, 130, 7, 3.5, 6.5, 1000);
+  ring(5, 28, 50, 4, 3, 5, 450);
+  ring(6, 60, 130, 7, 3.5, 6.5, 500);
 
   // Pozos de petróleo: grupos de casillas sueltas
   const oilField = (px, py) => {
@@ -114,7 +114,7 @@ function generateMap(seed) {
     let id = 1 + Math.floor(rnd() * 4);
     if (d > 35 && rnd() < 0.15) id = 5;
     if (d > 60 && rnd() < 0.15) id = 6;
-    patch(px, py, 2.5 + rnd() * 5, id, 700 * (1 + d / 45));
+    patch(px, py, 2.5 + rnd() * 5, id, 380 * (1 + d / 45));
   }
 
   // Un lago chico cerca del Núcleo para la energía a vapor

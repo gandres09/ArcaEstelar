@@ -8,8 +8,8 @@ const $ = (id) => document.getElementById(id);
 // Teclas numéricas: repetir la tecla cambia de variante
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
-  ['underground'],
-  ['splitter', 'sorter', 'chest'],
+  ['underground', 'inserter', 'fastinserter'],
+  ['splitter', 'sorter', 'chest', 'receiver'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'efurnace'],
   ['assembler', 'assembler2', 'chem'],
@@ -19,7 +19,7 @@ const KEY_GROUPS = [
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
-const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame'];
+const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach'];
 
 // --------------------------- Íconos ---------------------------
 
@@ -251,6 +251,11 @@ function currentHint() {
   if (S.techs.electricity && !countType('generator') && !countType('solar') && !countType('steam_engine')) return 'Construí un <b>Generador</b>, alimentalo con carbón y conectalo con <b>Postes</b> a tus máquinas eléctricas.';
   if (!S.peaceful && S.biters.some((b) => b.state === 'attack')) return '⚠️ Hay bichos atacando. Poné <b>Torretas</b> con <b>Munición</b> y <b>Muros</b> alrededor de la fábrica.';
   if (S.techs.oil && !countType('pumpjack')) return 'Buscá un pozo de <b>petróleo</b> (manchas negras) y poné una <b>Bomba de petróleo</b>.';
+  if (S.techs.receivers && !countType('receiver')) return 'Con los <b>Receptores</b> no hace falta llevar todo hasta el Núcleo: poné uno al final de una línea lejana y lo que le llega va al inventario.';
+  if (S.techs.inserters && !countType('inserter') && countType('lab')) return 'Probá los <b>Brazos</b>: un brazo pegado al Núcleo saca justo lo que necesita la máquina de enfrente (por ejemplo, ciencia para un laboratorio).';
+  if (S.techs.railway && !S.trains.length) return '<b>Trenes</b>: tendé una vía entre una mina lejana y tu base, poné una <b>Estación</b> en cada punta (una en Carga y otra en Descarga) y un <b>Tren</b> sobre la vía.';
+  if (S.techs.construction_robots && !countType('roboport')) return 'Poné un <b>Puerto de robots</b> con energía: construye los planos que esperan materiales y reconstruye lo que rompen los bichos.';
+  if (S.techs.modules && !S.entities.some((e) => e.modules && e.modules.length)) return 'Fabricá <b>Módulos</b> y ponelos en máquinas eléctricas o laboratorios desde su panel: más velocidad, más producción o menos consumo.';
   if (S.techs.rocketry) {
     const sp = shipProgress();
     if (!sp.yard) return 'Construí el <b>Astillero</b> para empezar a armar la nave.';
@@ -290,7 +295,7 @@ function updateTopbar() {
   $('evo').hidden = S.peaceful;
   $('evo').textContent = `🐛 ${(S.evo * 100).toFixed(1)} %`;
   const r = S.research.current;
-  $('research-chip').textContent = r ? `🔬 ${TECHS[r].name} ${Math.floor(100 * S.research.progress / TECHS[r].units)} %` : '🔬 Elegí investigación';
+  $('research-chip').textContent = r ? `🔬 ${techName(r)} ${Math.floor(100 * S.research.progress / techUnits(r))} %` : '🔬 Elegí investigación';
   $('research-chip').classList.toggle('warn', !r && !!nextTech());
   $('alert').hidden = !(lastAttack && S.playTime - lastAttack.t < 30);
   const sp = shipProgress();
@@ -359,9 +364,10 @@ function inspectorContent(e) {
         row('Conectada', e._pair ? `sí, a ${e._dist} casillas` : '<span class="bad">no: poné la otra punta en la misma dirección</span>');
       break;
     case 'miner': case 'eminer': case 'pumpjack': {
-      const o = oreAt(e.x, e.y);
-      h += row('Extrae', o ? itemLabel(o) : '<span class="bad">Agotado</span>');
-      if (o) h += row('Queda', fmt(oreAmountAt(e.x, e.y)) + ' en esta casilla');
+      const area = minerArea(e);
+      const kinds = Object.keys(area);
+      h += row('Extrae', kinds.length ? kinds.map((k) => itemLabel(k)).join(' ') : '<span class="bad">Agotado</span>');
+      if (kinds.length) h += row('Queda', fmt(Object.values(area).reduce((a, b) => a + b, 0)) + (e.type === 'pumpjack' ? ' en el pozo' : ' en su área'));
       if (e.buf) h += row('Estado', '<span class="bad">Salida bloqueada</span>');
       if (def.power) h += powerRow(e);
       break;
@@ -404,10 +410,24 @@ function inspectorContent(e) {
     case 'lab': {
       const r = S.research.current && TECHS[S.research.current];
       h += row('Investigando', r ? r.name : '<span class="bad">nada (elegí en Investigación)</span>');
-      if (r) h += row('Progreso', `${S.research.progress} / ${r.units}`) + bar(S.research.progress / r.units);
+      if (r) h += row('Progreso', `${S.research.progress} / ${techUnits(S.research.current)}`) + bar(S.research.progress / techUnits(S.research.current));
       h += '<div class="pick-title">Packs guardados</div>' + PACKS.map((p) => row(itemLabel(p), e.packs[p] || 0)).join('');
       if (e.working) h += bar(e.prog);
       h += '<div class="actions"><button type="button" data-act="labfeed">Cargar ciencia del inventario</button><button type="button" data-act="research">🔬 Investigación</button></div>';
+      break;
+    }
+    case 'inserter': case 'fastinserter': {
+      const [dx, dy] = DIRS[e.dir];
+      const src = at(e.x - dx, e.y - dy), dst = at(e.x + dx, e.y + dy);
+      const nm = (x) => (!x ? '<span class="bad">nada</span>' : x.type === 'hub' ? 'Núcleo' : BUILDINGS[x.type]?.name || x.type);
+      h += row('Toma de', nm(src)) + row('Deja en', nm(dst)) + row('Lleva', itemLabel(e.hold)) +
+        row('Velocidad', `${(1 / def.swing).toFixed(1)} objetos/s`) + (def.power ? powerRow(e) : '');
+      if (src && src.type === 'receiver' && !hasTech('logistic_network')) h += '<p class="bad small">Para sacar de un receptor hace falta investigar Red logística.</p>';
+      h += row('Filtro', e.filter ? itemLabel(e.filter) : 'ninguno');
+      h += '<div class="pick-title">Elegí un objeto para que solo pase ese</div><div class="picker">';
+      h += `<button type="button" class="pick ${!e.filter ? 'on' : ''}" data-act="filter" data-v="">✕</button>`;
+      for (const k of ITEM_ORDER) h += `<button type="button" class="pick ${e.filter === k ? 'on' : ''}" data-act="filter" data-v="${k}">${itemImg(k)}</button>`;
+      h += '</div>';
       break;
     }
     case 'splitter':
@@ -431,6 +451,31 @@ function inspectorContent(e) {
         row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
         '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button></div>';
       break;
+    case 'receiver':
+      h += '<p>Todo lo que le llega va al inventario del Núcleo.</p>';
+      break;
+    case 'roboport': {
+      const near = S.ghosts.filter((g) => Math.max(Math.abs(g.x - e.x), Math.abs(g.y - e.y)) <= def.range).length;
+      h += row('Robots', `${def.bots - (e.busy || 0)} libres de ${def.bots}`) + row('Planos en su zona', near) + powerRow(e) +
+        '<p class="muted small">Construyen planos, reconstruyen lo que destruyen los bichos y reparan, a 25 casillas a la redonda. Los materiales salen del inventario.</p>';
+      break;
+    }
+    case 'station': {
+      h += row('Modo', e.mode === 'load' ? '<span class="ok">Carga</span>: recibe objetos y los sube al tren' : '<span class="ok">Descarga</span>: baja lo del tren y lo suelta por la flecha') +
+        row('Guardado', `${e.total} / ${STATION_CAP}`) + Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        `<div class="actions"><button type="button" data-act="mode">Cambiar a ${e.mode === 'load' ? 'Descarga' : 'Carga'}</button></div>` +
+        '<p class="muted small">El tren también carga carbón o combustible sólido de cualquier estación.</p>';
+      break;
+    }
+    case 'train': {
+      const st = S.entities.find((s) => s.id === e.target);
+      h += row('Estado', e.state === 'moving' ? (e.blocked ? 'esperando vía libre' : 'en viaje') : e.state === 'waiting' ? 'cargando/descargando' : '<span class="bad">sin estaciones en su vía</span>') +
+        row('Destino', st ? `estación (${st.mode === 'load' ? 'carga' : 'descarga'})` : '—') +
+        row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.energy > 0 ? 'quemando' : '<span class="bad">vacío: va muy despacio</span>')) +
+        row('Carga', `${e.total} / ${TRAIN_CAP}`) + Object.entries(e.cargo).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        '<div class="actions"><button type="button" data-act="tfuel">Cargar carbón</button><button type="button" data-act="tremove">🗑️ Desarmar tren</button></div>';
+      return h;
+    }
     case 'offshore':
       h += row('Saca', `${itemImg('water', 'ico-s')} 2 de agua por segundo, sin fin`) +
         (e.buf ? row('Estado', '<span class="bad">Salida bloqueada</span>') : '');
@@ -485,6 +530,20 @@ function inspectorContent(e) {
       break;
     }
   }
+  if (MODULE_SLOTS[e.type] && hasTech('modules')) {
+    const mods = e.modules || [];
+    h += `<div class="pick-title">Módulos (${mods.length}/${MODULE_SLOTS[e.type]})</div><div class="picker">`;
+    mods.forEach((m, i) => { h += `<button type="button" class="pick on" data-act="unmod" data-v="${i}" title="Sacar ${ITEMS[m].name}">${itemImg(m)}</button>`; });
+    if (mods.length < MODULE_SLOTS[e.type]) {
+      for (const m of Object.keys(MODULES)) {
+        const n = Math.floor(S.inv[m] || 0);
+        h += `<button type="button" class="pick" data-act="mod" data-v="${m}" ${n ? '' : 'disabled'} title="Poner ${ITEMS[m].name} (tenés ${n})">+${itemImg(m)}</button>`;
+      }
+    }
+    h += '</div>';
+    const fx = moduleFx(e);
+    if (mods.length) h += `<div class="muted small">Velocidad ${Math.round(fx.speed * 100)} % · Consumo ${Math.round(fx.power * 100)} %${fx.prod ? ` · Productividad +${Math.round(fx.prod * 100)} %` : ''}</div>`;
+  }
   h += hpRow(e);
   if (e.type !== 'hub') {
     h += '<div class="actions small">';
@@ -534,6 +593,20 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       }
       break;
     case 'filter': e.filter = v || null; break;
+    case 'mode': e.mode = e.mode === 'load' ? 'unload' : 'load'; break;
+    case 'mod':
+      if ((S.inv[v] || 0) >= 1 && (e.modules || []).length < MODULE_SLOTS[e.type]) { S.inv[v]--; (e.modules = e.modules || []).push(v); }
+      break;
+    case 'unmod':
+      if (e.modules && e.modules[+v]) { add(S.inv, e.modules[+v], 1); e.modules.splice(+v, 1); }
+      break;
+    case 'tfuel': {
+      const k = e.fuelType || ((S.inv.solid_fuel || 0) >= 1 && !(S.inv.coal >= 1) ? 'solid_fuel' : 'coal');
+      const n = Math.min(Math.floor(S.inv[k] || 0), 10 - e.fuel);
+      if (n > 0) { S.inv[k] -= n; e.fuel += n; e.fuelType = k; } else toast('No tenés carbón en el inventario.');
+      break;
+    }
+    case 'tremove': removeTrain(e); closeInspector(); updateUI(); return;
     case 'fuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel'], 10);
       if (!n) toast(e.fuel >= 10 ? 'El horno ya está lleno.' : 'No tenés carbón en el inventario.');
@@ -604,22 +677,23 @@ function renderResearch() {
   let top = '';
   if (cur) {
     const t = TECHS[cur];
-    const left = (t.units - S.research.progress) * t.time / Math.max(1, labs);
-    top = `<div class="research-now"><b>Investigando: ${t.name}</b> · ${S.research.progress}/${t.units} ${bar(S.research.progress / t.units)}` +
+    const units = techUnits(cur);
+    const left = (units - S.research.progress) * t.time / Math.max(1, labs) / labSpeedMult();
+    top = `<div class="research-now"><b>Investigando: ${techName(cur)}</b> · ${S.research.progress}/${units} ${bar(S.research.progress / units)}` +
       `<span class="muted small">${labs ? `${labs} laboratorio${labs > 1 ? 's' : ''} · faltan unos ${Math.ceil(left / 60)} min si no les falta ciencia` : 'No tenés laboratorios.'}</span></div>`;
   }
   let h = '';
   for (const id of TECH_ORDER) {
     const t = TECHS[id];
-    const done = !!S.techs[id];
+    const done = !t.infinite && !!S.techs[id];
     const avail = techAvailable(id);
     const state = done ? 'done' : id === cur ? 'current' : avail ? 'avail' : 'locked';
     h += `<div class="tech ${state}">
-      <div class="tech-head"><b>${t.name}</b>${done ? '<span class="ok">✔</span>' : ''}</div>
+      <div class="tech-head"><b>${t.infinite ? `♾️ ${techName(id)}` : t.name}</b>${done ? '<span class="ok">✔</span>' : ''}${t.infinite && infLevel(id) ? `<span class="ok small">nivel ${infLevel(id)} hecho</span>` : ''}</div>
       <div class="tech-desc">${t.desc}</div>
       <div class="tech-unlocks">${techUnlocksHtml(id)}</div>
       ${t.req.length && !done ? `<div class="muted small">Requiere: ${t.req.map((r) => `<span class="${S.techs[r] ? 'ok' : ''}">${TECHS[r].name}</span>`).join(', ')}</div>` : ''}
-      ${done ? '' : `<div class="tech-cost">${t.packs.map((p) => itemImg(p, 'ico-s')).join('')} × ${t.units} <span class="muted">(${t.time} s c/u)</span></div>
+      ${done ? '' : `<div class="tech-cost">${t.packs.map((p) => itemImg(p, 'ico-s')).join('')} × ${techUnits(id)} <span class="muted">(${t.time} s c/u)</span></div>
         ${state === 'current' ? '<span class="ok small">En curso</span>' : `<button type="button" class="${avail ? 'primary' : ''}" data-tech="${id}" ${avail ? '' : 'disabled'}>Investigar</button>`}`}
     </div>`;
   }
@@ -632,7 +706,7 @@ $('tech-list').addEventListener('pointerdown', (ev) => {
   const b = ev.target.closest('[data-tech]');
   if (!b || b.disabled) return;
   setResearch(b.dataset.tech);
-  toast(`🔬 Ahora investigás <b>${TECHS[b.dataset.tech].name}</b>`);
+  toast(`🔬 Ahora investigás <b>${techName(b.dataset.tech)}</b>`);
   researchHtml = '';
   renderResearch();
   updateTopbar();
@@ -644,7 +718,8 @@ function openModal(id) {
   closeModals();
   $(id).hidden = false;
   if (id === 'research') { researchHtml = ''; renderResearch(); }
-  if (id === 'stats') renderStats();
+  if (id === 'stats') { renderStats(); renderChartPicker(); renderChart(); }
+  if (id === 'ach') renderAchievements();
   if (id === 'menu') { $('import-box').hidden = true; $('export-text').hidden = true; }
 }
 
@@ -662,9 +737,10 @@ function renderStats() {
   let d = 0, c = 0;
   for (const n of nets) { d += n.prev.demand; c += n.prev.solar + n.prev.fuel; }
   const nests = countType('nest');
-  $('stats-body').innerHTML =
+  $('stats-summary').innerHTML =
     `<p>⏱️ <b>${Math.floor(S.playTime / 60)} min</b> · 🏭 <b>${S.entities.length - 1 - nests}</b> edificios · ⚡ <b>${Math.round(d)} / ${Math.round(c)} kW</b>` +
-    (S.peaceful ? '' : ` · 🐛 evolución <b>${(S.evo * 100).toFixed(1)} %</b> · nidos <b>${nests}</b> · ☁️ polución <b>${fmt(totalPollution())}</b>`) + '</p>' +
+    (S.peaceful ? '' : ` · 🐛 evolución <b>${(S.evo * 100).toFixed(1)} %</b> · nidos <b>${nests}</b> · ☁️ polución <b>${fmt(totalPollution())}</b>`) + '</p>';
+  $('stats-body').innerHTML =
     (rows ? `<div class="table-wrap"><table><thead><tr><th>Objeto</th><th>Por minuto</th><th>Producido</th><th>Inventario</th></tr></thead><tbody>${rows}</tbody></table></div>`
       : '<p class="muted">Todavía no produjiste nada.</p>');
 }
@@ -709,6 +785,7 @@ function updateTooltip() {
 }
 
 function showWin() {
+  sfx('win');
   const total = Object.values(S.produced).reduce((a, b) => a + b, 0);
   $('win-stats').innerHTML =
     `<p>⏱️ Tiempo: <b>${Math.floor(S.playTime / 60)} min</b><br>🏭 Edificios: <b>${S.entities.length - 1 - countType('nest')}</b><br>` +
@@ -723,6 +800,6 @@ function updateUI() {
   updateInspector();
   updateTooltip();
   updateConfirm();
-  if (!$('stats').hidden) renderStats();
+  if (!$('stats').hidden) { renderStats(); renderChart(); }
   if (!$('research').hidden) renderResearch();
 }

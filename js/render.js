@@ -17,7 +17,7 @@ const TYPE_COLOR = {
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -55,6 +55,7 @@ function drawItem(g, item, x, y, s) {
     case 'barrel': g.rect(x - s * 0.75, y - s, s * 1.5, s * 2); break;
     case 'battery': g.rect(x - s * 0.6, y - s * 0.9, s * 1.2, s * 1.9); break;
     case 'ammo': g.rect(x - s, y - s * 0.6, s * 2, s * 1.2); break;
+    case 'module': g.rect(x - s, y - s * 0.8, s * 2, s * 1.6); break;
     case 'flask':
       g.moveTo(x - s * 0.3, y - s); g.lineTo(x + s * 0.3, y - s); g.lineTo(x + s * 0.3, y - s * 0.3);
       g.lineTo(x + s, y + s * 0.8); g.lineTo(x - s, y + s * 0.8); g.lineTo(x - s * 0.3, y - s * 0.3);
@@ -80,6 +81,9 @@ function drawItem(g, item, x, y, s) {
   } else if (it.shape === 'ammo') {
     g.fillStyle = '#7a5a10';
     for (let i = -1; i <= 1; i++) g.fillRect(x + i * s * 0.55 - s * 0.15, y - s * 0.45, s * 0.3, s * 0.9);
+  } else if (it.shape === 'module') {
+    g.fillStyle = '#1d2026'; g.fillRect(x - s * 0.6, y - s * 0.4, s * 1.2, s * 0.8);
+    g.fillStyle = it.color; g.fillRect(x - s * 0.3, y - s * 0.2, s * 0.6, s * 0.4);
   } else if (it.shape === 'flask') {
     g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(x - s * 0.15, y - s * 0.1, s * 0.3, s * 0.6);
   } else if (it.shape === 'part') {
@@ -361,6 +365,83 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
+    case 'inserter': case 'fastinserter': {
+      const fast = e.type === 'fastinserter';
+      g.fillStyle = '#2b2f36';
+      g.beginPath(); g.arc(cx, cy, 6, 0, Math.PI * 2); g.fill();
+      const ph = e.hold ? e.t : (e.ret || 0);
+      const [dx, dy] = DIRS[e.dir];
+      const ex = cx + dx * (-12 + 24 * ph), ey = cy + dy * (-12 + 24 * ph);
+      // Codo del brazo, un poco hacia el costado
+      const mx = (cx + ex) / 2 - dy * 6, my = (cy + ey) / 2 + dx * 6;
+      g.strokeStyle = fast ? '#5aa0ff' : '#e0b84a';
+      g.lineWidth = 3.5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(mx, my); g.lineTo(ex, ey); g.stroke();
+      g.lineCap = 'butt';
+      g.fillStyle = '#d8dee6';
+      g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
+      if (e.hold) drawItem(g, e.hold, ex, ey, 4.5);
+      if (e.filter) drawItem(g, e.filter, x0 + 6, y0 + 6, 3.5);
+      // marca de hacia dónde deja
+      drawArrow(g, cx, cy, e.dir, 'rgba(255,255,255,0.35)', 16);
+      break;
+    }
+
+    case 'roboport': {
+      box(g, x0, y0, '#3b4a3a', '#b8d27a');
+      g.fillStyle = '#b8d27a';
+      g.fillRect(cx - 9, cy - 2, 18, 4);
+      g.fillRect(cx - 2, cy - 9, 4, 18);
+      g.fillStyle = '#e8c547';
+      g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.fill();
+      break;
+    }
+
+    case 'rail': case 'station': {
+      const links = e.id ? railLinks(e.x, e.y) : [true, false, true, false];
+      if (!links.some(Boolean)) { links[0] = links[2] = true; }
+      if (e.type === 'station') {
+        g.fillStyle = '#4a4f57';
+        g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
+        g.fillStyle = '#f0a742';
+        g.fillRect(x0 + 2, y0 + 2, TILE - 4, 3);
+        g.fillRect(x0 + 2, y0 + TILE - 5, TILE - 4, 3);
+      }
+      g.save();
+      g.translate(cx, cy);
+      for (let d = 0; d < 4; d++) {
+        if (!links[d]) continue;
+        g.save();
+        g.rotate(d * Math.PI / 2);
+        g.fillStyle = '#5a4632';
+        for (let k = 0; k < 3; k++) g.fillRect(2 + k * 5, -10, 3, 20);
+        g.strokeStyle = '#a8b0ba'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(-5, -6); g.lineTo(16, -6); g.moveTo(-5, 6); g.lineTo(16, 6); g.stroke();
+        g.restore();
+      }
+      g.restore();
+      if (e.type === 'station') {
+        g.fillStyle = e.mode === 'unload' ? '#5aa0ff' : '#5cc47a';
+        g.font = 'bold 8px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(e.mode === 'unload' ? 'DESC' : 'CARGA', cx, y0 + 7);
+        if (e.mode === 'unload') drawArrow(g, cx, cy, e.dir, '#d8eeff');
+        if (e.total) drawProgress(g, x0, y0, e.total / STATION_CAP, '#f0a742');
+      }
+      break;
+    }
+
+    case 'train':
+      drawCar(g, cx, cy, 0, true, 0);
+      break;
+
+    case 'receiver': {
+      box(g, x0, y0, '#3d4552', '#f0a742');
+      g.fillStyle = '#f0a742';
+      g.beginPath(); g.moveTo(cx, cy + 7); g.lineTo(cx - 7, cy - 1); g.lineTo(cx - 3, cy - 1); g.lineTo(cx - 3, cy - 7);
+      g.lineTo(cx + 3, cy - 7); g.lineTo(cx + 3, cy - 1); g.lineTo(cx + 7, cy - 1); g.closePath(); g.fill();
+      break;
+    }
+
     case 'offshore': {
       box(g, x0, y0, '#2b5f8f', '#9fd0ff');
       g.fillStyle = '#9fd0ff';
@@ -474,10 +555,14 @@ function drawBuilding(g, e, x0, y0, t) {
       g.fillText('⚡', cx, cy);
     }
   }
-  if ((e.type === 'miner' || e.type === 'eminer' || e.type === 'pumpjack') && e.depleted && !oreAt(e.x, e.y) && e.id) {
+  if ((e.type === 'miner' || e.type === 'eminer' || e.type === 'pumpjack') && e.depleted && e.id) {
     g.fillStyle = '#e5534b';
     g.font = 'bold 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('∅', cx, cy);
+  }
+  // Módulos instalados: puntitos de color en la esquina
+  if (e.modules && e.modules.length) {
+    e.modules.forEach((m, i) => { g.fillStyle = ITEMS[m].color; g.fillRect(x0 + TILE - 7, y0 + 3 + i * 5, 4, 4); });
   }
   // Barra de vida si está dañado
   if (e.hp !== undefined && e.id) {
@@ -574,6 +659,65 @@ function shipProgressOf(e) {
   let have = 0, need = 0;
   for (const k in SHIP) { need += SHIP[k]; have += Math.min(SHIP[k], e.parts?.[k] || 0); }
   return have / need;
+}
+
+// Un vagón o la locomotora, centrado en (x, y) y girado
+function drawCar(g, x, y, ang, loco, fill) {
+  g.save();
+  g.translate(x, y);
+  g.rotate(ang);
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.fillRect(-14, -8, 30, 18);
+  g.fillStyle = loco ? '#c0472f' : '#6c7682';
+  g.fillRect(-15, -9, 30, 18);
+  if (loco) {
+    g.fillStyle = '#2b2f36'; g.fillRect(4, -6, 8, 12);
+    g.fillStyle = '#f0d44d'; g.fillRect(13, -3, 2, 6);
+  } else {
+    g.fillStyle = '#3d444d'; g.fillRect(-12, -6, 24, 12);
+    if (fill > 0) { g.fillStyle = '#c9a227'; g.fillRect(-12, -6, 24 * Math.min(1, fill), 12); }
+  }
+  g.restore();
+}
+
+function drawTrains(g, lod) {
+  for (const t of S.trains) {
+    const fill = t.total / TRAIN_CAP;
+    for (let k = 2; k >= 0; k--) {
+      const p = k === 0 ? { x: t.x, y: t.y, ang: t.ang } : trainTrail(t, k * 1.05);
+      if (lod) { g.fillStyle = k === 0 ? '#ff7a5c' : '#ddd'; g.fillRect(p.x * TILE + 4, p.y * TILE + 4, TILE - 8, TILE - 8); continue; }
+      drawCar(g, p.x * TILE + TILE / 2, p.y * TILE + TILE / 2, p.ang, k === 0, fill);
+    }
+  }
+}
+
+function drawGhostsAndRobots(g, vx0, vy0, vx1, vy1) {
+  for (const gh of S.ghosts) {
+    const px = gh.x * TILE, py = gh.y * TILE, s = sizeOf(gh.type) * TILE;
+    if (px + s < vx0 || px > vx1 || py + s < vy0 || py > vy1) continue;
+    g.globalAlpha = 0.35;
+    const e = makeEntity(gh.type, gh.x, gh.y, gh.dir);
+    if (gh.recipe) e.recipe = gh.recipe;
+    drawBuilding(g, e, px, py, time);
+    g.globalAlpha = 1;
+    g.fillStyle = 'rgba(90,160,255,0.22)';
+    g.fillRect(px + 1, py + 1, s - 2, s - 2);
+    g.strokeStyle = 'rgba(120,180,255,0.7)';
+    g.setLineDash([4, 3]);
+    g.strokeRect(px + 1.5, py + 1.5, s - 3, s - 3);
+    g.setLineDash([]);
+  }
+  for (const f of S.flights) {
+    const x = f.x * TILE, y = f.y * TILE - 10;
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath(); g.ellipse(x, y + 14, 6, 3, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e8c547';
+    g.fillRect(x - 5, y - 3, 10, 6);
+    g.strokeStyle = '#d8dee6'; g.lineWidth = 1.5;
+    const sp = Math.sin(time * 40) * 3;
+    g.beginPath(); g.moveTo(x - 8, y - 4 + sp * 0.2); g.lineTo(x - 2, y - 4); g.moveTo(x + 2, y - 4); g.lineTo(x + 8, y - 4 - sp * 0.2); g.stroke();
+    if (!f.back) { g.fillStyle = '#5aa0ff'; g.beginPath(); g.arc(x, y + 5, 2.5, 0, Math.PI * 2); g.fill(); }
+  }
 }
 
 function drawItemsOn(g, e) {
@@ -703,6 +847,7 @@ function drawNight(ctx2, visible) {
 let launchAnim = null; // { yard, t }
 const particles = [];
 let showPollution = false;
+let activeOnScreen = 0;
 let lastRender = 0;
 
 function render(ctx) {
@@ -757,6 +902,8 @@ function render(ctx) {
   }
   const biterVisible = (b) => tileExplored(Math.floor(b.x), Math.floor(b.y));
 
+  activeOnScreen = 0;
+  for (const e of visible) if (e.active) activeOnScreen++;
   if (lod) {
     for (const e of visible) {
       const s = sizeOf(e.type);
@@ -773,6 +920,8 @@ function render(ctx) {
       drawBiter(ctx, b, time);
     }
   }
+  drawTrains(ctx, lod);
+  if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);
   drawEffects(ctx, rdt);
   drawShots(ctx);
 
@@ -866,6 +1015,13 @@ function drawOverlays(ctx) {
       ctx.fillStyle = 'rgba(80,160,255,0.18)';
       ctx.fillRect((gh.x - d.supply) * TILE, (gh.y - d.supply) * TILE, TILE * (d.supply * 2 + 1), TILE * (d.supply * 2 + 1));
     }
+    if ((gh.type === 'miner' || gh.type === 'eminer') && pv.ghosts.length < 4) {
+      const r = BUILDINGS[gh.type].area;
+      ctx.strokeStyle = 'rgba(240,200,80,0.6)';
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect((gh.x - r) * TILE + 1, (gh.y - r) * TILE + 1, (r * 2 + 1) * TILE - 2, (r * 2 + 1) * TILE - 2);
+      ctx.setLineDash([]);
+    }
     if (gh.type === 'turret' || gh.type === 'laser') {
       ctx.strokeStyle = 'rgba(255,120,90,0.5)';
       ctx.setLineDash([6, 6]);
@@ -899,6 +1055,7 @@ function drawOverlays(ctx) {
 
 function startLaunch(yard) {
   launchAnim = { yard, t: 0 };
+  sfx('launch');
   view.x = (yard.x + 2.5) * TILE;
   view.y = (yard.y + 2.5) * TILE;
   view.zoom = Math.max(view.zoom, 0.8);
@@ -922,6 +1079,7 @@ function updateLaunch(dt) {
     launchAnim = null;
     particles.length = 0;
     S.launched = (S.launched || 0) + 1;
+    if (!S.launchTime) S.launchTime = S.playTime;
     for (const k in SHIP) y.parts[k] = 0;
     save();
     showWin();
@@ -969,6 +1127,8 @@ function renderMinimap(mc) {
     g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(e.x * sx, e.y * sy, Math.max(1.5, s * sx), Math.max(1.5, s * sy));
   }
+  g.fillStyle = '#ffffff';
+  for (const t of S.trains) g.fillRect(t.x * sx - 1.5, t.y * sy - 1.5, 3, 3);
   g.fillStyle = '#ff7a5c';
   for (const b of S.biters) if (b.state === 'attack' && tileExplored(Math.floor(b.x), Math.floor(b.y))) g.fillRect(b.x * sx - 1, b.y * sy - 1, 2, 2);
   const vw = cw / view.zoom / TILE, vh = ch / view.zoom / TILE;

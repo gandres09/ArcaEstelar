@@ -71,7 +71,16 @@
         </div>
         <textarea id="export-text" rows="3" readonly hidden></textarea>
         <hr>
+        <div class="sound-opts">
+          <label for="vol-sfx">🔊 Efectos</label>
+          <input type="range" id="vol-sfx" min="0" max="1" step="0.05">
+          <label for="vol-music">🎵 Música</label>
+          <input type="range" id="vol-music" min="0" max="1" step="0.05">
+          <label class="check"><input type="checkbox" id="mute"> Silenciar todo</label>
+        </div>
+        <hr>
         <button id="btn-stats" type="button">📊 Producción y estadísticas</button>
+        <button id="btn-ach" type="button">🏆 Logros</button>
         <button id="btn-help" type="button">❔ Cómo jugar</button>
         <button id="btn-new" type="button">🌱 Nuevo juego</button>
       </div>
@@ -133,6 +142,9 @@
         <li>Las máquinas contaminan. Cuando la polución llega a los <b>nidos</b>, los bichos atacan. Defendete con muros y torretas.</li>
         <li>Las máquinas eléctricas tienen que estar cerca de un <b>poste</b> conectado a un generador.</li>
         <li>El mapa arranca cubierto de niebla: se descubre al construir y con el <b>radar</b>. No se puede construir en lo que no exploraste.</li>
+        <li><b>Brazos</b>: toman de atrás y dejan adelante solo lo que el destino necesita. Un brazo pegado al Núcleo alimenta la máquina de enfrente.</li>
+        <li><b>Trenes</b>: vías, estaciones en modo Carga o Descarga y un tren que las recorre. <b>Robots</b>: construyen planos sin materiales, reconstruyen y reparan.</li>
+        <li><b>Módulos</b> en máquinas eléctricas y laboratorios: más velocidad, productividad o eficiencia. Al final hay investigaciones <b>infinitas</b>.</li>
         <li>El <b>agua</b> es infinita. Bomba de agua en la orilla → caldera con carbón → máquinas de vapor en fila: el doble de energía por carbón que el generador. Los bichos no cruzan el agua.</li>
       </ul>
       <button id="btn-help-close" type="button" class="primary">¡A construir!</button>
@@ -157,7 +169,29 @@
         <h1>📊 Producción</h1>
         <button type="button" class="close" data-close>✕</button>
       </div>
+      <div id="stats-summary"></div>
+      <section class="chart-section">
+        <h3>Producción por minuto</h3>
+        <p class="muted small">Elegí hasta 6 objetos para comparar (últimas 2 horas).</p>
+        <div id="chart-picker"></div>
+        <div id="chart-legend"></div>
+        <div id="chart-wrap">
+          <canvas id="chart" aria-label="Gráfico de producción por minuto"></canvas>
+          <div id="chart-tip" class="panel" hidden></div>
+        </div>
+      </section>
+      <h3>Tabla</h3>
       <div id="stats-body"></div>
+    </div>
+  </div>
+
+  <div id="ach" class="modal" hidden>
+    <div class="modal-box panel wide">
+      <div class="modal-head">
+        <h1>🏆 Logros</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="ach-body"></div>
     </div>
   </div>
 
@@ -175,8 +209,12 @@
   <script src="js/world.js"></script>
   <script src="js/sim.js"></script>
   <script src="js/enemies.js"></script>
+  <script src="js/trains.js"></script>
+  <script src="js/robots.js"></script>
   <script src="js/render.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/progress.js"></script>
   <script src="js/input.js"></script>
   <script src="js/main.js"></script>
 </body>

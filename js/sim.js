@@ -15,13 +15,17 @@ function newState(seed, peaceful) {
     v: SAVE_VERSION,
     seed,
     peaceful: !!peaceful,
-    inv: { iron_plate: 80, copper_plate: 20, stone: 50, coal: 30 },
+    inv: { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40 },
     delivered: {},
     produced: {},
     techs: {},
     research: { current: null, progress: 0 },
+    inf: {},
     entities: [],
     biters: [],
+    trains: [],
+    ghosts: [],
+    flights: [],
     pollution: null,
     evo: 0,
     expandTimer: 600,
@@ -108,8 +112,10 @@ function makeEntity(type, x, y, dir = 0) {
     case 'belt': case 'fastbelt': case 'expressbelt': e.item = null; e.prog = 0; break;
     case 'underground': e.item = null; e.prog = 0; e.mode = 'in'; break;
     case 'splitter': e.item = null; e.rr = 0; break;
+    case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
     case 'sorter': e.item = null; e.rr = 0; e.filter = null; break;
     case 'chest': e.store = {}; e.total = 0; break;
+    case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
     case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
     case 'furnace': case 'efurnace':
       e.inType = null; e.inCount = 0; e.fuelType = null; e.fuel = 0; e.burn = 0;
@@ -146,6 +152,7 @@ function rebuildGrid() {
 function contents(e) {
   const c = {};
   if (e.item) add(c, e.item, 1);
+  if (e.hold) add(c, e.hold, 1);
   if (typeof e.buf === 'string') add(c, e.buf, 1);
   if (e.type === 'boiler') { if (e.water) add(c, 'water', e.water); if (e.out) add(c, 'steam', e.out); }
   if (e.type === 'steam_engine' && e.steam) add(c, 'steam', e.steam);
@@ -156,6 +163,7 @@ function contents(e) {
   if (e.parts) for (const k in e.parts) add(c, k, e.parts[k]);
   if (e.packs) for (const k in e.packs) add(c, k, e.packs[k]);
   if (e.type === 'turret' && e.ammo) add(c, 'ammo', e.ammo);
+  if (e.modules) for (const m of e.modules) add(c, m, 1);
   if (e.recipe) {
     for (const k in e.buf) add(c, k, e.buf[k]);
     if (e.out) add(c, RECIPES[e.recipe].out, e.out);
@@ -164,6 +172,7 @@ function contents(e) {
 }
 
 function canPlace(type, x, y) {
+  if (type === 'train') return canPlaceTrain(x, y);
   const s = sizeOf(type);
   if (!inBounds(x, y) || !inBounds(x + s - 1, y + s - 1)) return { ok: false, why: 'Fuera del mapa' };
   if (s === 1) {
@@ -184,11 +193,33 @@ function canPlace(type, x, y) {
   const o = oreAt(x, y);
   if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };
   if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
-  if ((type === 'miner' || type === 'eminer') && (!o || o === 'oil' || o === 'water')) return { ok: false, why: 'El taladro va sobre mineral' };
+  if ((type === 'miner' || type === 'eminer') && !minerTile(x, y, BUILDINGS[type].area)) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
   if (!isUnlocked(type)) return { ok: false, why: 'Falta investigar: ' + TECHS[BUILDINGS[type].tech].name };
   if (!canAfford(BUILDINGS[type].cost)) return { ok: false, why: 'Faltan materiales' };
   return { ok: true };
+}
+
+// Casilla con mineral que va a extraer un taladro: primero la del centro, después las de alrededor
+function minerTile(x, y, r) {
+  const ok = (tx, ty) => { const o = oreAt(tx, ty); return o && o !== 'oil' && o !== 'water'; };
+  if (ok(x, y)) return { x, y };
+  for (let d = 1; d <= r; d++) {
+    for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === d && ok(x + dx, y + dy)) return { x: x + dx, y: y + dy };
+    }
+  }
+  return null;
+}
+
+// Mineral que queda en el área de un taladro
+function minerArea(e) {
+  const r = BUILDINGS[e.type].area || 0, res = {};
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const o = oreAt(e.x + dx, e.y + dy);
+    if (o && o !== 'water' && (e.type === 'pumpjack' ? o === 'oil' : o !== 'oil')) res[o] = (res[o] || 0) + oreAmountAt(e.x + dx, e.y + dy);
+  }
+  return res;
 }
 
 // --------------------------- Deshacer ---------------------------
@@ -248,6 +279,7 @@ function place(type, x, y, dir, opts = {}) {
     }
     return res.rotate;
   }
+  if (type === 'train') return placeTrain(x, y);
   pay(BUILDINGS[type].cost);
   if (type === 'landfill') {
     // El relleno no es un edificio: convierte el agua en tierra
@@ -264,6 +296,10 @@ function place(type, x, y, dir, opts = {}) {
   powerDirty = true;
   undergroundDirty = true;
   reveal(x + sizeOf(type) / 2, y + sizeOf(type) / 2, 12);
+  if (S.ghosts.length) {
+    const s = sizeOf(type);
+    S.ghosts = S.ghosts.filter((g) => g.x + sizeOf(g.type) <= x || g.x >= x + s || g.y + sizeOf(g.type) <= y || g.y >= y + s);
+  }
   if (!opts.silent) record({ kind: 'place', e });
   return e;
 }
@@ -271,6 +307,7 @@ function place(type, x, y, dir, opts = {}) {
 function removeEntity(e, opts = {}) {
   if (!e || e.type === 'hub' || e.type === 'nest' || !S.entities.includes(e)) return false;
   if (!opts.destroyed) {
+    if (!opts.silent) sfx('remove');
     refund(BUILDINGS[e.type].cost);
     refund(contents(e));
     if (!opts.silent) record({ kind: 'remove', snap: snapshot(e) });
@@ -303,6 +340,9 @@ function damageEntity(e, dmg) {
     } else {
       removeEntity(e, { destroyed: true });
       spawnExplosion(e.x + sizeOf(e.type) / 2, e.y + sizeOf(e.type) / 2, 1);
+      sfx('boom', e.x, e.y);
+      // Con robots, lo destruido queda como fantasma para reconstruirlo
+      addGhost(e.type, e.x, e.y, e.dir, { recipe: e.recipe, filter: e.filter });
     }
   }
 }
@@ -312,7 +352,9 @@ function removeNest(e) {
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
   S.evo = Math.min(1, S.evo + 0.002);
+  S.nestsKilled = (S.nestsKilled || 0) + 1;
   spawnExplosion(e.x + 1, e.y + 1, 1.6);
+  sfx('boom', e.x, e.y);
   toast('💥 Destruiste un nido');
 }
 
@@ -413,6 +455,19 @@ function balancePower(dt) {
   }
 }
 
+// Efecto combinado de los módulos de una máquina
+function moduleFx(e) {
+  const fx = { speed: 1, power: 1, prod: 0, poll: 1 };
+  if (!e.modules) return fx;
+  for (const m of e.modules) {
+    const d = MODULES[m];
+    fx.speed += d.speed || 0; fx.power += d.power || 0; fx.prod += d.prod || 0; fx.poll += d.poll || 0;
+  }
+  fx.power = Math.max(0.2, fx.power);
+  fx.speed = Math.max(0.2, fx.speed);
+  return fx;
+}
+
 // Factor de velocidad para un consumidor eléctrico (y registra su demanda)
 function drawPower(e, kw) {
   const net = nets[e._net];
@@ -423,80 +478,117 @@ function drawPower(e, kw) {
 
 // --------------------------- Flujo de objetos ---------------------------
 
-function accept(t, item, src) {
+// ¿El edificio t acepta el objeto? Con dry = true solo pregunta, sin entregarlo
+function accept(t, item, src, dry = false) {
+  const ok = (fn) => { if (!dry) fn(); return true; };
   switch (t.type) {
-    case 'hub':
-      add(S.inv, item, 1);
-      add(S.delivered, item, 1);
-      return true;
+    case 'hub': case 'receiver':
+      return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); });
     case 'belt': case 'fastbelt': case 'expressbelt': {
       if (t.item) return false;
       const [dx, dy] = DIRS[t.dir];
-      if (at(t.x + dx, t.y + dy) === src) return false; // no aceptar desde adelante
-      t.item = item; t.prog = 0;
-      return true;
+      if (src && at(t.x + dx, t.y + dy) === src) return false; // no aceptar desde adelante
+      return ok(() => { t.item = item; t.prog = 0; });
     }
     case 'underground': {
       if (t.mode !== 'in' || t.item) return false;
       const [dx, dy] = DIRS[t.dir];
-      if (at(t.x + dx, t.y + dy) === src) return false;
-      t.item = item; t.prog = 0;
-      return true;
+      if (src && at(t.x + dx, t.y + dy) === src) return false;
+      return ok(() => { t.item = item; t.prog = 0; });
     }
     case 'splitter': case 'sorter':
       if (t.item) return false;
-      t.item = item;
-      return true;
+      return ok(() => { t.item = item; });
+    case 'station':
+      if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
+      return ok(() => { add(t.store, item, 1); t.total++; });
     case 'chest':
       if (t.total >= 200) return false;
-      add(t.store, item, 1); t.total++;
-      return true;
+      return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
       if (t.type === 'furnace' && FURNACE_FUEL[item]) {
         if (t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
-        t.fuelType = item; t.fuel++;
-        return true;
+        return ok(() => { t.fuelType = item; t.fuel++; });
       }
       const r = SMELT[item];
       if (!r || !hasTech(r.tech)) return false;
       if ((t.inType && t.inType !== item) || t.inCount >= Math.max(10, r.n * 3)) return false;
-      t.inType = item; t.inCount++;
-      return true;
+      return ok(() => { t.inType = item; t.inCount++; });
     }
     case 'assembler': case 'assembler2': case 'chem': {
       if (!t.recipe) return false;
       const need = RECIPES[t.recipe].in[item];
       if (!need || (t.buf[item] || 0) >= need * 2) return false;
-      add(t.buf, item, 1);
-      return true;
+      return ok(() => add(t.buf, item, 1));
     }
     case 'lab':
       if (!PACKS.includes(item) || (t.packs[item] || 0) >= 10) return false;
-      add(t.packs, item, 1);
-      return true;
+      return ok(() => add(t.packs, item, 1));
     case 'generator':
       if (!FUELS[item] || t.fuel >= 20 || (t.fuelType && t.fuelType !== item)) return false;
-      t.fuelType = item; t.fuel++;
-      return true;
+      return ok(() => { t.fuelType = item; t.fuel++; });
     case 'boiler':
-      if (item === 'water') { if (t.water >= 20) return false; t.water++; return true; }
+      if (item === 'water') return t.water >= 20 ? false : ok(() => { t.water++; });
       if (!FUELS[item] || t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
-      t.fuelType = item; t.fuel++;
-      return true;
+      return ok(() => { t.fuelType = item; t.fuel++; });
     case 'steam_engine':
       if (item !== 'steam' || t.steam >= 10) return false;
-      t.steam++;
-      return true;
+      return ok(() => { t.steam++; });
     case 'turret':
       if (item !== 'ammo' || t.ammo >= 20) return false;
-      t.ammo++;
-      return true;
+      return ok(() => { t.ammo++; });
     case 'shipyard':
       if (!SHIP[item] || (t.parts[item] || 0) >= SHIP[item]) return false;
-      add(t.parts, item, 1);
-      return true;
+      return ok(() => add(t.parts, item, 1));
   }
   return false;
+}
+
+// Lo que podría querer recibir un edificio (para sacarlo del Núcleo)
+function wantedBy(dst) {
+  switch (dst.type) {
+    case 'assembler': case 'assembler2': case 'chem': return dst.recipe ? Object.keys(RECIPES[dst.recipe].in) : [];
+    case 'furnace': return [...Object.keys(SMELT), 'coal', 'solid_fuel'];
+    case 'efurnace': return Object.keys(SMELT);
+    case 'lab': return PACKS;
+    case 'turret': return ['ammo'];
+    case 'boiler': return ['water', 'coal', 'solid_fuel'];
+    case 'generator': return ['coal', 'solid_fuel'];
+    case 'shipyard': return Object.keys(SHIP);
+    default: return [];
+  }
+}
+
+// El brazo saca de src un objeto que dst acepte (y que pase su filtro)
+function takeFrom(src, dst, ins) {
+  const want = (k) => k && (!ins.filter || ins.filter === k) && accept(dst, k, ins, true);
+  switch (src.type) {
+    case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter':
+      if (want(src.item)) { const k = src.item; src.item = null; return k; }
+      return null;
+    case 'chest':
+      for (const k in src.store) if (src.store[k] > 0 && want(k)) { if (--src.store[k] === 0) delete src.store[k]; src.total--; return k; }
+      return null;
+    case 'furnace': case 'efurnace':
+      if (src.outCount > 0 && want(src.outType)) { const k = src.outType; if (--src.outCount === 0) src.outType = null; return k; }
+      return null;
+    case 'assembler': case 'assembler2': case 'chem':
+      if (src.recipe && src.out > 0 && want(RECIPES[src.recipe].out)) { src.out--; return RECIPES[src.recipe].out; }
+      return null;
+    case 'miner': case 'eminer': case 'pumpjack': case 'offshore':
+      if (want(src.buf)) { const k = src.buf; src.buf = null; return k; }
+      return null;
+    case 'boiler':
+      if (src.out > 0 && want('steam')) { src.out--; return 'steam'; }
+      return null;
+    case 'receiver':
+      if (!hasTech('logistic_network')) return null;
+    // fallthrough: con la red logística, el receptor da acceso al inventario
+    case 'hub':
+      for (const k of wantedBy(dst)) if ((S.inv[k] || 0) >= 1 && want(k)) { S.inv[k]--; return k; }
+      return null;
+  }
+  return null;
 }
 
 function pushTo(e, dir, item) {
@@ -507,9 +599,19 @@ function pushTo(e, dir, item) {
 
 // --------------------------- Investigación ---------------------------
 
-function techAvailable(id) {
-  return !S.techs[id] && TECHS[id].req.every((r) => S.techs[r]);
+const infLevel = (id) => (S.inf && S.inf[id]) || 0;
+function techUnits(id) {
+  const t = TECHS[id];
+  return t.infinite ? Math.round(t.units * Math.pow(1.5, infLevel(id))) : t.units;
 }
+function techName(id) {
+  const t = TECHS[id];
+  return t.infinite ? `${t.name} ${infLevel(id) + 1}` : t.name;
+}
+function techAvailable(id) {
+  return (TECHS[id].infinite || !S.techs[id]) && TECHS[id].req.every((r) => S.techs[r]);
+}
+function labSpeedMult() { return 1 + 0.1 * infLevel('inf_lab'); }
 
 function setResearch(id) {
   if (!techAvailable(id)) return;
@@ -518,10 +620,19 @@ function setResearch(id) {
 
 function finishResearch() {
   const id = S.research.current;
-  S.techs[id] = true;
-  S.research = { current: null, progress: 0 };
+  const name = techName(id);
   for (const e of S.entities) if (e.type === 'lab') { e.prog = 0; e.working = false; }
-  toast(`🔬 Investigación terminada: <b>${TECHS[id].name}</b>`);
+  if (TECHS[id].infinite) {
+    // Las infinitas siguen solas con el próximo nivel
+    S.inf = S.inf || {};
+    S.inf[id] = infLevel(id) + 1;
+    S.research = { current: id, progress: 0 };
+  } else {
+    S.techs[id] = true;
+    S.research = { current: null, progress: 0 };
+  }
+  toast(`🔬 Investigación terminada: <b>${name}</b>`);
+  sfx('research');
   onTechFinished(id);
   save();
 }
@@ -533,7 +644,7 @@ function eraIndex() {
 }
 
 function weaponMult() {
-  return 1 + (S.techs.weapons1 ? 0.3 : 0) + (S.techs.weapons2 ? 0.5 : 0);
+  return 1 + (S.techs.weapons1 ? 0.3 : 0) + (S.techs.weapons2 ? 0.5 : 0) + 0.1 * infLevel('inf_weapons');
 }
 
 // --------------------------- Actualización ---------------------------
@@ -574,6 +685,30 @@ function update(dt) {
         }
         break;
 
+      case 'inserter': case 'fastinserter': {
+        const sp = def.power ? drawPower(e, def.power) : 1;
+        if (sp <= 0) { e.active = false; break; }
+        const step = dt * sp * 2 / def.swing;  // medio ciclo para ir y medio para volver
+        const [dx, dy] = DIRS[e.dir];
+        if (e.hold) {
+          e.t = Math.min(1, e.t + step);
+          if (e.t >= 1) {
+            const dst = at(e.x + dx, e.y + dy);
+            if (dst && dst.type !== 'nest' && dst !== e && accept(dst, e.hold, e)) { e.hold = null; e.ret = 1; }
+          }
+        } else if (e.ret > 0) {
+          e.ret = Math.max(0, e.ret - step);
+        } else {
+          const src = at(e.x - dx, e.y - dy), dst = at(e.x + dx, e.y + dy);
+          if (src && dst && src !== dst && src.type !== 'nest' && dst.type !== 'nest') {
+            const k = takeFrom(src, dst, e);
+            if (k) { e.hold = k; e.t = 0; }
+          }
+        }
+        e.active = !!e.hold || e.ret > 0;
+        break;
+      }
+
       case 'splitter':
         if (e.item) {
           for (let k = 0; k < 3; k++) {
@@ -596,6 +731,9 @@ function update(dt) {
         }
         break;
 
+      case 'station':
+        if (e.mode === 'load' || e.total <= 0) break;
+        // fallthrough: en modo descarga suelta lo que tiene como un cofre
       case 'chest':
         if (e.total > 0) {
           for (const k in e.store) {
@@ -610,15 +748,25 @@ function update(dt) {
 
       case 'miner': case 'eminer': case 'pumpjack': {
         e.active = false;
+        if (!e.buf && e.extra > 0) { e.buf = e.extraType; e.extra--; }
         if (!e.buf) {
-          if (!oreAt(e.x, e.y)) { e.depleted = true; break; }
-          const sp = def.power ? drawPower(e, def.power) : 1;
+          const mt = e.type === 'pumpjack' ? (oreAt(e.x, e.y) === 'oil' ? { x: e.x, y: e.y } : null) : minerTile(e.x, e.y, def.area);
+          if (!mt) { e.depleted = true; break; }
+          e.depleted = false;
+          const fx = moduleFx(e);
+          const sp = (def.power ? drawPower(e, def.power * fx.power) * fx.speed : 1) * (1 + 0.1 * infLevel('inf_drill'));
           e.active = sp > 0;
           e.t += dt * sp;
           if (e.t >= def.time) {
-            e.t = 0;
-            e.buf = mineOre(e.x, e.y);
-            if (e.buf) { countProduced(e.buf); emit(e, def.poll * def.time / 60); }
+            e.t = Math.min(e.t - def.time, def.time);
+            e.buf = mineOre(mt.x, mt.y);
+            if (e.buf) {
+              countProduced(e.buf);
+              emit(e, def.poll * def.time * fx.poll / 60);
+              // Productividad: mineral extra sin gastar el yacimiento
+              e.mb = (e.mb || 0) + fx.prod + 0.1 * infLevel('inf_mining');
+              if (e.mb >= 1) { e.mb -= 1; e.extra = (e.extra || 0) + 1; e.extraType = e.buf; countProduced(e.buf); }
+            }
           }
         }
         if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
@@ -629,8 +777,9 @@ function update(dt) {
         e.active = false;
         const r = e.inType && SMELT[e.inType];
         if (r && e.inCount >= r.n && e.outCount < 10 && (!e.outType || e.outType === r.out)) {
+          const fx = moduleFx(e);
           let sp = def.speed;
-          if (def.power) sp *= drawPower(e, def.power);
+          if (def.power) sp *= drawPower(e, def.power * fx.power) * fx.speed;
           else {
             if (e.burn <= 0 && e.fuel > 0) {
               e.burn = FURNACE_FUEL[e.fuelType];
@@ -643,12 +792,14 @@ function update(dt) {
             e.prog += dt * sp;
             emit(e, def.poll * dt * sp / 60);
             if (e.prog >= r.time) {
-              e.prog = 0;
+              e.prog = Math.min(e.prog - r.time, r.time);
               if (!def.power) e.burn--;
               e.inCount -= r.n;
               if (e.inCount === 0) e.inType = null;
               e.outType = r.out; e.outCount++;
               countProduced(r.out);
+              e.bonus = (e.bonus || 0) + fx.prod;
+              if (e.bonus >= 1 && e.outCount < 10) { e.bonus -= 1; e.outCount++; countProduced(r.out); }
             }
           }
         }
@@ -665,17 +816,20 @@ function update(dt) {
         let ready = e.out < 10;
         for (const k in rc.in) if ((e.buf[k] || 0) < rc.in[k]) ready = false;
         if (ready) {
+          const fx = moduleFx(e);
           let sp = def.speed;
-          if (def.power) sp *= drawPower(e, def.power);
+          if (def.power) sp *= drawPower(e, def.power * fx.power) * fx.speed;
           if (sp > 0) {
             e.active = true;
             e.prog += dt * sp;
-            emit(e, def.poll * dt * sp / 60);
+            emit(e, def.poll * dt * sp * fx.poll / 60);
             if (e.prog >= rc.time) {
-              e.prog = 0;
+              e.prog = Math.min(e.prog - rc.time, rc.time);
               for (const k in rc.in) e.buf[k] -= rc.in[k];
               e.out += rc.n;
               countProduced(rc.out, rc.n);
+              e.bonus = (e.bonus || 0) + fx.prod;
+              if (e.bonus >= 1) { e.bonus -= 1; e.out += rc.n; countProduced(rc.out, rc.n); }
             }
           }
         }
@@ -694,12 +848,15 @@ function update(dt) {
           } else break;
         }
         e.active = true;
-        e.prog += dt * def.speed / tech.time;
+        const lfx = moduleFx(e);
+        e.prog += dt * def.speed * lfx.speed * labSpeedMult() / tech.time;
         if (e.prog >= 1) {
           e.prog = 0;
           e.working = false;
           S.research.progress++;
-          if (S.research.progress >= tech.units) researchDone = true;
+          e.bonus = (e.bonus || 0) + lfx.prod;
+          if (e.bonus >= 1) { e.bonus -= 1; S.research.progress++; }
+          if (S.research.progress >= techUnits(S.research.current)) researchDone = true;
         }
         break;
       }
@@ -808,6 +965,8 @@ function update(dt) {
   }
 
   if (researchDone) finishResearch();
+  updateTrains(dt);
+  updateRobots(dt);
   updateEnemies(dt);
 }
 

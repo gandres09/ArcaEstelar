@@ -32,7 +32,7 @@ let pastePos = null;     // táctil: dónde se va a pegar
 const isTouch = () => pointerType !== 'mouse';
 const sameTile = (a, b) => a && b && a.x === b.x && a.y === b.y;
 const anchorFor = (type, t) => { const s = sizeOf(type); return { x: t.x - Math.floor(s / 2), y: t.y - Math.floor(s / 2) }; };
-const isLineTool = (t) => isBelt(t);
+const isLineTool = (t) => isBelt(t) || t === 'rail';
 
 function screenToWorld(sx, sy) {
   return { x: (sx - cw / 2) / view.zoom + view.x, y: (sy - ch / 2) / view.zoom + view.y };
@@ -91,9 +91,10 @@ function buildBeltPlan() {
   const pts = beltPath(beltPlan.a, beltPlan.b, beltPlan.flip);
   beginBatch();
   let ok = 0, fail = 0;
-  for (const p of pts) (place(tool, p.x, p.y, p.dir) ? ok++ : fail++);
+  for (const p of pts) (placeOrGhost(tool, p.x, p.y, p.dir) ? ok++ : fail++);
   endBatch();
   toolDir = pts[pts.length - 1].dir;
+  if (ok) sfx('place');
   if (fail) toast(`Se construyeron ${ok} de ${pts.length} cintas. ${canAfford(BUILDINGS[tool].cost) ? 'Algunas casillas estaban ocupadas.' : 'Faltan materiales.'}`);
   beltPlan = null;
   updateConfirm();
@@ -116,10 +117,13 @@ function entitiesIn(r) {
 }
 
 function deleteArea(r) {
+  const ghosts = removeGhostsIn(r);
+  if (ghosts) toast(`Cancelaste ${ghosts} plano${ghosts > 1 ? 's' : ''}.`);
   const list = entitiesIn(r);
   beginBatch();
   for (const e of list) removeEntity(e);
   endBatch();
+  if (list.length) sfx('remove');
   if (list.length) toast(`Desarmaste ${list.length} edificio${list.length > 1 ? 's' : ''}. Podés deshacerlo.`);
 }
 
@@ -160,18 +164,29 @@ function pasteAt(t) {
   // Primero los postes y edificios grandes, después el resto
   const items = [...clipboard.items].sort((a, b) => sizeOf(b.type) - sizeOf(a.type));
   for (const it of items) {
-    const e = isUnlocked(it.type) ? place(it.type, o.x + it.dx, o.y + it.dy, it.dir) : null;
-    if (e) {
+    const e = isUnlocked(it.type) ? placeOrGhost(it.type, o.x + it.dx, o.y + it.dy, it.dir, it) : null;
+    if (e && e.id && !S.ghosts.includes(e)) {
       ok++;
       if (it.recipe && e.recipe !== undefined && RECIPES[it.recipe] && !e.recipe) e.recipe = it.recipe;
       if (it.filter && e.filter !== undefined) e.filter = it.filter;
-    } else fail++;
+    } else if (!e) fail++;
   }
   endBatch();
   toast(fail ? `Pegaste ${ok} de ${ok + fail} edificios (faltan materiales o lugar).` : `Pegaste ${ok} edificios.`);
   pastePos = null;
   updateConfirm();
   updateUI();
+}
+
+// Tren cerca de una casilla (la locomotora o sus vagones)
+function trainNear(x, y) {
+  for (const t of S.trains) {
+    for (let k = 0; k <= 2; k++) {
+      const p = k === 0 ? t : trainTrail(t, k * 1.05);
+      if (Math.abs(p.x - x) < 0.8 && Math.abs(p.y - y) < 0.8) return t;
+    }
+  }
+  return null;
 }
 
 // --------------------------- Acciones ---------------------------
@@ -187,6 +202,7 @@ function rotateAction(step) {
 
 function undoAction() {
   const n = undo();
+  sfx('click');
   toast(n ? `Deshiciste ${n} cambio${n > 1 ? 's' : ''}.` : 'No hay nada para deshacer.');
   updateUI();
 }
@@ -194,15 +210,23 @@ function undoAction() {
 function tryPlaceSingle(t) {
   const a = anchorFor(tool, t);
   const res = canPlace(tool, a.x, a.y);
-  if (!res.ok) { toast(res.why === 'Faltan materiales' ? `Faltan materiales: ${costText(BUILDINGS[tool].cost)}` : res.why); return null; }
-  return place(tool, a.x, a.y, toolDir);
+  if (!res.ok && res.why === 'Faltan materiales' && robotsOn() && addGhost(tool, a.x, a.y, toolDir)) {
+    toast('👻 Quedó como plano: los robots lo construyen cuando haya materiales.');
+    return null;
+  }
+  if (!res.ok) { sfx('error'); toast(res.why === 'Faltan materiales' ? `Faltan materiales: ${costText(BUILDINGS[tool].cost)}` : res.why); return null; }
+  const e = place(tool, a.x, a.y, toolDir);
+  if (e) sfx('place');
+  return e;
 }
 
 // Un toque en la pantalla táctil
 function handleTap(t) {
   if (tool === 'hand') {
+    const tr = trainNear(t.x, t.y);
     const e = at(t.x, t.y);
-    if (e && e.type !== 'nest') openInspector(e); else closeInspector();
+    if (tr) openInspector(tr);
+    else if (e && e.type !== 'nest') openInspector(e); else closeInspector();
     return;
   }
   if (tool === 'delete') {
@@ -210,7 +234,9 @@ function handleTap(t) {
     else if (!area.b) {
       if (sameTile(area.a, t)) {
         const e = at(t.x, t.y);
-        if (e && removeEntity(e)) toast('Desarmado. Podés deshacerlo.');
+        const gh = ghostAt(t.x, t.y);
+        if (gh) { S.ghosts.splice(S.ghosts.indexOf(gh), 1); toast('Plano cancelado.'); }
+        else if (e && removeEntity(e)) toast('Desarmado. Podés deshacerlo.');
         area = null;
       } else area.b = t;
     } else {
@@ -416,11 +442,15 @@ function endPointer(ev) {
       if (!handMining || handMining.prog < 0.25) handleTap(d.tile);
     } else if (d.button === 0) {
       if (tool === 'hand') {
+        const tr = trainNear(d.tile.x, d.tile.y);
         const e = at(d.tile.x, d.tile.y);
-        if (e && e.type !== 'nest') openInspector(e); else if (!handMining) closeInspector();
+        if (tr) openInspector(tr);
+        else if (e && e.type !== 'nest') openInspector(e); else if (!handMining) closeInspector();
       } else if (tool === 'delete') {
         const e = at(d.tile.x, d.tile.y);
-        if (e) removeEntity(e);
+        const gh = ghostAt(d.tile.x, d.tile.y);
+        if (gh) S.ghosts.splice(S.ghosts.indexOf(gh), 1);
+        else if (e) removeEntity(e);
         area = null;
       } else if (tool === 'copy') {
         area = null;

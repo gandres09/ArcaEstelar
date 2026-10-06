@@ -10,7 +10,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 ## Qué tiene
 
 - **Mapa grande** (320 × 240) con yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
-- **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 27 tecnologías y 4 eras.
+- **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 33 tecnologías, 4 infinitas y 4 eras.
 - **Electricidad**: generadores a carbón, energía a vapor, paneles solares, acumuladores, postes y torres de alta tensión.
 - **Agua infinita** en lagos: bombas de agua en la orilla para calderas y química. Los bichos no la cruzan
   (la rodean buscando camino) y se puede rellenar con piedra.
@@ -19,7 +19,14 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Polución y enemigos**: las máquinas contaminan, la nube se expande y cuando llega a los nidos los bichos atacan.
   Evolucionan con el tiempo y aparecen nidos nuevos. Te defendés con muros, torretas con munición y torretas láser.
   Se puede jugar en modo pacífico.
-- **Logística**: cintas en 3 velocidades, subterráneas, divisores, filtros y cofres.
+- **Logística**: cintas en 3 velocidades, subterráneas, divisores, filtros, cofres, **brazos insertadores** (normales,
+  rápidos y con filtro) y **receptores** que entregan al Núcleo desde cualquier lugar. Con la Red logística, los
+  brazos también sacan del inventario a través de los receptores.
+- **Trenes**: vías que se conectan solas, estaciones de carga y descarga, y trenes que las recorren quemando carbón.
+- **Robots de construcción**: lo que construís o pegás sin materiales queda como plano y los robots lo arman cuando
+  llegan; también reconstruyen lo que destruyen los bichos y reparan.
+- **Módulos** de velocidad, productividad y eficiencia, e **investigaciones infinitas** para después de la nave.
+- **Sonido y música** generados en el momento (con volumen en el menú), **20 logros** y **gráficos de producción**.
 - **Química**: bombas de petróleo y planta química para plástico, azufre, baterías y combustible de cohete.
 - **Construcción cómoda**: doble toque para construir, cintas de punto a punto, deshacer, copiar y pegar zonas
   y desarmar zonas enteras.
@@ -29,11 +36,11 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 
 | Pieza | Cantidad | Se hace con |
 | --- | --- | --- |
-| Placa de casco | 50 | estructura liviana (acero + cobre + plástico) + titanio |
-| Propulsor | 16 | motores eléctricos (motor + circuitos + lubricante) + combustible de cohete + titanio |
-| Computadora de navegación | 8 | unidades de control (procesador + batería) + procesadores |
-| Soporte vital | 10 | unidad de control + motor eléctrico + agua |
-| Combustible de cohete | 120 | combustible sólido + petróleo |
+| Placa de casco | 120 | estructura liviana (acero + cobre + plástico) + titanio |
+| Propulsor | 40 | motores eléctricos (motor + circuitos + lubricante) + combustible de cohete + titanio |
+| Computadora de navegación | 20 | unidades de control (procesador + batería) + procesadores |
+| Soporte vital | 25 | unidad de control + motor eléctrico + agua |
+| Combustible de cohete | 300 | combustible sólido + petróleo |
 
 Para llegar hay que combinar casi todas las líneas: hierro, cobre, acero, petróleo con agua (plástico, azufre,
 lubricante), baterías, procesadores con silicio y titanio.
@@ -60,6 +67,10 @@ lubricante), baterías, procesadores con silicio y titanio.
 - `js/world.js`: generación del mapa y dibujo del terreno.
 - `js/sim.js`: simulación de edificios, cintas, electricidad, investigación y deshacer.
 - `js/enemies.js`: polución, nidos, bichos y torretas.
+- `js/trains.js`: vías, estaciones y trenes.
+- `js/robots.js`: planos y robots de construcción.
+- `js/audio.js`: efectos de sonido y música.
+- `js/progress.js`: logros e historial de producción con su gráfico.
 - `js/render.js`: dibujo de todo lo que se ve, la noche y el despegue.
 - `js/ui.js`: paneles, inspector, investigación, menú y estadísticas.
 - `js/input.js`: mouse, táctil y teclado.

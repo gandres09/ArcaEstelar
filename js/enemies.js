@@ -224,6 +224,7 @@ function biterStep(b, dt) {
 
 function noteAttack(e) {
   const now = S.playTime;
+  if (!lastAttack || now - lastAttack.t > 20) sfx('alarm');
   if (!lastAttack || now - lastAttack.t > 20) toast('⚠️ <b>¡Están atacando tu fábrica!</b> Tocá la alerta de arriba para ir.');
   lastAttack = { x: e.x, y: e.y, t: now };
 }
@@ -323,6 +324,7 @@ function turretStep(e, dt) {
     if (sp > 0.25) { fire = true; e.cd = 1 / (def.rate * sp); }
   }
   if (!fire) return;
+  sfx(e.type === 'laser' ? 'laser' : 'shot', e.x, e.y);
   const dmg = def.dmg * weaponMult();
   if (target) {
     hitBiter(target, dmg);
@@ -351,7 +353,8 @@ function updateEnemies(dt) {
   for (const b of S.biters) if (!b.dead) biterStep(b, dt);
   for (const e of S.entities) if (e.type === 'turret' || e.type === 'laser') turretStep(e, dt);
   if (S.biters.some((b) => b.dead)) {
-    for (const b of S.biters) if (b.dead) spawnSplat(b.x, b.y, BITERS[b.kind].color);
+    for (const b of S.biters) if (b.dead) S.kills = (S.kills || 0) + 1;
+    for (const b of S.biters) if (b.dead) { spawnSplat(b.x, b.y, BITERS[b.kind].color); sfx('splat', b.x, b.y); }
     S.biters = S.biters.filter((b) => !b.dead);
   }
 }
