@@ -162,6 +162,7 @@ function migrateEntity(e) {
 function rebuildGrid() {
   grid = new Array(W * H).fill(null);
   for (const e of S.entities) { migrateEntity(e); occupy(e, e); }
+  railDirty = true;
   fnets = [];
   fluidDirty = true;
   powerDirty = true;
@@ -325,6 +326,8 @@ function place(type, x, y, dir, opts = {}) {
   if (type === 'underground') e.mode = undergroundModeFor(x, y, dir);
   S.entities.push(e);
   occupy(e, e);
+  if (RAILISH.has(type)) railDirty = true;
+  if (type === 'station') e.name = `Estación ${S.entities.filter((x) => x.type === 'station').length}`;
   // Los árboles que estaban ahí se talan y dan madera
   const sz = sizeOf(type);
   let wood = 0;
@@ -357,6 +360,7 @@ function removeEntity(e, opts = {}) {
   occupy(e, null);
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
+  if (RAILISH.has(e.type)) railDirty = true;
   powerDirty = true;
   undergroundDirty = true;
   fluidDirty = true;

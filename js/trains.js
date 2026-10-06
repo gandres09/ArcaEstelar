@@ -10,7 +10,70 @@ const TRAIN_CAP = 800;          // objetos (2 vagones)
 const STATION_CAP = 800;
 const STATION_WAIT = 3;         // segundos de carga y descarga
 
-const isRail = (e) => !!e && (e.type === 'rail' || e.type === 'station');
+const isRail = (e) => !!e && (e.type === 'rail' || e.type === 'station' || e.type === 'signal');
+const RAILISH = new Set(['rail', 'station', 'signal']);
+
+// --------------------------- Tramos (señales) ---------------------------
+// Las señales cortan la vía en tramos. Se recalculan cuando cambian las vías.
+let railDirty = true;
+let railBlock = new Map();   // casilla -> número de tramo
+
+function rebuildBlocks() {
+  railDirty = false;
+  railBlock = new Map();
+  let id = 0;
+  for (const e of S.entities) {
+    if (e.type !== 'rail' && e.type !== 'station') continue;
+    const k0 = e.y * W + e.x;
+    if (railBlock.has(k0)) continue;
+    id++;
+    const stack = [[e.x, e.y]];
+    railBlock.set(k0, id);
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      for (const [dx, dy] of DIRS) {
+        const nx = wrapX(x + dx), ny = wrapY(y + dy), n = at(nx, ny);
+        if (!n || (n.type !== 'rail' && n.type !== 'station')) continue;   // la señal corta
+        const k = ny * W + nx;
+        if (railBlock.has(k)) continue;
+        railBlock.set(k, id);
+        stack.push([nx, ny]);
+      }
+    }
+  }
+}
+
+function blockOf(x, y) {
+  if (railDirty) rebuildBlocks();
+  return railBlock.get(wrapY(y) * W + wrapX(x)) || 0;
+}
+
+// Casillas que ocupa un tren (locomotora y vagones)
+function trainTiles(t) {
+  const tiles = [[Math.round(t.x), Math.round(t.y)]];
+  for (const d of [1, 2, 3]) { const p = trainTrail(t, d); tiles.push([Math.round(p.x), Math.round(p.y)]); }
+  return tiles;
+}
+
+// ¿Hay otro tren en ese tramo (o lo reservó)?
+function blockBusy(b, t) {
+  if (!b) return false;
+  for (const o of S.trains) {
+    if (o === t) continue;
+    if (o.claim === b) return true;
+    for (const [x, y] of trainTiles(o)) if (blockOf(x, y) === b) return true;
+  }
+  return false;
+}
+
+// La luz de una señal: roja si alguno de los tramos que separa tiene un tren
+function signalRed(e) {
+  for (const [dx, dy] of DIRS) {
+    const b = blockOf(e.x + dx, e.y + dy);
+    if (b && blockBusy(b, null)) return true;
+  }
+  return false;
+}
 
 // Vías vecinas de una casilla (en el orden de DIRS)
 function railLinks(x, y) {
@@ -90,6 +153,19 @@ function removeTrain(t, noRefund = false) {
   t._dead = true;
 }
 
+// Próxima parada: la del horario, o (sin horario) la siguiente estación de la red
+function stationById(id) { return S.entities.find((e) => e.id === id && e.type === 'station'); }
+function scheduleTarget(t) {
+  const sch = t.schedule || [];
+  for (let k = 0; k < sch.length; k++) {
+    const st = stationById(sch[t.si || 0].st);
+    if (st) return st;
+    t.si = ((t.si || 0) + 1) % sch.length;
+  }
+  return null;
+}
+const stationName = (s) => (s && (s.name || `Estación ${s.id}`)) || '—';
+
 function nextStation(t) {
   const list = stationsReachable(Math.round(t.x), Math.round(t.y));
   if (!list.length) return null;
@@ -128,12 +204,20 @@ function updateTrains(dt) {
     const tx = Math.round(t.x), ty = Math.round(t.y);
     if (!isRail(at(tx, ty))) { t.state = 'idle'; t._path = null; continue; }   // le sacaron la vía
     if (t.state === 'waiting') {
+      const sch = t.schedule && t.schedule.length ? t.schedule[t.si || 0] : null;
       t.wait -= dt;
-      if (t.wait <= 0) t.state = 'idle';
+      // Mientras espera sigue cargando o descargando
+      t.serveT = (t.serveT || 0) + dt;
+      if (t.serveT >= 1) { t.serveT = 0; const st = stationById(t.last); if (st) serveStation(t, st); }
+      const done = !sch || sch.w === 'time' ? t.wait <= 0 : sch.w === 'full' ? t.total >= TRAIN_CAP : t.total <= 0;
+      if (done) {
+        t.state = 'idle';
+        if (sch) t.si = ((t.si || 0) + 1) % t.schedule.length;
+      }
       continue;
     }
     if (t.state === 'idle' || !t._path) {
-      const st = nextStation(t);
+      const st = t.schedule && t.schedule.length ? scheduleTarget(t) : nextStation(t);
       if (!st) { t.state = 'idle'; continue; }
       t.target = st.id;
       t._path = railPath(tx, ty, st);
@@ -148,7 +232,9 @@ function updateTrains(dt) {
       t.last = t.target;
       t._path = null;
       if (st && st.type === 'station') serveStation(t, st);
-      t.state = 'waiting'; t.wait = STATION_WAIT;
+      const sch = t.schedule && t.schedule.length ? t.schedule[t.si || 0] : null;
+      t.state = 'waiting'; t.wait = sch && sch.w === 'time' ? sch.s || 10 : STATION_WAIT;
+      t.claim = null;
       continue;
     }
     // Otro tren adelante: esperar
@@ -160,9 +246,17 @@ function updateTrains(dt) {
     if (fast) t.energy -= TRAIN_POWER * dt;
     t._f += dt * (fast ? TRAIN_SPEED : TRAIN_SLOW);
     while (t._f >= 1 && t._i < path.length - 1) {
+      // Antes de pasar una señal: el tramo de adelante tiene que estar libre
+      const next = at(path[t._i + 1].x, path[t._i + 1].y);
+      if (next && next.type === 'signal' && path[t._i + 2]) {
+        const b = blockOf(path[t._i + 2].x, path[t._i + 2].y);
+        if (blockBusy(b, t)) { t._f = Math.min(t._f, 0.999); t.blocked = true; t.redSignal = next.id; break; }
+        t.claim = b;
+      }
       t._f -= 1; t._i++;
       const nx = at(path[t._i].x, path[t._i].y);
       if (!isRail(nx)) { t._path = null; t.state = 'idle'; break; }
+      if (t.claim && blockOf(path[t._i].x, path[t._i].y) === t.claim) t.claim = null;   // ya entró
     }
     if (!t._path) continue;
     const a = path[t._i], b = path[Math.min(t._i + 1, path.length - 1)];

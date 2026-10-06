@@ -580,7 +580,12 @@ function inspectorContent(e) {
         '<p class="muted small">Construyen planos, reconstruyen lo que destruyen los bichos y reparan, a 25 casillas a la redonda. Los materiales salen del inventario.</p>';
       break;
     }
+    case 'signal':
+      h += row('Estado', signalRed(e) ? '<span class="bad">roja: hay un tren en el tramo</span>' : '<span class="ok">verde: tramo libre</span>') +
+        '<p class="muted small">Ponela en la vía para dividirla en tramos. Un tren espera en la señal hasta que el tramo de adelante esté libre. Así pueden andar varios trenes en la misma red.</p>';
+      break;
     case 'station': {
+      h += `<div class="net-nick"><input id="st-name" type="text" maxlength="24" value="${escapeHtml(stationName(e))}" autocomplete="off"><button type="button" class="small-btn" data-act="rename">Renombrar</button></div>`;
       h += row('Modo', e.mode === 'load' ? '<span class="ok">Carga</span>: recibe objetos y los sube al tren' : '<span class="ok">Descarga</span>: baja lo del tren y lo suelta por la flecha') +
         row('Guardado', `${e.total} / ${STATION_CAP}`) + Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
         `<div class="actions"><button type="button" data-act="mode">Cambiar a ${e.mode === 'load' ? 'Descarga' : 'Carga'}</button></div>` +
@@ -589,11 +594,24 @@ function inspectorContent(e) {
     }
     case 'train': {
       const st = S.entities.find((s) => s.id === e.target);
-      h += row('Estado', e.state === 'moving' ? (e.blocked ? 'esperando vía libre' : 'en viaje') : e.state === 'waiting' ? 'cargando/descargando' : '<span class="bad">sin estaciones en su vía</span>') +
-        row('Destino', st ? `estación (${st.mode === 'load' ? 'carga' : 'descarga'})` : '—') +
+      h += row('Estado', e.state === 'moving' ? (e.blocked ? 'esperando vía libre (señal o tren adelante)' : 'en viaje') : e.state === 'waiting' ? 'cargando/descargando' : '<span class="bad">sin estaciones en su vía</span>') +
+        row('Destino', st ? `${escapeHtml(stationName(st))} (${st.mode === 'load' ? 'carga' : 'descarga'})` : '—') +
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.energy > 0 ? 'quemando' : '<span class="bad">vacío: va muy despacio</span>')) +
         row('Carga', `${e.total} / ${TRAIN_CAP}`) + Object.entries(e.cargo).map(([k, n]) => row(itemLabel(k), n)).join('') +
         '<div class="actions"><button type="button" data-act="tfuel">Cargar carbón</button><button type="button" data-act="tremove">🗑️ Desarmar tren</button></div>';
+      // Horario
+      const stations = S.entities.filter((s) => s.type === 'station');
+      const sch = e.schedule || [];
+      h += '<p class="small"><b>Horario</b> ' + (sch.length ? '' : '<span class="muted">(vacío: recorre todas las estaciones de su red)</span>') + '</p>';
+      const W_OPTS = [['time:5', 'esperar 5 s'], ['time:15', 'esperar 15 s'], ['time:30', 'esperar 30 s'], ['time:60', 'esperar 60 s'], ['full', 'hasta llenarse'], ['empty', 'hasta vaciarse']];
+      sch.forEach((s, i) => {
+        const wv = s.w === 'time' ? 'time:' + (s.s || 10) : s.w;
+        h += `<div class="sched-row${(e.si || 0) === i ? ' on' : ''}"><span>${i + 1}.</span>` +
+          `<select data-sched="st" data-i="${i}">${stations.map((x) => `<option value="${x.id}"${x.id === s.st ? ' selected' : ''}>${escapeHtml(stationName(x))}</option>`).join('')}</select>` +
+          `<select data-sched="w" data-i="${i}">${W_OPTS.map(([v, l]) => `<option value="${v}"${v === wv ? ' selected' : ''}>${l}</option>`).join('')}</select>` +
+          `<button type="button" class="small-btn" data-act="tsdel" data-v="${i}">✕</button></div>`;
+      });
+      h += stations.length ? '<div class="actions"><button type="button" class="small-btn" data-act="tsadd">➕ Agregar parada</button></div>' : '<p class="muted small">Poné estaciones para armar un horario.</p>';
       return h;
     }
     case 'offshore':
@@ -694,6 +712,9 @@ function inspectorContent(e) {
 function updateInspector() {
   if (!inspected) return;
   if (inspected._dead) { closeInspector(); return; }
+  // No redibujar mientras se elige en un desplegable o se escribe
+  const ae = document.activeElement;
+  if (ae && $('inspector').contains(ae) && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT')) return;
   const h = inspectorContent(inspected);
   if (h !== inspectorHtml) {
     inspectorHtml = h;
@@ -711,6 +732,19 @@ function feedFrom(e, items, max) {
   }
   return n;
 }
+
+// Desplegables del horario de un tren
+$('inspector').addEventListener('change', (ev) => {
+  const sel = ev.target.closest('select[data-sched]');
+  if (!sel || !inspected || inspected.type !== 'train') return;
+  const t = inspected, s = t.schedule && t.schedule[+sel.dataset.i];
+  if (!s) return;
+  if (sel.dataset.sched === 'st') s.st = +sel.value;
+  else if (sel.value.startsWith('time:')) { s.w = 'time'; s.s = +sel.value.slice(5); } else { s.w = sel.value; delete s.s; }
+  t._path = null; t.state = 'idle';
+  netTrainSchedule(t);
+  updateInspector();
+});
 
 // pointerdown: el panel se redibuja seguido y un 'click' se podría perder
 $('inspector').addEventListener('pointerdown', (ev) => {
@@ -739,6 +773,13 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       }
       break;
     case 'filter': e.filter = v || null; break;
+    case 'rename': { const v2 = ($('st-name') && $('st-name').value || '').replace(/[<>]/g, '').trim().slice(0, 24); if (v2) e.name = v2; break; }
+    case 'tsadd': {
+      const st = S.entities.find((s) => s.type === 'station');
+      if (st) { e.schedule = e.schedule || []; e.schedule.push({ st: st.id, w: 'time', s: 15 }); netTrainSchedule(e); }
+      break;
+    }
+    case 'tsdel': if (e.schedule) { e.schedule.splice(+v, 1); e.si = 0; e._path = null; e.state = 'idle'; netTrainSchedule(e); } break;
     case 'reqadd': e.req = e.req || {}; if (v && ITEMS[v]) e.req[v] = 50; break;
     case 'reqinc': { const [k, d] = String(v).split('|'); if (e.req && e.req[k] !== undefined) e.req[k] = Math.max(1, Math.min(400, e.req[k] + +d)); break; }
     case 'reqdel': if (e.req) delete e.req[v]; break;

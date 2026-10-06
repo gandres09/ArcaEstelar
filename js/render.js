@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -505,7 +505,7 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
-    case 'rail': case 'station': {
+    case 'rail': case 'station': case 'signal': {
       const links = e.id ? railLinks(e.x, e.y) : [true, false, true, false];
       if (!links.some(Boolean)) { links[0] = links[2] = true; }
       if (e.type === 'station') {
@@ -528,6 +528,13 @@ function drawBuilding(g, e, x0, y0, t) {
         g.restore();
       }
       g.restore();
+      if (e.type === 'signal') {
+        const red = e.id && signalRed(e);
+        g.fillStyle = '#2b3036';
+        rrect(g, x0 + TILE - 12, y0 + 2, 10, 18, 3); g.fill();
+        g.fillStyle = red ? '#e5534b' : '#3a3f45'; g.beginPath(); g.arc(x0 + TILE - 7, y0 + 7, 3, 0, Math.PI * 2); g.fill();
+        g.fillStyle = red ? '#3a3f45' : '#5cc47a'; g.beginPath(); g.arc(x0 + TILE - 7, y0 + 15, 3, 0, Math.PI * 2); g.fill();
+      }
       if (e.type === 'station') {
         g.fillStyle = e.mode === 'unload' ? '#5aa0ff' : '#5cc47a';
         g.font = 'bold 8px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';

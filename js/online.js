@@ -38,6 +38,7 @@ const PRES_BYTES = 3800;       // la presencia tiene un máximo de 4 KiB
 const netCapture = () => NET.on && !NET.applying && NET.sim === 0;
 
 function netPush(a) { if (netCapture()) NET.out.push(a); }
+function netTrainSchedule(t) { netPush({ k: 'ts', x: Math.round(t.x), y: Math.round(t.y), s: t.schedule || [] }); }
 function netPlaced(e) { if (netCapture()) NET.out.push({ lazy: e }); }
 function netTouch(e) { if (netCapture() && e) NET.touched.add(e); }
 
@@ -108,6 +109,7 @@ function netApply(a) {
         return true;
       }
       case 'tr': { const t = trainAt(a.x, a.y); if (t) removeTrain(t, true); return true; }
+      case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; } return true; }
     }
     return true;
   } catch (err) {

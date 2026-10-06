@@ -244,6 +244,8 @@ const BUILDINGS = {
                  desc: 'Trae 5 robots que construyen los fantasmas, reconstruyen lo destruido y reparan en 25 casillas a la redonda. Usa 200 kW.' },
   rail:        { name: 'Vía',                 cat: 'trenes', hp: 100, cost: { stone: 1, steel: 1 }, tech: 'railway',
                  desc: 'Se conecta sola con las vías vecinas. Tendela de punta a punta como una cinta.' },
+  signal:      { name: 'Señal de tren',       cat: 'trenes', hp: 100, cost: { steel: 2, circuit: 2 }, tech: 'railway',
+                 desc: 'Va en la vía (hace de vía) y la corta en tramos: un tren solo entra a un tramo si no hay otro tren adentro.' },
   station:     { name: 'Estación',            cat: 'trenes', hp: 300, cost: { steel: 10, circuit: 5, iron_plate: 10 }, tech: 'railway',
                  desc: 'Parada de tren sobre la vía. En modo Carga recibe objetos; en Descarga los suelta por la flecha.' },
   train:       { name: 'Tren',                cat: 'trenes', hp: 500, cost: { engine: 10, steel: 40, circuit: 10 }, tech: 'railway',
@@ -252,7 +254,7 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
