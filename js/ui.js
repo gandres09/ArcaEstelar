@@ -251,15 +251,15 @@ function updateInventory() {
   if (char) {
     fill($('pocket'), S.pinv);
     const near = nearStorage();
-    $('storage-note').textContent = near ? 'Estás cerca del Núcleo: tocá un objeto para pasarlo de un lado al otro. Construís usando las dos cosas.' : 'Lejos del Núcleo: construís solo con lo que llevás en la mochila.';
+    $('storage-note').textContent = near ? 'Estás cerca de la Nave: tocá un objeto para pasarlo de un lado al otro. Construís usando las dos cosas.' : 'Lejos de la Nave: construís solo con lo que llevás en la mochila.';
     $('storage-note').classList.toggle('ok', near);
     updateCraftUI();
   }
 }
 
-// Pasar objetos entre la mochila y el Núcleo (solo cerca del Núcleo)
+// Pasar objetos entre la mochila y la Nave (solo cerca de la Nave)
 function transferItem(k, toHub) {
-  if (!nearStorage()) { toast('Acercate al Núcleo para pasar objetos.'); return; }
+  if (!nearStorage()) { toast('Acercate a la Nave para pasar objetos.'); return; }
   const from = toHub ? S.pinv : S.inv, to = toHub ? S.inv : S.pinv;
   const n = Math.floor(from[k] || 0);
   if (!n) return;
@@ -327,6 +327,9 @@ function currentHint() {
     }
     return air + ' Cuando se cumpla, empieza la última etapa.';
   }
+  // El cofre de la nave tiene restos para arrancar
+  const starter = S.entities.find((e) => e.starter && e.total > 0);
+  if (starter && S.playTime < 1800) return `Al lado de la nave quedó un <b>cofre con restos</b> del choque. Tocalo con la ✋ Mano y sacá lo que tiene: te va a servir para arrancar.`;
   // Arranque con personaje: todo empieza a mano
   if (playerOn() && !S.entities.some((e) => e.type === 'miner' || e.type === 'eminer')) {
     const pv = (k) => S.pinv[k] || 0;
@@ -344,9 +347,9 @@ function currentHint() {
   if (!hasMinerOn('iron_ore')) return 'Elegí el <b>Taladro</b> y ponelo sobre el mineral de hierro (gris azulado). Girá la flecha para que apunte a donde va el mineral.';
   if (S.entities.some((e) => e.type === 'miner' && !e.fuel && e.burn <= 0 && !e.depleted)) return 'Hay un <b>Taladro</b> sin combustible: tocalo y usá <b>Cargar carbón</b> (1 carbón = 8 minerales). Un taladro sobre carbón se alimenta solo.';
   if (!countType('furnace') && !countType('efurnace')) return 'Poné un <b>Horno</b> justo delante de la flecha del taladro.';
-  if ((d.iron_plate || 0) < 5) return 'Llevá las placas del horno al <b>Núcleo</b> con <b>Cintas</b>. Acordate de cargarle carbón al horno (tocalo con la mano).';
+  if ((d.iron_plate || 0) < 5) return 'Llevá las placas del horno al <b>Nave</b> con <b>Cintas</b>. Acordate de cargarle carbón al horno (tocalo con la mano).';
   if (!hasMinerOn('coal')) return 'Automatizá el combustible: un taladro sobre <b>carbón</b> y una cinta que lo lleve a los hornos.';
-  if ((d.copper_plate || 0) < 5) return 'Armá otra línea para el <b>cobre</b> (mineral naranja): taladro → horno → Núcleo.';
+  if ((d.copper_plate || 0) < 5) return 'Armá otra línea para el <b>cobre</b> (mineral naranja): taladro → horno → Nave.';
   if (!countType('generator') && !countType('steam_engine') && !countType('solar') && !countType('fusion_plant')) return 'Las ensambladoras y los laboratorios necesitan <b>electricidad</b>: poné un <b>Generador a carbón</b>, cargale carbón y llevá la energía con <b>Postes</b>.';
   if (!countType('assembler')) return 'Poné una <b>Ensambladora</b> al alcance de un <b>Poste</b>, elegí la receta <b>Engranaje</b> y alimentala con placas de hierro.';
   if (!countType('lab')) return 'Fabricá <b>Ciencia roja</b> (cobre + engranaje) y llevala a un <b>Laboratorio</b>.';
@@ -354,8 +357,8 @@ function currentHint() {
   if (S.techs.steam_power && !countType('steam_engine')) return 'Energía a vapor: poné una <b>Bomba de agua</b> en la orilla de un lago, apuntando a una <b>Caldera</b> (cargala con carbón), y la caldera apuntando a <b>Máquinas de vapor</b> en fila. Conectalas con postes.';
   if (!S.peaceful && S.biters.some((b) => b.state === 'attack')) return '⚠️ Hay bichos atacando. Poné <b>Torretas</b> con <b>Munición</b> y <b>Muros</b> alrededor de la fábrica.';
   if (S.techs.oil && !countType('pumpjack')) return 'Buscá un pozo de <b>petróleo</b> (manchas negras) y poné una <b>Bomba de petróleo</b>.';
-  if (S.techs.receivers && !countType('receiver')) return 'Con los <b>Receptores</b> no hace falta llevar todo hasta el Núcleo: poné uno al final de una línea lejana y lo que le llega va al inventario.';
-  if (S.techs.inserters && !countType('inserter') && countType('lab')) return 'Probá los <b>Brazos</b>: un brazo pegado al Núcleo saca justo lo que necesita la máquina de enfrente (por ejemplo, ciencia para un laboratorio).';
+  if (S.techs.receivers && !countType('receiver')) return 'Con los <b>Receptores</b> no hace falta llevar todo hasta la Nave: poné uno al final de una línea lejana y lo que le llega va al inventario.';
+  if (S.techs.inserters && !countType('inserter') && countType('lab')) return 'Probá los <b>Brazos</b>: un brazo pegado a la Nave saca justo lo que necesita la máquina de enfrente (por ejemplo, ciencia para un laboratorio).';
   if (S.techs.railway && !S.trains.length) return '<b>Trenes</b>: tendé una vía entre una mina lejana y tu base, poné una <b>Estación</b> en cada punta (una en Carga y otra en Descarga) y un <b>Tren</b> sobre la vía.';
   if (S.techs.construction_robots && !countType('roboport')) return 'Poné un <b>Puerto de robots</b> con energía: construye los planos que esperan materiales y reconstruye lo que rompen los bichos.';
   if (S.techs.modules && !S.entities.some((e) => e.modules && e.modules.length)) return 'Fabricá <b>Módulos</b> y ponelos en máquinas eléctricas o laboratorios desde su panel: más velocidad, más producción o menos consumo.';
@@ -455,12 +458,12 @@ function hpRow(e) {
 
 function inspectorContent(e) {
   const def = BUILDINGS[e.type];
-  let h = `<div class="insp-head"><b>${e.type === 'hub' ? 'Núcleo' : def.name}</b>` +
+  let h = `<div class="insp-head"><b>${e.type === 'hub' ? 'Nave estrellada' : def.name}</b>` +
     `${NO_DIR.has(e.type) ? '' : ` <span class="muted">${DIR_ARROWS[e.dir]}</span>`}` +
     `<button type="button" class="close" data-act="close">✕</button></div>`;
   switch (e.type) {
     case 'hub':
-      h += '<p>Todo lo que entra al Núcleo va a tu inventario.</p>';
+      h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
       break;
     case 'belt': case 'fastbelt': case 'expressbelt':
       h += row('Velocidad', def.speed + ' objetos/s') + row('Carril izquierdo', e.l && e.l[0] ? itemLabel(e.l[0]) : 'vacío') + row('Carril derecho', e.l && e.l[1] ? itemLabel(e.l[1]) : 'vacío');
@@ -531,7 +534,7 @@ function inspectorContent(e) {
     case 'inserter': case 'fastinserter': {
       const [dx, dy] = DIRS[e.dir];
       const src = at(e.x - dx, e.y - dy), dst = at(e.x + dx, e.y + dy);
-      const nm = (x) => (!x ? '<span class="bad">nada</span>' : x.type === 'hub' ? 'Núcleo' : BUILDINGS[x.type]?.name || x.type);
+      const nm = (x) => (!x ? '<span class="bad">nada</span>' : x.type === 'hub' ? 'Nave' : BUILDINGS[x.type]?.name || x.type);
       h += row('Toma de', nm(src)) + row('Deja en', nm(dst)) + row('Lleva', itemLabel(e.hold)) +
         row('Velocidad', `${(1 / def.swing).toFixed(1)} objetos/s`) + (def.power ? powerRow(e) : '');
       if (src && src.type === 'receiver' && !hasTech('logistic_network')) h += '<p class="bad small">Para sacar de un receptor hace falta investigar Red logística.</p>';
@@ -587,7 +590,7 @@ function inspectorContent(e) {
         fuelPicker(e, 20);
       break;
     case 'receiver':
-      h += '<p>Todo lo que le llega va al inventario del Núcleo.</p>';
+      h += '<p>Todo lo que le llega va al inventario de la Nave.</p>';
       break;
     case 'pipe': case 'tank': {
       const net = fnets[e._fnet];
@@ -720,7 +723,7 @@ function inspectorContent(e) {
     h += '<div class="pick-title">Qué lee</div><div class="picker">' +
       `<button type="button" class="pick${(e.item || '*') === '*' ? ' on' : ''}" data-act="sitem" data-v="*" title="Todo">Σ</button>` +
       opts.map((k) => `<button type="button" class="pick${e.item === k ? ' on' : ''}" data-act="sitem" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}</button>`).join('') + '</div>';
-    h += `<p class="muted small">${t ? `Apunta a: ${t.type === 'hub' ? 'Núcleo' : BUILDINGS[t.type].name}. Girá el sensor (R) para cambiar.` : 'No apunta a nada: girá el sensor (R) hacia un cofre, el Núcleo, un tanque o un acumulador.'}</p>`;
+    h += `<p class="muted small">${t ? `Apunta a: ${t.type === 'hub' ? 'Nave' : BUILDINGS[t.type].name}. Girá el sensor (R) para cambiar.` : 'No apunta a nada: girá el sensor (R) hacia un cofre, la Nave, un tanque o un acumulador.'}</p>`;
   }
   if (CONDITIONABLE.has(e.type) && hasTech('signal_network')) {
     const c = e.cond;
@@ -805,9 +808,9 @@ function chestPicker(e) {
   h += mine.length && e.total < def.capacity
     ? '<div class="picker">' + mine.map((k) => `<button type="button" class="pick stack" data-act="cput" data-v="${k}" title="Poner ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(avail(k))}</span></button>`).join('') + '</div>'
     : `<p class="${e.total >= def.capacity ? 'muted' : 'bad'} small">${e.total >= def.capacity ? 'El cofre está lleno.'
-      : usePocket() && !nearStorage() ? 'Tu mochila está vacía. Lejos del Núcleo solo podés usar lo que llevás encima: acercate al Núcleo y pasá cosas a la mochila (tocándolas en el panel de inventario).'
+      : usePocket() && !nearStorage() ? 'Tu mochila está vacía. Lejos de la Nave solo podés usar lo que llevás encima: acercate a la Nave y pasá cosas a la mochila (tocándolas en el panel de inventario).'
         : 'No tenés objetos para poner.'}</p>`;
-  if (mine.length && usePocket() && !nearStorage()) h += '<p class="muted small">Lejos del Núcleo se usa solo lo que llevás en la mochila.</p>';
+  if (mine.length && usePocket() && !nearStorage()) h += '<p class="muted small">Lejos de la Nave se usa solo lo que llevás en la mochila.</p>';
   if (inside.length) h += '<div class="actions"><button type="button" data-act="empty">Vaciar todo al inventario</button></div>';
   return h;
 }
@@ -1194,7 +1197,7 @@ function updateTooltip() {
       const e = at(hover.x, hover.y);
       if (!tileExplored(hover.x, hover.y)) html = groundInfo(hover.x, hover.y, false);
       else if (e && e.type === 'nest') html = '<b>Nido enemigo</b><br><span class="muted">Destruilo con torretas cerca</span>';
-      else if (e) html = `<b>${e.type === 'hub' ? 'Núcleo' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
+      else if (e) html = `<b>${e.type === 'hub' ? 'Nave estrellada' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
       else html = groundInfo(hover.x, hover.y, false);
     } else if (BUILDINGS[tool] && !beltPlan) {
       const a = anchorFor(tool, hover);

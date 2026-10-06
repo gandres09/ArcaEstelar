@@ -6,7 +6,7 @@
 const PLAYER_SPEED = 6.5;   // casillas por segundo
 const REACH = 10;           // alcance para construir e interactuar
 const MINE_REACH = 2.6;     // alcance para extraer a mano
-const STORAGE_REACH = 10;   // distancia al Núcleo para usar lo que tiene guardado
+const STORAGE_REACH = 10;   // distancia a la Nave para usar lo que tiene guardado
 const PLAYER_RADIUS = 0.28;
 const REVEAL_RADIUS = 18;
 
@@ -14,7 +14,7 @@ const playerOn = () => !!(S && S.character && S.player);
 
 // --------------------------- Inventarios ---------------------------
 
-// Mientras está activo, los costos salen del Núcleo (robots, bot, modo clásico)
+// Mientras está activo, los costos salen de la Nave (robots, bot, modo clásico)
 let forceHub = false;
 function withNucleo(fn) {
   const prev = forceHub;
@@ -23,7 +23,7 @@ function withNucleo(fn) {
 }
 const usePocket = () => playerOn() && !forceHub;
 
-// ¿El personaje está cerca del Núcleo (o de un receptor, con la red logística)?
+// ¿El personaje está cerca de la Nave (o de un receptor, con la red logística)?
 function nearStorage() {
   if (!usePocket()) return true;
   const p = S.player;

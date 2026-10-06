@@ -84,7 +84,7 @@ function generateMap(seed) {
     lake(px, py, 3 + rnd() * 9);
   }
 
-  // Yacimientos iniciales alrededor del Núcleo
+  // Yacimientos iniciales alrededor de la Nave
   if (gen >= 3) {
     // Partidas nuevas: los mismos seis yacimientos, pero en otro orden y otro ángulo cada vez
     const starts = [[1, 5.5, 420], [2, 5.5, 380], [3, 4.5, 380], [4, 4.5, 320], [1, 3.5, 380], [2, 4, 380]];
@@ -151,11 +151,11 @@ function generateMap(seed) {
     patch(px, py, 2.5 + rnd() * 5, id, 380 * (1 + d / 45));
   }
 
-  // Un lago chico cerca del Núcleo para la energía a vapor
+  // Un lago chico cerca de la Nave para la energía a vapor
   if (gen >= 3) { const a = rnd() * Math.PI * 2; lake(Math.round(cx + Math.cos(a) * 26), Math.round(cy + Math.sin(a) * 22), 4.5); }
   else lake(cx + 4, cy - 24, 4.5);
 
-  // Despejar la zona del Núcleo
+  // Despejar la zona de la Nave
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
   oreBase = oreAmt.slice();
   oreTypeBase = oreType.slice();
@@ -444,7 +444,7 @@ let treeCount = new Uint16Array(0);
 let forestCell = new Float32Array(0);
 const treeCache = new Map();
 
-// ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos del Núcleo)
+// ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos de la Nave)
 function naturalTreeAt(x, y) {
   const i = y * W + x;
   if (oreBase[i] !== 0) return null;

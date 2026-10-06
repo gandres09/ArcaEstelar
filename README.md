@@ -10,7 +10,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 ## Qué tiene
 
 - **Personaje**: arrancás con cero ítems. Extraés a mano, fabricás a mano y construís dentro de tu alcance; si
-  mandás a construir lejos, camina hasta ahí. Lleva una mochila y cerca del Núcleo usa también lo guardado ahí.
+  mandás a construir lejos, camina hasta ahí. Lleva una mochila y cerca de la Nave usa también lo guardado ahí.
   El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
 - **Perrito de compañía**: te sigue o se queda sentado donde lo dejes; se lo alimenta, se lo acaricia, se le pone
   nombre y se elige su color (marrón, negro, blanco o dorado). Sube hasta el nivel 10 con comida, mimos y compañía
@@ -45,7 +45,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Cintas de dos carriles** como en Factorio: carga lateral, curvas que conservan el carril, brazos que dejan en el
   carril de enfrente; subterráneas, divisores y filtros conservan el carril.
 - **Robots logísticos**: cofres de provisión y cofres de pedido (con objetos y cantidades); los robots traen lo
-  pedido desde los cofres de provisión o el Núcleo, dentro de la zona de los puertos.
+  pedido desde los cofres de provisión o la Nave, dentro de la zona de los puertos.
 - **Trenes con señales y horarios**: las señales cortan la vía en tramos para que anden varios trenes; cada tren
   tiene paradas con condición (esperar, hasta llenarse, hasta vaciarse) y las estaciones tienen nombre.
 - **Biblioteca de planos** (tecla B): guardar lo copiado con nombre y miniatura, pegarlo, pasarlo como código y
@@ -53,12 +53,12 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Red de señales**: sensores que mandan valores a 8 canales de colores y condiciones para prender o apagar
   máquinas, brazos, cintas, bombas, generadores y lámparas.
 - **Logística**: cintas en 3 velocidades, subterráneas, divisores, filtros, cofres, **brazos insertadores** (normales,
-  rápidos y con filtro) y **receptores** que entregan al Núcleo desde cualquier lugar. Con la Red logística, los
+  rápidos y con filtro) y **receptores** que entregan a la Nave desde cualquier lugar. Con la Red logística, los
   brazos también sacan del inventario a través de los receptores.
 - **Líquidos**: cañerías que se conectan solas y tanques de 2.500 forman redes de un solo líquido (agua, petróleo,
   vapor o lubricante). Las máquinas que producen líquido lo vuelcan apuntando a una cañería y las que lo usan lo
   toman solas si la tocan. También se pueden llevar líquidos por cinta.
-- **Almacenamiento**: cofre (200), cofre de acero (800), estaciones de tren (800) y el Núcleo, sin límite.
+- **Almacenamiento**: cofre (200), cofre de acero (800), estaciones de tren (800) y la Nave, sin límite.
   El divisor puede repartir por turnos o darle prioridad a una salida.
 - **Trenes**: vías que se conectan solas, estaciones de carga y descarga, y trenes que las recorren quemando carbón.
 - **Robots de construcción**: lo que construís o pegás sin materiales queda como plano y los robots lo arman cuando
@@ -139,7 +139,7 @@ En `tools/` hay dos herramientas para ajustar el balance después de tocar `js/d
 - **Calculadora** (`node tools/calculadora.js`): suma todo lo que hace falta para investigar el árbol completo y
   armar la nave. Muestra materias primas, segundos de máquina y segundos de laboratorio, en total y por etapa.
 - **Jugador automático** (`node tools/bot.mjs [semilla] [horas] [pacifico|enemigos]`): juega una partida entera
-  en un navegador sin ventana, con las reglas reales: arma líneas de taladros y hornos con cintas hasta el Núcleo,
+  en un navegador sin ventana, con las reglas reales: arma líneas de taladros y hornos con cintas hasta la Nave,
   centrales de vapor, bombas de petróleo y agua, explora la niebla y va investigando. Para la logística intermedia
   (alimentar ensambladoras y laboratorios) simula un jugador eficiente que tiene todo bien conectado. Al final
   muestra cuándo llegó a cada era, qué le faltó y cuándo despegó la nave. Necesita Playwright

@@ -42,7 +42,7 @@ function netTrainSchedule(t) { netPush({ k: 'ts', x: Math.round(t.x), y: Math.ro
 function netPlaced(e) { if (netCapture()) NET.out.push({ lazy: e }); }
 function netTouch(e) { if (netCapture() && e) NET.touched.add(e); }
 
-// Cambios en el inventario del Núcleo hechos por este jugador
+// Cambios en el inventario de la Nave hechos por este jugador
 function netInvDelta(before) {
   if (!netCapture() || !before) return;
   const d = {};

@@ -91,7 +91,7 @@ function updateRobots(dt) {
     if (!port) continue;
     // Los materiales salen del inventario al despegar
     if (job.ghost) {
-      // Los robots sacan los materiales del Núcleo
+      // Los robots sacan los materiales de la Nave
       if (!withNucleo(() => canAfford(BUILDINGS[job.ghost.type].cost))) continue;
       withNucleo(() => pay(BUILDINGS[job.ghost.type].cost));
     } else if ((S.inv.iron_plate || 0) >= 1) S.inv.iron_plate -= 1;
@@ -121,7 +121,7 @@ function finishJob(f) {
 
 // =====================================================================
 //  Robots logísticos: llevan objetos de los cofres de provisión (y del
-//  Núcleo) a los cofres de pedido, dentro de la zona de los puertos.
+//  Nave) a los cofres de pedido, dentro de la zona de los puertos.
 // =====================================================================
 
 const LOGI_BOTS = 5;      // por puerto
@@ -178,7 +178,7 @@ function updateLogistics(dt) {
       let missing = r.req[item] - (r.store[item] || 0) - (coming[r.id + ':' + item] || 0);
       while (missing > 0 && r.total + (coming[r.id + ':' + item] || 0) < BUILDINGS.requesterchest.capacity) {
         const n = Math.min(LOGI_CARGO, missing);
-        // El cofre de provisión más cercano con ese objeto; si no, el Núcleo
+        // El cofre de provisión más cercano con ese objeto; si no, la Nave
         let src = null, bd = Infinity;
         for (const pv of providers) {
           const reserved = S.lflights.filter((f) => f.src === pv.id && f.item === item && !f.carry).reduce((a, f) => a + f.n, 0);

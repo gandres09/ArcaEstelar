@@ -327,6 +327,77 @@ function drawProgress(g, x0, y0, frac, color = '#5cc47a') {
   g.fillRect(x0 + 5, y0 + TILE - 7, (TILE - 10) * Math.min(1, frac), 3);
 }
 
+// La nave en la que te estrellaste: refugio y almacén (ocupa 3×3)
+function drawCrashedShip(g, x0, y0, t) {
+  const S3 = TILE * 3, cx = x0 + S3 / 2, cy = y0 + S3 / 2;
+  // Tierra quemada y la marca del arrastre al caer
+  const burn = g.createRadialGradient(cx, cy + 4, 6, cx, cy + 4, S3 * 0.62);
+  burn.addColorStop(0, 'rgba(30,20,12,0.55)'); burn.addColorStop(1, 'rgba(30,20,12,0)');
+  g.fillStyle = burn; g.beginPath(); g.ellipse(cx, cy + 4, S3 * 0.62, S3 * 0.5, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(40,28,18,0.45)'; g.lineWidth = 9; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x0 - 6, y0 + 8); g.lineTo(cx - 18, cy - 6); g.stroke();
+  g.lineCap = 'butt';
+  g.save();
+  g.translate(cx, cy + 2);
+  g.rotate(-0.32);
+  // Sombra
+  g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(4, 8, 44, 17, 0, 0, Math.PI * 2); g.fill();
+  // Ala de atrás (doblada, medio enterrada)
+  g.fillStyle = '#7d8691';
+  g.beginPath(); g.moveTo(-14, 6); g.lineTo(-30, 26); g.lineTo(-6, 22); g.lineTo(6, 8); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.moveTo(-30, 26); g.lineTo(-6, 22); g.lineTo(-10, 25); g.closePath(); g.fill();
+  // Casco
+  const hull = g.createLinearGradient(0, -18, 0, 18);
+  hull.addColorStop(0, '#dfe4ea'); hull.addColorStop(0.55, '#a9b2bd'); hull.addColorStop(1, '#6e7883');
+  g.fillStyle = hull;
+  g.beginPath();
+  g.moveTo(-40, -10); g.quadraticCurveTo(-20, -19, 14, -16); g.quadraticCurveTo(40, -12, 46, 0);
+  g.quadraticCurveTo(40, 12, 14, 15); g.quadraticCurveTo(-20, 18, -40, 10); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(30,36,44,0.7)'; g.lineWidth = 1.5; g.stroke();
+  // Franja naranja y paneles
+  g.fillStyle = '#e8963a'; g.beginPath(); g.moveTo(-36, -3); g.lineTo(30, -3); g.lineTo(28, 1); g.lineTo(-36, 1); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(40,48,58,0.35)'; g.lineWidth = 1;
+  for (const px of [-22, -4, 14]) { g.beginPath(); g.moveTo(px, -15); g.lineTo(px + 2, 14); g.stroke(); }
+  // Abolladura y raspones
+  g.fillStyle = 'rgba(60,66,74,0.45)'; g.beginPath(); g.ellipse(4, 8, 7, 3, 0.3, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(40,30,20,0.5)';
+  g.beginPath(); g.moveTo(-28, 9); g.lineTo(-16, 12); g.moveTo(20, -12); g.lineTo(30, -9); g.stroke();
+  // Cabina
+  const glass = g.createLinearGradient(26, -10, 42, 6);
+  glass.addColorStop(0, '#9fdcff'); glass.addColorStop(1, '#2f6fb0');
+  g.fillStyle = glass; g.beginPath(); g.ellipse(32, -3, 10, 7, 0.1, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#2a3340'; g.lineWidth = 1.5; g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(28, -7); g.lineTo(34, -1); g.moveTo(31, -8); g.lineTo(35, -4); g.stroke();   // vidrio rajado
+  // Ala de adelante
+  g.fillStyle = '#9aa3ad';
+  g.beginPath(); g.moveTo(-12, -12); g.lineTo(-30, -32); g.lineTo(-8, -28); g.lineTo(8, -14); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(30,36,44,0.6)'; g.lineWidth = 1; g.stroke();
+  // Motor de atrás, roto
+  g.fillStyle = '#4a525c'; rrect(g, -50, -8, 12, 16, 3); g.fill();
+  g.fillStyle = '#1d2228'; g.beginPath(); g.ellipse(-50, 0, 3, 6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = `rgba(255,${120 + Math.floor(Math.sin(t * 9) * 40)},40,0.7)`;
+  g.beginPath(); g.arc(-51, 0, 2.2, 0, Math.PI * 2); g.fill();
+  // Escotilla abierta con luz adentro: el refugio
+  g.fillStyle = '#1b1f24'; rrect(g, -12, 4, 13, 10, 2); g.fill();
+  const lamp = 0.75 + Math.sin(t * 2) * 0.1;
+  g.fillStyle = `rgba(255,214,140,${lamp})`; rrect(g, -10, 6, 9, 7, 1.5); g.fill();
+  g.fillStyle = '#8e97a2'; g.beginPath(); g.moveTo(-12, 14); g.lineTo(1, 14); g.lineTo(4, 21); g.lineTo(-15, 21); g.closePath(); g.fill();   // rampa
+  // Antena con luz que titila
+  g.strokeStyle = '#c9d1db'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(10, -16); g.lineTo(13, -27); g.stroke();
+  g.fillStyle = Math.floor(t * 1.5) % 2 ? '#5cc47a' : '#2c5a3a';
+  g.beginPath(); g.arc(13, -28, 2.5, 0, Math.PI * 2); g.fill();
+  g.restore();
+  // Humo que sale del motor (en coordenadas del mundo, sube derecho)
+  const ex = cx - 48 * Math.cos(0.32), ey = cy + 2 + 48 * Math.sin(0.32);
+  for (let i = 0; i < 4; i++) {
+    const k = ((t * 0.35 + i / 4) % 1);
+    g.fillStyle = `rgba(150,150,150,${0.35 * (1 - k)})`;
+    g.beginPath(); g.arc(ex - 4 + k * 10, ey - 6 - k * 34, 4 + k * 9, 0, Math.PI * 2); g.fill();
+  }
+}
+
 function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
@@ -848,32 +919,7 @@ function drawBuilding(g, e, x0, y0, t) {
       g.stroke();
       break;
 
-    case 'hub': {
-      const s = TILE * 3;
-      box(g, x0, y0, '#3a424e', null, 2, s);
-      // Plataforma con franjas de peligro
-      g.save();
-      rrect(g, x0 + 8, y0 + 8, s - 16, s - 16, 4); g.clip();
-      g.fillStyle = '#2a3039'; g.fillRect(x0, y0, s, s);
-      g.strokeStyle = 'rgba(240,167,66,0.55)'; g.lineWidth = 4;
-      g.beginPath();
-      for (let k = -s; k < s; k += 12) { g.moveTo(x0 + k, y0 + s); g.lineTo(x0 + k + s, y0); }
-      g.stroke();
-      g.fillStyle = '#2a3039'; rrect(g, x0 + 14, y0 + 14, s - 28, s - 28, 6); g.fill();
-      g.restore();
-      // Antena con luz que titila
-      g.fillStyle = '#9aa3ad'; g.fillRect(x0 + s - 20, y0 + 10, 3, 10);
-      g.fillStyle = Math.floor(t * 1.5) % 2 ? '#5cc47a' : '#2c5a3a';
-      g.beginPath(); g.arc(x0 + s - 18.5, y0 + 10, 2.5, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#f0a742';
-      g.font = '700 13px "Chakra Petch", system-ui, sans-serif';
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText('NÚCLEO', x0 + s / 2, y0 + s / 2 - 5);
-      g.font = '500 10px Barlow, system-ui, sans-serif';
-      g.fillStyle = '#c9d1db';
-      g.fillText('almacén', x0 + s / 2, y0 + s / 2 + 9);
-      break;
-    }
+    case 'hub': drawCrashedShip(g, x0, y0, t); break;
 
     case 'shipyard': case 'starport': drawShipyard(g, e, x0, y0, t); break;
 

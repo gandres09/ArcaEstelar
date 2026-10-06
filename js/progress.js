@@ -4,7 +4,7 @@
 // =====================================================================
 
 const ACHIEVEMENTS = [
-  { id: 'first_plate',  name: 'Primera placa',        desc: 'Llevá una placa de hierro al Núcleo.',          test: () => (S.delivered.iron_plate || 0) >= 1 },
+  { id: 'first_plate',  name: 'Primera placa',        desc: 'Llevá una placa de hierro a la Nave.',          test: () => (S.delivered.iron_plate || 0) >= 1 },
   { id: 'plates_1k',    name: 'Mil placas',            desc: 'Producí 1.000 placas de hierro.',               test: () => (S.produced.iron_plate || 0) >= 1000, prog: () => [(S.produced.iron_plate || 0), 1000] },
   { id: 'first_tech',   name: 'Curiosidad',            desc: 'Terminá tu primera investigación.',             test: () => Object.keys(S.techs).length >= 1 },
   { id: 'electric',     name: 'Hágase la luz',         desc: 'Investigá Electricidad.',                       test: () => !!S.techs.electricity },

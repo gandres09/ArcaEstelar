@@ -1,7 +1,7 @@
 'use strict';
 // =====================================================================
 //  Arrastrar objetos con el mouse: del inventario a un edificio (en el
-//  mapa o en su panel), del cofre al inventario, y entre mochila y Núcleo.
+//  mapa o en su panel), del cofre al inventario, y entre mochila y Nave.
 // =====================================================================
 
 let drag = null, dragEndedAt = 0, dragMark = null;
@@ -31,7 +31,7 @@ function dropTarget(x, y) {
 }
 
 function entName(e) {
-  if (e.type === 'hub') return 'el Núcleo';
+  if (e.type === 'hub') return 'la Nave';
   const n = BUILDINGS[e.type].name;
   return (/(a|ión)( |$)/.test(n.split(' ')[0]) ? 'la ' : 'el ') + n.toLowerCase();
 }
@@ -52,7 +52,7 @@ function doDrop(d, t) {
   } else if (t.kind === 'ent') {
     n = depositTo(t.ent, k);
     netTouch(t.ent);
-    toast(n ? `Pusiste ${n} ${name} en ${entName(t.ent)}.` : `${t.ent.type === 'hub' ? 'El Núcleo' : BUILDINGS[t.ent.type].name} no acepta ${name} (o está lleno).`);
+    toast(n ? `Pusiste ${n} ${name} en ${entName(t.ent)}.` : `${t.ent.type === 'hub' ? 'La Nave' : BUILDINGS[t.ent.type].name} no acepta ${name} (o está lleno).`);
   } else if (d.from === 'inv' && t.kind === 'pocket') transferItem(k, false);
   else if (d.from === 'pocket' && t.kind === 'inv') transferItem(k, true);
   if (n) sfx('click');

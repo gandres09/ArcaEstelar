@@ -118,6 +118,13 @@ function startNewGame(seed, peaceful, character = true) {
   const hub = makeEntity('hub', cx - 1, cy - 1);
   hub.id = S.nextId++;
   S.entities.push(hub);
+  // Un cofre con restos del choque, pegado a la nave
+  const box = makeEntity('woodchest', cx + 2, cy + 1, 1);
+  box.id = S.nextId++;
+  box.starter = true;
+  box.store = character ? { iron_plate: 10, copper_plate: 6, coal: 10, wood: 10, stone: 5 } : { iron_plate: 20, gear: 10, coal: 20 };
+  box.total = Object.values(box.store).reduce((a, b) => a + b, 0);
+  S.entities.push(box);
   rebuildGrid();
   if (character) S.player = newPlayer(cx + 0.5, cy + 3.5);
   generateNests(seed);

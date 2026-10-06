@@ -16,7 +16,7 @@ function newState(seed, peaceful, character = false) {
     seed,
     peaceful: !!peaceful,
     character: !!character,
-    // Con personaje se empieza sin nada; en modo clásico, con materiales en el Núcleo
+    // Con personaje se empieza sin nada; en modo clásico, con materiales en la Nave
     inv: character ? {} : { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40 },
     pinv: {},
     player: null,
@@ -51,7 +51,7 @@ const isUnlocked = (type) => hasTech(BUILDINGS[type].tech);
 const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : BUILDINGS[e.type]?.hp || 100);
 const isPlayer = (e) => e && e.type !== 'nest';
 
-// Con personaje, los costos salen de la mochila (y del Núcleo si está cerca); ver player.js
+// Con personaje, los costos salen de la mochila (y de la Nave si está cerca); ver player.js
 function canAfford(cost) {
   for (const k in cost) if (avail(k) < cost[k]) return false;
   return true;
@@ -606,7 +606,7 @@ function accept(t, item, src, dry = false, lane = -1) {
   return false;
 }
 
-// Lo que podría querer recibir un edificio (para sacarlo del Núcleo)
+// Lo que podría querer recibir un edificio (para sacarlo de la Nave)
 function wantedBy(dst) {
   switch (dst.type) {
     case 'assembler': case 'assembler2': case 'chem': return dst.recipe ? Object.keys(RECIPES[dst.recipe].in) : [];

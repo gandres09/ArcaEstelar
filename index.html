@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=202610062128">
+  <link rel="stylesheet" href="style.css?v=202610062134">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -56,7 +56,7 @@
       <div id="craft"></div>
     </section>
     <section>
-      <h2>Núcleo <small>(almacén de la fábrica)</small></h2>
+      <h2>Nave <small>(almacén de la fábrica)</small></h2>
       <div id="inventory" class="inv-grid"></div>
     </section>
   </aside>
@@ -156,16 +156,16 @@
       </ol>
       <h3>Cómo empezar</h3>
       <ol>
-        <li>Arrancás <b>sin nada</b>, con tu personaje junto al <b>Núcleo</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
+        <li>Arrancás <b>sin nada</b>, con tu personaje junto al <b>Nave</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
         <li>Sacá <b>piedra</b> y armá un <b>Horno</b>. Cargale <b>carbón</b> (o <b>madera</b>) y <b>hierro</b> tocándolo, y sacá las placas.</li>
-        <li>Con placas y piedra poné <b>Taladros</b> sobre el mineral y llevá todo con <b>Cintas</b>. Lo que entra al <b>Núcleo</b> queda guardado para construir.</li>
+        <li>Con placas y piedra poné <b>Taladros</b> sobre el mineral y llevá todo con <b>Cintas</b>. Lo que entra al <b>Nave</b> queda guardado para construir.</li>
         <li>Con una <b>Ensambladora</b> hacé engranajes y <b>Ciencia roja</b>, y llevala a un <b>Laboratorio</b>. El panel <b>Siguiente paso</b> te guía.</li>
       </ol>
       <h3>Tu personaje</h3>
       <ul>
         <li>Tocá el suelo para caminar (o <kbd>WASD</kbd>). 🎯 centra la cámara en él.</li>
         <li>Construye solo lo que está a su alcance (el círculo amarillo). Si mandás algo lejos, camina hasta ahí y lo hace.</li>
-        <li>Lleva una <b>Mochila</b>. Cerca del Núcleo usa también lo guardado ahí, y podés pasar cosas de un lado al otro tocándolas.</li>
+        <li>Lleva una <b>Mochila</b>. Cerca de la Nave usa también lo guardado ahí, y podés pasar cosas de un lado al otro tocándolas.</li>
         <li>En <b>Fabricar a mano</b> arma engranajes, cintas, taladros y más sin máquinas (más lento).</li>
         <li>Tenés un <b>perrito</b> que te acompaña. Tocalo para alimentarlo, acariciarlo, ponerle nombre, elegir su color o dejarlo sentado (por ejemplo, cuidando tu base). Sube de <b>nivel</b> con comida y mimos, y gana collar, medallita, pañuelo y hasta una corona. La comida le dura media hora de juego; después tiene hambre, y si pasa otra media hora sin comer, <b>se escapa</b>.</li>
         <li>¿Preferís el modo de antes, sin personaje? Elegí <b>Clásico</b> en <b>Nuevo juego</b>.</li>
@@ -183,7 +183,7 @@
         <li>En ☰ → <b>En línea y amigos</b> (o el botón 🌐 de arriba) agregalos a tu lista de <b>Amigos</b>: ves quién está conectado y en qué mundo.</li>
         <li>Elegí tu <b>nombre de usuario</b> ahí mismo: es el que ven todos arriba de tu personaje.</li>
         <li><b>Invitar</b> abre tu mundo y a tu amigo le aparece un aviso para unirse. También podés entrar al mundo de un amigo con <b>Unirme</b>.</li>
-        <li>La fábrica, el Núcleo y la investigación son de todos; la mochila es de cada uno. Tu partida propia queda guardada aparte.</li>
+        <li>La fábrica, la Nave y la investigación son de todos; la mochila es de cada uno. Tu partida propia queda guardada aparte.</li>
       </ul>
       <h3>Con teclado y mouse</h3>
       <ul class="keys">
@@ -201,11 +201,11 @@
         <li><b>Árboles:</b> tocalos con la mano para talarlos (4 de madera cada uno; el personaje sigue con los de al lado). Construir encima también los tala. La madera es combustible y sirve para el <b>Cofre de madera</b> y el <b>Vivero</b>. Ojo: los bosques absorben polución, y el Vivero vuelve a plantar.</li>
         <li>Las máquinas eléctricas tienen que estar cerca de un <b>poste</b> conectado a un generador.</li>
         <li>El mapa arranca cubierto de niebla: se descubre al construir y con el <b>radar</b>. No se puede construir en lo que no exploraste.</li>
-        <li><b>Brazos</b>: toman de atrás y dejan adelante solo lo que el destino necesita. Un brazo pegado al Núcleo alimenta la máquina de enfrente.</li>
+        <li><b>Brazos</b>: toman de atrás y dejan adelante solo lo que el destino necesita. Un brazo pegado a la Nave alimenta la máquina de enfrente.</li>
         <li><b>Trenes</b>: vías, estaciones en modo Carga o Descarga y un tren que las recorre. <b>Robots</b>: construyen planos sin materiales, reconstruyen y reparan.</li>
         <li><b>Cañerías</b> y <b>tanques</b>: llevan un solo líquido por red. Apuntá la flecha de la bomba o la caldera a una cañería; las máquinas que la tocan toman lo que necesitan.</li>
         <li><b>Cintas de dos carriles:</b> cada lado lleva lo suyo. Una cinta que entra de costado carga el carril de ese lado; los brazos dejan en el carril de enfrente.</li>
-        <li><b>Robots logísticos:</b> en un <b>Cofre de pedido</b> elegís qué querés y cuánto; los robots lo traen de los <b>Cofres de provisión</b> o del Núcleo.</li>
+        <li><b>Robots logísticos:</b> en un <b>Cofre de pedido</b> elegís qué querés y cuánto; los robots lo traen de los <b>Cofres de provisión</b> o de la Nave.</li>
         <li><b>Señales y horarios:</b> poné señales en la vía para que anden varios trenes, y armá el horario de cada tren desde su panel.</li>
         <li><b>Planos</b> (tecla B): guardá lo que copiás y usalo cuando quieras. <b>Red de señales:</b> un <b>Sensor</b> lee un cofre y las máquinas se prenden o apagan según una condición.</li>
         <li><b>Módulos</b> en máquinas eléctricas y laboratorios: más velocidad, productividad o eficiencia. Al final hay investigaciones <b>infinitas</b>.</li>
@@ -288,25 +288,25 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=202610062128"></script>
-  <script src="js/world.js?v=202610062128"></script>
-  <script src="js/sim.js?v=202610062128"></script>
-  <script src="js/enemies.js?v=202610062128"></script>
-  <script src="js/trains.js?v=202610062128"></script>
-  <script src="js/robots.js?v=202610062128"></script>
-  <script src="js/fluids.js?v=202610062128"></script>
-  <script src="js/player.js?v=202610062128"></script>
-  <script src="js/online.js?v=202610062128"></script>
-  <script src="js/p2p.js?v=202610062128"></script>
-  <script src="js/cloud.js?v=202610062128"></script>
-  <script src="js/pet.js?v=202610062128"></script>
-  <script src="js/render.js?v=202610062128"></script>
-  <script src="js/audio.js?v=202610062128"></script>
-  <script src="js/ui.js?v=202610062128"></script>
-  <script src="js/progress.js?v=202610062128"></script>
-  <script src="js/blueprints.js?v=202610062128"></script>
-  <script src="js/input.js?v=202610062128"></script>
-  <script src="js/dragdrop.js?v=202610062128"></script>
-  <script src="js/main.js?v=202610062128"></script>
+  <script src="js/data.js?v=202610062134"></script>
+  <script src="js/world.js?v=202610062134"></script>
+  <script src="js/sim.js?v=202610062134"></script>
+  <script src="js/enemies.js?v=202610062134"></script>
+  <script src="js/trains.js?v=202610062134"></script>
+  <script src="js/robots.js?v=202610062134"></script>
+  <script src="js/fluids.js?v=202610062134"></script>
+  <script src="js/player.js?v=202610062134"></script>
+  <script src="js/online.js?v=202610062134"></script>
+  <script src="js/p2p.js?v=202610062134"></script>
+  <script src="js/cloud.js?v=202610062134"></script>
+  <script src="js/pet.js?v=202610062134"></script>
+  <script src="js/render.js?v=202610062134"></script>
+  <script src="js/audio.js?v=202610062134"></script>
+  <script src="js/ui.js?v=202610062134"></script>
+  <script src="js/progress.js?v=202610062134"></script>
+  <script src="js/blueprints.js?v=202610062134"></script>
+  <script src="js/input.js?v=202610062134"></script>
+  <script src="js/dragdrop.js?v=202610062134"></script>
+  <script src="js/main.js?v=202610062134"></script>
 </body>
 </html>
