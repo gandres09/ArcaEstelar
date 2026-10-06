@@ -54,7 +54,7 @@ async function cloudInit(fresh) {
 }
 
 async function cloudSave(force = false) {
-  if (!CLOUD.on || CLOUD.busy || NET.on || NET.busy) return false;
+  if (!CLOUD.on || CLOUD.busy || (NET.on && !netInMyWorld()) || NET.busy) return false;
   const now = Date.now();
   if (!force && now - CLOUD.lastTry < CLOUD_EVERY * 1000 * 0.8) return false;
   CLOUD.busy = true;
@@ -164,7 +164,7 @@ function cloudStatus() {
     el.textContent = 'La partida se guarda sola cada 10 segundos en este navegador. La copia en la nube funciona cuando abrís el juego desde claude.ai con tu cuenta.';
     return;
   }
-  if (NET.on) { el.textContent = '☁️ En línea el mundo lo guarda el anfitrión. Tu partida propia sigue a salvo en la nube.'; return; }
+  if (NET.on && !netInMyWorld()) { el.textContent = '☁️ Estás en el mundo de otro: lo guarda su anfitrión. Tu partida propia sigue a salvo en la nube.'; return; }
   el.textContent = CLOUD.at
     ? `☁️ Se guarda sola en tu cuenta. Última copia: ${cloudAgo(CLOUD.at)}${CLOUD.err ? ' (el último intento falló, se reintenta solo)' : ''}.`
     : '☁️ Se guarda sola en tu cuenta cada minuto.';

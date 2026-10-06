@@ -34,7 +34,7 @@ function serialize() {
 
 function save() {
   if (NET.busy) return false;
-  if (NET.on) return netSaveMine();   // en línea: el mundo lo guarda el anfitrión
+  if (NET.on && !netInMyWorld()) return netSaveMine();   // en el mundo de otro: ese mundo lo guarda su anfitrión
   try {
     S.savedAt = Date.now();
     const raw = serialize();
@@ -230,7 +230,7 @@ async function init() {
   $('btn-win-close').addEventListener('click', closeModals);
   $('btn-save').addEventListener('click', async () => {
     const ok = save();
-    if (CLOUD.on && !NET.on) toast((await cloudSave(true)) ? '💾 Partida guardada en este navegador y en la nube.' : (ok ? '💾 Guardada en el navegador. La nube no respondió; se reintenta sola.' : 'No se pudo guardar. Usá “Copiar código de partida”.'));
+    if (CLOUD.on && (!NET.on || netInMyWorld())) toast((await cloudSave(true)) ? '💾 Partida guardada en este navegador y en la nube.' : (ok ? '💾 Guardada en el navegador. La nube no respondió; se reintenta sola.' : 'No se pudo guardar. Usá “Copiar código de partida”.'));
     else toast(ok ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.');
   });
   $('btn-export').addEventListener('click', exportGame);

@@ -490,8 +490,10 @@ function netStart() {
 
 // quiet: se sale para entrar a otro mundo (no recarga la partida propia)
 function netLeave(quiet) {
+  const mine = netInMyWorld();
   if (NET.role === 'host') netSnapshot();
-  if (NET.on) netSaveMine();
+  if (mine) { NET.on = false; save(); cloudSave(true); }   // mi mundo = mi partida: queda tal cual
+  else if (NET.on) netSaveMine();
   NET.on = false;
   if (NET.wroom) { NET.wroom.leave().catch(() => {}); NET.wroom = null; }
   NET.wid = null; NET.meta = null;
@@ -499,6 +501,13 @@ function netLeave(quiet) {
   document.body.classList.remove('online');
   if (quiet === true) return;
   closeModals();
+  if (mine) {
+    netLobbyPresence();
+    toolbarKey = '';
+    updateUI();
+    toast('Cerraste tu mundo en línea. Seguís en tu misma partida, con todo lo que hicieron juntos.');
+    return;
+  }
   loadAsync().then((ok) => {
     if (!ok) startNewGame((Math.random() * 2 ** 31) | 0, false);
     netLobbyPresence();
@@ -506,6 +515,12 @@ function netLeave(quiet) {
     updateUI();
   });
   toast('Volviste a tu partida.');
+}
+
+// ¿Estoy llevando MI mundo? Entonces el mundo en línea es mi partida de siempre:
+// se guarda entera en el navegador y en la nube, igual que jugando solo.
+function netInMyWorld() {
+  return NET.on && NET.role === 'host' && NET.wid === myWorldId();
 }
 
 // Guarda lo propio (personaje y mochila) mientras se juega en línea
@@ -752,11 +767,11 @@ function netRenderModal() {
     h += '<ul class="net-list">';
     h += `<li>${dot(NET.uid, NET.cid)}Vos${NET.role === 'host' ? ' · anfitrión' : ''}</li>`;
     for (const a of NET.avatars.values()) h += `<li>${dot(a.by)}${nm(a.by)}${a.host ? ' · anfitrión' : ''}${a.by && !NET.friends.includes(a.by) && a.by !== NET.uid ? ` <button type="button" class="small-btn" data-add="${escapeHtml(a.by)}">+ Amigo</button>` : ''}</li>`;
-    h += '</ul><div class="actions"><button type="button" data-leave="1">Salir y volver a mi partida</button></div>';
+    h += `</ul><div class="actions"><button type="button" data-leave="1">${netInMyWorld() ? 'Cerrar mi mundo en línea' : 'Salir y volver a mi partida'}</button></div>`;
   } else if (NET.canWrite) {
     h += '<p>Estás jugando tu partida. Podés convertirla en <b>tu mundo en línea</b> para que tus amigos entren.</p>';
-    h += `<div class="actions"><button type="button" class="primary" data-share="1">${NET.worlds[myWorldId()] ? 'Abrir mi mundo con esta partida' : 'Compartir mi partida'}</button></div>`;
-    if (NET.worlds[myWorldId()]) h += '<p class="muted small">Ojo: abrir tu mundo con esta partida reemplaza lo que tenía tu mundo guardado.</p>';
+    h += '<div class="actions"><button type="button" class="primary" data-share="1">Abrir mi partida en línea</button></div>';
+    h += '<p class="muted small">Es siempre tu misma partida: lo que hagan juntos queda guardado en ella (en este navegador y en la nube), y cuando jugás solo seguís desde ahí.</p>';
   }
 
   // Amigos
