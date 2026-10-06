@@ -538,6 +538,7 @@ function netSaveMine() {
 
 const CHAT = { out: [], seen: new Map(), log: [], unread: 0, open: false, mySay: null };
 const CHAT_KEEP = 45000;   // un mensaje viaja en la presencia durante 45 s
+const CHAT_MAX = 60;       // mensajes cortos: que no tapen la pantalla
 
 function chatPrune() {
   const now = Date.now();
@@ -545,7 +546,7 @@ function chatPrune() {
 }
 
 function chatSend(text) {
-  text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX);
   if (!text || !NET.on) return false;
   let id = Date.now();
   if (CHAT.out.length && id <= CHAT.out[CHAT.out.length - 1][0]) id = CHAT.out[CHAT.out.length - 1][0] + 1;
@@ -565,7 +566,7 @@ function chatReceive(peer, a, list) {
   for (const m of list) {
     if (!Array.isArray(m) || !(m[0] > last) || typeof m[1] !== 'string') continue;
     last = m[0];
-    const text = m[1].replace(/\s+/g, ' ').trim().slice(0, 120);
+    const text = m[1].replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX);
     if (!text) continue;
     const who = a.nick || netNameOf(a.by) || 'Jugador';
     a.say = text; a.sayUntil = performance.now() + 6000;

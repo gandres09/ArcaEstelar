@@ -1210,7 +1210,7 @@ function drawRemotePlayers(g, lod) {
   }
 }
 
-// Globito de chat arriba del nombre (corta en renglones de ~24 letras)
+// Globito de chat arriba del nombre (hasta 2 renglones)
 function drawSpeech(g, x, y, text) {
   g.font = '500 11px Barlow, system-ui, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1221,8 +1221,8 @@ function drawSpeech(g, x, y, text) {
     if (g.measureText(t).width > 150 && cur) { lines.push(cur); cur = w; } else cur = t;
   }
   if (cur) lines.push(cur);
-  const shown = lines.slice(0, 4);
-  if (lines.length > 4) shown[3] += '…';
+  const shown = lines.slice(0, 2);
+  if (lines.length > 2) shown[1] += '…';
   const w = Math.min(170, Math.max(...shown.map((l) => g.measureText(l).width)) + 16), h = shown.length * 13 + 8;
   const top = y - 40 - h;
   g.fillStyle = 'rgba(255,255,255,0.95)';
