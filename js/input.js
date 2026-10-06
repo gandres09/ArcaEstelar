@@ -327,7 +327,8 @@ canvas.addEventListener('pointerdown', (ev) => {
 
   if (tool === 'hand') {
     const e = at(t.x, t.y);
-    if (!e && oreAt(t.x, t.y) && oreAt(t.x, t.y) !== 'oil') handMining = { x: t.x, y: t.y, prog: 0 };
+    const o = oreAt(t.x, t.y);
+    if (!e && o && o !== 'oil' && o !== 'water' && tileExplored(t.x, t.y)) handMining = { x: t.x, y: t.y, prog: 0 };
     return;
   }
   if (isTouch()) return; // en táctil se decide al soltar (toque) o se mueve la cámara

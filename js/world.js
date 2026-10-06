@@ -50,6 +50,23 @@ function generateMap(seed) {
     }
   };
 
+  // Lagos (el agua no se agota)
+  const lake = (px, py, rad) => {
+    for (let y = Math.floor(py - rad - 3); y <= py + rad + 3; y++) {
+      for (let x = Math.floor(px - rad - 3); x <= px + rad + 3; x++) {
+        if (!inBounds(x, y)) continue;
+        const d = Math.hypot(x - px, (y - py) * 1.2);
+        const wobble = Math.sin(x * 0.7 + seed) * 0.8 + Math.cos(y * 0.6 + seed) * 0.8;
+        if (d < rad + wobble) { oreType[y * W + x] = 8; oreAmt[y * W + x] = 65000; }
+      }
+    }
+  };
+  for (let i = 0; i < 26; i++) {
+    const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
+    if (Math.hypot(px - cx, py - cy) < 30) continue;
+    lake(px, py, 3 + rnd() * 9);
+  }
+
   // Yacimientos iniciales alrededor del Núcleo
   patch(cx - 15, cy - 9, 5.5, 1, 1200);
   patch(cx + 15, cy - 9, 5.5, 2, 1200);
@@ -100,6 +117,9 @@ function generateMap(seed) {
     patch(px, py, 2.5 + rnd() * 5, id, 700 * (1 + d / 45));
   }
 
+  // Un lago chico cerca del Núcleo para la energía a vapor
+  lake(cx + 4, cy - 24, 4.5);
+
   // Despejar la zona del Núcleo
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
   resetMapGraphics();
@@ -110,6 +130,7 @@ function mineOre(x, y) {
   const i = y * W + x;
   const id = oreType[i];
   if (!id) return null;
+  if (id === 8) return 'water';
   if (--oreAmt[i] <= 0) {
     oreType[i] = 0;
     oreAmt[i] = 0;
@@ -168,6 +189,19 @@ function drawTile(g, x, y, px, py) {
   if (!o) return;
   g.fillStyle = ORE_GROUND[o];
   g.fillRect(px, py, TILE, TILE);
+  if (o === 'water') {
+    g.fillStyle = '#1d4f86';
+    g.fillRect(px, py, TILE, TILE);
+    g.strokeStyle = 'rgba(160,210,255,0.25)';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    for (let k = 0; k < 2; k++) {
+      const wy = py + 9 + k * 13 + hash(x, y, 40 + k) * 4, wx = px + 4 + hash(x, y, 50 + k) * 10;
+      g.moveTo(wx, wy); g.quadraticCurveTo(wx + 4, wy - 3, wx + 8, wy); g.quadraticCurveTo(wx + 12, wy + 3, wx + 16, wy);
+    }
+    g.stroke();
+    return;
+  }
   if (o === 'oil') {
     g.fillStyle = '#050405';
     g.beginPath(); g.ellipse(px + 16, py + 17, 11, 8, 0.3, 0, Math.PI * 2); g.fill();
@@ -231,4 +265,37 @@ function decodeOre(b64) {
   oreAmt = new Uint16Array(bytes.buffer);
   for (let i = 0; i < W * H; i++) if (!oreAmt[i]) oreType[i] = 0;
   resetMapGraphics();
+}
+
+// --------------------------- Niebla ---------------------------
+// El mapa se explora por celdas de POLL_CELL × POLL_CELL casillas
+
+let explored = new Uint8Array(PW * PH);
+let fogDirty = true;
+
+const cellExplored = (cx, cy) => cx >= 0 && cy >= 0 && cx < PW && cy < PH && explored[cy * PW + cx] === 1;
+const tileExplored = (x, y) => cellExplored(Math.floor(x / POLL_CELL), Math.floor(y / POLL_CELL));
+
+// Revela las celdas dentro de un radio (en casillas) alrededor de un punto
+function reveal(x, y, radius) {
+  const c0x = Math.floor((x - radius) / POLL_CELL), c1x = Math.floor((x + radius) / POLL_CELL);
+  const c0y = Math.floor((y - radius) / POLL_CELL), c1y = Math.floor((y + radius) / POLL_CELL);
+  let n = 0;
+  for (let cy = Math.max(0, c0y); cy <= Math.min(PH - 1, c1y); cy++) {
+    for (let cx = Math.max(0, c0x); cx <= Math.min(PW - 1, c1x); cx++) {
+      const mx = (cx + 0.5) * POLL_CELL, my = (cy + 0.5) * POLL_CELL;
+      if (Math.hypot(mx - x, my - y) <= radius + POLL_CELL * 0.5 && !explored[cy * PW + cx]) { explored[cy * PW + cx] = 1; n++; }
+    }
+  }
+  if (n) fogDirty = true;
+  return n;
+}
+
+function encodeFog() {
+  return Array.from(explored).join('');
+}
+function decodeFog(s) {
+  explored = new Uint8Array(PW * PH);
+  if (typeof s === 'string' && s.length === PW * PH) for (let i = 0; i < s.length; i++) explored[i] = s.charCodeAt(i) === 49 ? 1 : 0;
+  fogDirty = true;
 }

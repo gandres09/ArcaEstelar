@@ -55,7 +55,7 @@ function totalPollution() {
 
 function areaFree(x, y, s) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
-    if (!inBounds(x + dx, y + dy) || at(x + dx, y + dy)) return false;
+    if (!inBounds(x + dx, y + dy) || at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water') return false;
   }
   return true;
 }
@@ -175,12 +175,14 @@ function biterStep(b, dt) {
   const k = BITERS[b.kind];
   if (b.state === 'idle') {
     b.ang += (Math.random() - 0.5) * 2 * dt;
-    b.x += Math.cos(b.ang) * 0.3 * dt;
-    b.y += Math.sin(b.ang) * 0.3 * dt;
+    const wx = b.x + Math.cos(b.ang) * 0.3 * dt, wy = b.y + Math.sin(b.ang) * 0.3 * dt;
+    if (oreAt(Math.floor(wx), Math.floor(wy)) === 'water') b.ang += Math.PI;
+    else { b.x = wx; b.y = wy; }
     return;
   }
   let t = b._t;
   if (!t || t._dead) {
+    b.path = null;
     t = b._t = nearestPlayerEntity(b.x, b.y, 30, false);
     if (!t) { b.state = 'idle'; return; }
   }
@@ -188,12 +190,29 @@ function biterStep(b, dt) {
   const dx = c.x - b.x, dy = c.y - b.y, dist = Math.hypot(dx, dy);
   b.ang = Math.atan2(dy, dx);
   b.cd -= dt;
-  if (dist <= sizeOf(t.type) / 2 + 0.6) {
+  if (dist <= sizeOf(t.type) / 2 + 1) {
     if (b.cd <= 0) { damageEntity(t, k.dmg); b.cd = 1; noteAttack(t); }
     return;
   }
   const step = k.speed * dt;
-  const nx = b.x + (dx / dist) * step, ny = b.y + (dy / dist) * step;
+  let nx = b.x + (dx / dist) * step, ny = b.y + (dy / dist) * step;
+  // Los bichos no nadan: si hay agua en el medio, buscan un camino que la rodee
+  if (b.path && b.path.length) {
+    const wp = b.path[0];
+    const wx = wp.x + 0.5 - b.x, wy = wp.y + 0.5 - b.y, wd = Math.hypot(wx, wy);
+    if (wd < 0.4) { b.path.shift(); return; }
+    nx = b.x + (wx / wd) * step; ny = b.y + (wy / wd) * step;
+    b.ang = Math.atan2(wy, wx);
+  } else if (oreAt(Math.floor(nx), Math.floor(ny)) === 'water') {
+    const path = findPath(Math.floor(b.x), Math.floor(b.y), Math.floor(c.x), Math.floor(c.y));
+    if (!path) { b.state = 'idle'; return; }   // inalcanzable: se queda
+    b.path = path;
+    // Los compañeros cercanos con el mismo objetivo usan el mismo camino
+    for (const o of S.biters) {
+      if (o !== b && o._t === t && !o.path && Math.hypot(o.x - b.x, o.y - b.y) < 6) o.path = path.slice();
+    }
+    return;
+  }
   const occ = at(Math.floor(nx), Math.floor(ny));
   if (occ && isPlayer(occ) && occ !== t) {
     // Algo le bloquea el paso: lo muerde
@@ -207,6 +226,63 @@ function noteAttack(e) {
   const now = S.playTime;
   if (!lastAttack || now - lastAttack.t > 20) toast('⚠️ <b>¡Están atacando tu fábrica!</b> Tocá la alerta de arriba para ir.');
   lastAttack = { x: e.x, y: e.y, t: now };
+}
+
+// Camino más corto evitando el agua (A* sobre casillas, en 8 direcciones)
+function findPath(sx, sy, tx, ty, maxNodes = 15000) {
+  const idx = (x, y) => y * W + x;
+  const goal = idx(tx, ty);
+  const g = new Map(), from = new Map();
+  const heap = [];
+  const push = (n, f) => {
+    heap.push([f, n]);
+    let i = heap.length - 1;
+    while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; }
+  };
+  const pop = () => {
+    const top = heap[0], last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1, r = l + 1;
+        let m = i;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
+        if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === i) break;
+        [heap[m], heap[i]] = [heap[i], heap[m]]; i = m;
+      }
+    }
+    return top[1];
+  };
+  const h = (x, y) => { const dx = Math.abs(x - tx), dy = Math.abs(y - ty); return Math.max(dx, dy) + 0.41 * Math.min(dx, dy); };
+  const start = idx(sx, sy);
+  g.set(start, 0);
+  push(start, h(sx, sy));
+  let n = 0;
+  while (heap.length && n++ < maxNodes) {
+    const cur = pop();
+    const cx = cur % W, cy = (cur / W) | 0;
+    // Basta con llegar al lado del objetivo
+    if (cur === goal || Math.max(Math.abs(cx - tx), Math.abs(cy - ty)) <= 1) {
+      const path = [];
+      let k = cur;
+      while (k !== start) { path.push({ x: k % W, y: (k / W) | 0 }); k = from.get(k); }
+      path.reverse();
+      return path;
+    }
+    const gc = g.get(cur);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const x = cx + dx, y = cy + dy;
+      if (!inBounds(x, y) || oreAt(x, y) === 'water') continue;
+      // No cortar esquinas pegadas al agua
+      if (dx && dy && (oreAt(cx + dx, cy) === 'water' || oreAt(cx, cy + dy) === 'water')) continue;
+      const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1);
+      if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + h(x, y)); }
+    }
+  }
+  return null;
 }
 
 // --------------------------- Torretas ---------------------------

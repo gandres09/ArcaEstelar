@@ -10,8 +10,11 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 ## Qué tiene
 
 - **Mapa grande** (320 × 240) con yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
-- **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 23 tecnologías y 4 eras.
-- **Electricidad**: generadores a carbón, paneles solares, acumuladores, postes y torres de alta tensión.
+- **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 27 tecnologías y 4 eras.
+- **Electricidad**: generadores a carbón, energía a vapor, paneles solares, acumuladores, postes y torres de alta tensión.
+- **Agua infinita** en lagos: bombas de agua en la orilla para calderas y química. Los bichos no la cruzan
+  (la rodean buscando camino) y se puede rellenar con piedra.
+- **Niebla**: el mapa se descubre al construir y con radares; no se construye en lo que no exploraste.
 - **Día y noche**: los paneles rinden 100 % de día, 50 % al atardecer y al amanecer, y nada de noche. Las lámparas iluminan.
 - **Polución y enemigos**: las máquinas contaminan, la nube se expande y cuando llega a los nidos los bichos atacan.
   Evolucionan con el tiempo y aparecen nidos nuevos. Te defendés con muros, torretas con munición y torretas láser.
@@ -26,11 +29,14 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 
 | Pieza | Cantidad | Se hace con |
 | --- | --- | --- |
-| Placa de casco | 50 | titanio + acero |
-| Propulsor | 16 | motores + titanio + procesador |
-| Computadora de navegación | 8 | procesadores + circuitos |
-| Soporte vital | 10 | procesadores + acero + baterías |
+| Placa de casco | 50 | estructura liviana (acero + cobre + plástico) + titanio |
+| Propulsor | 16 | motores eléctricos (motor + circuitos + lubricante) + combustible de cohete + titanio |
+| Computadora de navegación | 8 | unidades de control (procesador + batería) + procesadores |
+| Soporte vital | 10 | unidad de control + motor eléctrico + agua |
 | Combustible de cohete | 120 | combustible sólido + petróleo |
+
+Para llegar hay que combinar casi todas las líneas: hierro, cobre, acero, petróleo con agua (plástico, azufre,
+lubricante), baterías, procesadores con silicio y titanio.
 
 ## Controles
 

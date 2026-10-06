@@ -14,7 +14,7 @@ function resize() {
 const saveReplacer = (k, v) => (k.startsWith('_') ? undefined : v);
 
 function serialize() {
-  return JSON.stringify({ ...S, pollution: savePollution(), view: { ...view }, ore: encodeOre() }, saveReplacer);
+  return JSON.stringify({ ...S, pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre() }, saveReplacer);
 }
 
 function save() {
@@ -24,11 +24,12 @@ function save() {
 function loadFrom(raw) {
   const data = JSON.parse(raw);
   if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.entities)) throw new Error('version');
-  const { view: v, ore, pollution: poll, ...state } = data;
+  const { view: v, ore, pollution: poll, fog, ...state } = data;
   S = { ...newState(state.seed, state.peaceful), ...state };
   generateMap(S.seed);
   if (ore) decodeOre(ore);
   loadPollution(poll);
+  decodeFog(fog);
   if (v) Object.assign(view, v);
   undoStack.length = 0;
   rebuildGrid();
@@ -49,7 +50,9 @@ function startNewGame(seed, peaceful) {
   S = newState(seed, peaceful);
   generateMap(seed);
   loadPollution(null);
+  decodeFog(null);
   const cx = W >> 1, cy = H >> 1;
+  reveal(cx, cy, 44);
   const hub = makeEntity('hub', cx - 1, cy - 1);
   hub.id = S.nextId++;
   S.entities.push(hub);

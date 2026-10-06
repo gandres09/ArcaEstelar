@@ -14,8 +14,8 @@ const KEY_GROUPS = [
   ['furnace', 'efurnace'],
   ['assembler', 'assembler2', 'chem'],
   ['lab'],
-  ['pole', 'bigpole'],
-  ['generator', 'solar', 'accumulator', 'lamp'],
+  ['pole', 'bigpole', 'radar'],
+  ['offshore', 'boiler', 'steam_engine', 'generator', 'solar', 'accumulator', 'lamp'],
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
@@ -247,7 +247,8 @@ function currentHint() {
   if (!countType('assembler')) return 'Poné una <b>Ensambladora</b>, elegí la receta <b>Engranaje</b> y alimentala con placas de hierro.';
   if (!countType('lab')) return 'Fabricá <b>Ciencia roja</b> (cobre + engranaje) y llevala a un <b>Laboratorio</b>.';
   if (!S.research.current && nextTech()) return `Abrí <b>Investigación</b> y elegí qué investigar. Sugerencia: <b>${TECHS[nextTech()].name}</b>.`;
-  if (S.techs.electricity && !countType('generator') && !countType('solar')) return 'Construí un <b>Generador</b>, alimentalo con carbón y conectalo con <b>Postes</b> a tus máquinas eléctricas.';
+  if (S.techs.steam_power && !countType('steam_engine')) return 'Energía a vapor: poné una <b>Bomba de agua</b> en la orilla de un lago, apuntando a una <b>Caldera</b> (cargala con carbón), y la caldera apuntando a <b>Máquinas de vapor</b> en fila. Conectalas con postes.';
+  if (S.techs.electricity && !countType('generator') && !countType('solar') && !countType('steam_engine')) return 'Construí un <b>Generador</b>, alimentalo con carbón y conectalo con <b>Postes</b> a tus máquinas eléctricas.';
   if (!S.peaceful && S.biters.some((b) => b.state === 'attack')) return '⚠️ Hay bichos atacando. Poné <b>Torretas</b> con <b>Munición</b> y <b>Muros</b> alrededor de la fábrica.';
   if (S.techs.oil && !countType('pumpjack')) return 'Buscá un pozo de <b>petróleo</b> (manchas negras) y poné una <b>Bomba de petróleo</b>.';
   if (S.techs.rocketry) {
@@ -429,6 +430,23 @@ function inspectorContent(e) {
       h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
         '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button></div>';
+      break;
+    case 'offshore':
+      h += row('Saca', `${itemImg('water', 'ico-s')} 2 de agua por segundo, sin fin`) +
+        (e.buf ? row('Estado', '<span class="bad">Salida bloqueada</span>') : '');
+      break;
+    case 'boiler':
+      h += row('Agua', `${e.water} / 20`) +
+        row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
+        row('Vapor listo', e.out) + row('Estado', e.active ? '<span class="ok">hirviendo</span>' : e.water ? 'esperando combustible' : '<span class="bad">sin agua</span>') +
+        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button></div>';
+      break;
+    case 'steam_engine':
+      h += row('Vapor', `${e.steam} / 10`) + row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
+        '<p class="muted small">El vapor que sobra pasa a la siguiente máquina por la flecha.</p>';
+      break;
+    case 'radar':
+      h += row('Explorado', `${Math.min(e.r, BUILDINGS.radar.scan * POLL_CELL)} de ${BUILDINGS.radar.scan * POLL_CELL} casillas de radio`) + powerRow(e);
       break;
     case 'solar':
       h += row('Genera ahora', `${Math.round(e.out || 0)} kW (${dayPhase().name.toLowerCase()})`) + powerRow(e);
@@ -670,8 +688,10 @@ function updateTooltip() {
     if (tool === 'hand') {
       const e = at(hover.x, hover.y);
       const o = oreAt(hover.x, hover.y);
-      if (e && e.type === 'nest') html = '<b>Nido enemigo</b><br><span class="muted">Destruilo con torretas cerca</span>';
+      if (!tileExplored(hover.x, hover.y)) html = '<b>Sin explorar</b><br><span class="muted">Construí cerca o poné un radar</span>';
+      else if (e && e.type === 'nest') html = '<b>Nido enemigo</b><br><span class="muted">Destruilo con torretas cerca</span>';
       else if (e) html = `<b>${e.type === 'hub' ? 'Núcleo' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
+      else if (o === 'water') html = '<b>Agua</b><br><span class="muted">Poné una bomba de agua en la orilla</span>';
       else if (o) html = `<b>${ITEMS[o].name}</b> (${fmt(oreAmountAt(hover.x, hover.y))})` + (o === 'oil' ? '<br><span class="muted">Necesita una bomba de petróleo</span>' : '<br><span class="muted">Mantené clic para extraer</span>');
     } else if (BUILDINGS[tool] && !beltPlan) {
       const a = anchorFor(tool, hover);

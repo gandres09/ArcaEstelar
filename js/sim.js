@@ -117,6 +117,10 @@ function makeEntity(type, x, y, dir = 0) {
     case 'assembler': case 'assembler2': case 'chem': e.recipe = null; e.buf = {}; e.prog = 0; e.out = 0; break;
     case 'lab': e.packs = {}; e.prog = 0; e.working = false; break;
     case 'generator': e.fuelType = null; e.fuel = 0; e.energy = 0; break;
+    case 'offshore': e.t = 0; e.buf = null; break;
+    case 'boiler': e.water = 0; e.fuelType = null; e.fuel = 0; e.energy = 0; e.out = 0; e.t = 0; break;
+    case 'steam_engine': e.steam = 0; e.energy = 0; break;
+    case 'radar': e.t = 0; e.r = 16; break;
     case 'accumulator': e.stored = 0; break;
     case 'turret': e.ammo = 0; e.shots = 0; e.cd = 0; break;
     case 'laser': e.cd = 0; break;
@@ -143,6 +147,8 @@ function contents(e) {
   const c = {};
   if (e.item) add(c, e.item, 1);
   if (typeof e.buf === 'string') add(c, e.buf, 1);
+  if (e.type === 'boiler') { if (e.water) add(c, 'water', e.water); if (e.out) add(c, 'steam', e.out); }
+  if (e.type === 'steam_engine' && e.steam) add(c, 'steam', e.steam);
   if (e.inType) add(c, e.inType, e.inCount);
   if (e.outType) add(c, e.outType, e.outCount);
   if (e.fuelType) add(c, e.fuelType, e.fuel);
@@ -171,8 +177,14 @@ function canPlace(type, x, y) {
       if (at(x + dx, y + dy)) return { ok: false, why: 'Hay algo en el medio' };
     }
   }
+  for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
+    if (!tileExplored(x + dx, y + dy)) return { ok: false, why: 'Zona sin explorar' };
+    if (type !== 'landfill' && oreAt(x + dx, y + dy) === 'water') return { ok: false, why: 'No se puede construir sobre el agua' };
+  }
   const o = oreAt(x, y);
-  if ((type === 'miner' || type === 'eminer') && (!o || o === 'oil')) return { ok: false, why: 'El taladro va sobre mineral' };
+  if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };
+  if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
+  if ((type === 'miner' || type === 'eminer') && (!o || o === 'oil' || o === 'water')) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
   if (!isUnlocked(type)) return { ok: false, why: 'Falta investigar: ' + TECHS[BUILDINGS[type].tech].name };
   if (!canAfford(BUILDINGS[type].cost)) return { ok: false, why: 'Faltan materiales' };
@@ -237,6 +249,13 @@ function place(type, x, y, dir, opts = {}) {
     return res.rotate;
   }
   pay(BUILDINGS[type].cost);
+  if (type === 'landfill') {
+    // El relleno no es un edificio: convierte el agua en tierra
+    oreType[y * W + x] = 0;
+    oreAmt[y * W + x] = 0;
+    invalidateTile(x, y);
+    return { type: 'landfill' };
+  }
   const e = makeEntity(type, x, y, dir);
   e.id = S.nextId++;
   if (type === 'underground') e.mode = undergroundModeFor(x, y, dir);
@@ -244,6 +263,7 @@ function place(type, x, y, dir, opts = {}) {
   occupy(e, e);
   powerDirty = true;
   undergroundDirty = true;
+  reveal(x + sizeOf(type) / 2, y + sizeOf(type) / 2, 12);
   if (!opts.silent) record({ kind: 'place', e });
   return e;
 }
@@ -457,6 +477,15 @@ function accept(t, item, src) {
     case 'generator':
       if (!FUELS[item] || t.fuel >= 20 || (t.fuelType && t.fuelType !== item)) return false;
       t.fuelType = item; t.fuel++;
+      return true;
+    case 'boiler':
+      if (item === 'water') { if (t.water >= 20) return false; t.water++; return true; }
+      if (!FUELS[item] || t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
+      t.fuelType = item; t.fuel++;
+      return true;
+    case 'steam_engine':
+      if (item !== 'steam' || t.steam >= 10) return false;
+      t.steam++;
       return true;
     case 'turret':
       if (item !== 'ammo' || t.ammo >= 20) return false;
@@ -686,11 +715,63 @@ function update(dt) {
         if (e.energy > 0) {
           net.fuel += def.output;
           const share = net.prev.fuel > 0 ? def.output / net.prev.fuel : 0;
-          const burn = net.fuelUsed * share * dt;
+          const burn = net.fuelUsed * share * dt / GENERATOR_EFFICIENCY;
           e.load = net.prev.fuel > 0 ? net.fuelUsed / net.prev.fuel : 0;
           e.active = burn > 0;
           e.energy -= burn;
           emit(e, def.poll * e.load * dt / 60);
+        }
+        break;
+      }
+
+      case 'offshore':
+        if (!e.buf) {
+          e.t += dt;
+          if (e.t >= def.time) { e.t = 0; e.buf = 'water'; }
+        }
+        if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
+        break;
+
+      case 'boiler': {
+        e.active = false;
+        if (e.energy < STEAM_ENERGY && e.fuel > 0) {
+          e.energy += FUELS[e.fuelType];
+          if (--e.fuel === 0) e.fuelType = null;
+        }
+        if (e.water > 0 && e.energy >= STEAM_ENERGY && e.out < 10) {
+          e.t += dt * def.rate;
+          e.active = true;
+          if (e.t >= 1) { e.t -= 1; e.water--; e.energy -= STEAM_ENERGY; e.out++; countProduced('steam'); }
+          emit(e, def.poll * dt / 60);
+        }
+        if (e.out > 0 && pushTo(e, e.dir, 'steam')) e.out--;
+        break;
+      }
+
+      case 'steam_engine': {
+        e.active = false;
+        const net = nets[e._net];
+        // El vapor que sobra sigue a la próxima máquina
+        if (e.steam >= 5 && pushTo(e, e.dir, 'steam')) e.steam--;
+        if (!net) break;
+        if (e.energy <= 0 && e.steam > 0) { e.energy += STEAM_ENERGY; e.steam--; }
+        if (e.energy > 0) {
+          net.fuel += def.output;
+          const share = net.prev.fuel > 0 ? def.output / net.prev.fuel : 0;
+          const burn = net.fuelUsed * share * dt;
+          e.load = net.prev.fuel > 0 ? net.fuelUsed / net.prev.fuel : 0;
+          e.active = burn > 0;
+          e.energy -= burn;
+        }
+        break;
+      }
+
+      case 'radar': {
+        const sp = drawPower(e, def.power);
+        e.active = sp > 0.3;
+        if (e.active && e.r < def.scan * POLL_CELL) {
+          e.t += dt * sp;
+          if (e.t >= 1) { e.t = 0; reveal(e.x + 0.5, e.y + 0.5, e.r); e.r += 2; }
         }
         break;
       }

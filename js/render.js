@@ -17,6 +17,7 @@ const TYPE_COLOR = {
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
+  offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -360,6 +361,69 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
+    case 'offshore': {
+      box(g, x0, y0, '#2b5f8f', '#9fd0ff');
+      g.fillStyle = '#9fd0ff';
+      g.beginPath(); g.arc(cx, cy, 6, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#2b5f8f'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(cx - 4, cy); g.quadraticCurveTo(cx, cy - 4, cx + 4, cy); g.stroke();
+      drawArrow(g, cx, cy, e.dir, '#d8eeff');
+      break;
+    }
+
+    case 'boiler': {
+      box(g, x0, y0, '#5b4a3e', '#c9a27a');
+      g.fillStyle = e.active ? '#ff9a3c' : '#2a1a14';
+      g.fillRect(cx - 7, cy + 2, 14, 6);
+      g.fillStyle = '#9aa3ad';
+      g.beginPath(); g.ellipse(cx, cy - 4, 9, 5, 0, 0, Math.PI * 2); g.fill();
+      if (e.active) {
+        g.fillStyle = `rgba(235,240,245,${0.4 + 0.2 * Math.sin(t * 4 + e.x)})`;
+        g.beginPath(); g.arc(cx + 4, y0 + 2 - ((t * 10) % 6), 4, 0, Math.PI * 2); g.fill();
+      }
+      drawArrow(g, cx, cy, e.dir, '#ffe2c4');
+      break;
+    }
+
+    case 'steam_engine': {
+      box(g, x0, y0, '#3e4a55', '#b8c6d2');
+      g.save();
+      g.translate(cx - 3, cy);
+      g.rotate(e.active ? t * 7 : 0);
+      g.strokeStyle = '#d8e2ea'; g.lineWidth = 2;
+      g.beginPath(); g.arc(0, 0, 7, 0, Math.PI * 2);
+      for (let i = 0; i < 3; i++) { const a = i * 2.09; g.moveTo(0, 0); g.lineTo(Math.cos(a) * 7, Math.sin(a) * 7); }
+      g.stroke();
+      g.restore();
+      g.fillStyle = '#f0d44d';
+      g.font = 'bold 9px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('⚡', x0 + TILE - 9, y0 + 9);
+      drawArrow(g, cx, cy, e.dir, '#e8eef4');
+      break;
+    }
+
+    case 'radar': {
+      box(g, x0, y0, '#33424a', null);
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(e.active ? t * 2 : 0.6);
+      g.fillStyle = '#c9d6dd';
+      g.beginPath(); g.ellipse(0, 0, 11, 5, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#33424a';
+      g.beginPath(); g.ellipse(0, 1.5, 9, 3, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+      g.fillStyle = '#c9d6dd';
+      g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
+      break;
+    }
+
+    case 'landfill':
+      g.fillStyle = '#5a4a32';
+      g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
+      g.fillStyle = '#7a6544';
+      for (let k = 0; k < 5; k++) { g.beginPath(); g.arc(x0 + 6 + k * 5, y0 + 8 + (k % 2) * 12, 3, 0, Math.PI * 2); g.fill(); }
+      break;
+
     case 'pole':
       g.fillStyle = '#6b4a24';
       g.fillRect(cx - 2, cy - 11, 4, 22);
@@ -596,7 +660,8 @@ function lightRadius(e) {
     case 'lamp': return e.lit ? 7 : 0;
     case 'hub': return 6;
     case 'shipyard': return 5;
-    case 'furnace': case 'efurnace': case 'generator': return e.active ? 1.6 : 0;
+    case 'furnace': case 'efurnace': case 'generator': case 'boiler': return e.active ? 1.6 : 0;
+    case 'radar': return 1.5;
     case 'laser': case 'turret': return 1.2;
     default: return 0;
   }
@@ -688,8 +753,9 @@ function render(ctx) {
   const visible = [];
   for (const e of S.entities) {
     const s = sizeOf(e.type) * TILE, px = e.x * TILE, py = e.y * TILE;
-    if (px + s >= vx0 && px <= vx1 && py + s >= vy0 && py <= vy1) visible.push(e);
+    if (px + s >= vx0 && px <= vx1 && py + s >= vy0 && py <= vy1 && (e.type !== 'nest' || tileExplored(e.x, e.y))) visible.push(e);
   }
+  const biterVisible = (b) => tileExplored(Math.floor(b.x), Math.floor(b.y));
 
   if (lod) {
     for (const e of visible) {
@@ -698,12 +764,12 @@ function render(ctx) {
       ctx.fillRect(e.x * TILE + 2, e.y * TILE + 2, s * TILE - 4, s * TILE - 4);
     }
     ctx.fillStyle = '#ff5a3c';
-    for (const b of S.biters) ctx.fillRect(b.x * TILE - 6, b.y * TILE - 6, 12, 12);
+    for (const b of S.biters) if (biterVisible(b)) ctx.fillRect(b.x * TILE - 6, b.y * TILE - 6, 12, 12);
   } else {
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
     for (const b of S.biters) {
-      if (b.x * TILE < vx0 - 20 || b.x * TILE > vx1 + 20 || b.y * TILE < vy0 - 20 || b.y * TILE > vy1 + 20) continue;
+      if (b.x * TILE < vx0 - 20 || b.x * TILE > vx1 + 20 || b.y * TILE < vy0 - 20 || b.y * TILE > vy1 + 20 || !biterVisible(b)) continue;
       drawBiter(ctx, b, time);
     }
   }
@@ -725,11 +791,31 @@ function render(ctx) {
   }
 
   if (showPollution) drawPollution(ctx, vx0, vy0, vx1, vy1);
+  drawFog(ctx, vx0, vy0, vx1, vy1);
 
   drawNight(ctx, visible);
   worldTransform();
   drawOverlays(ctx);
   drawLaunch(ctx);
+}
+
+// Niebla: las celdas sin explorar se tapan, con un borde difuso
+function drawFog(ctx, vx0, vy0, vx1, vy1) {
+  const cs = POLL_CELL * TILE;
+  const e = cs * 0.35;
+  for (let cy = Math.max(0, Math.floor(vy0 / cs)); cy <= Math.min(PH - 1, Math.floor(vy1 / cs)); cy++) {
+    for (let cx = Math.max(0, Math.floor(vx0 / cs)); cx <= Math.min(PW - 1, Math.floor(vx1 / cs)); cx++) {
+      if (cellExplored(cx, cy)) continue;
+      ctx.fillStyle = '#07090c';
+      ctx.fillRect(cx * cs - 1, cy * cs - 1, cs + 2, cs + 2);
+      // Borde suave hacia las celdas exploradas vecinas
+      ctx.fillStyle = 'rgba(7,9,12,0.55)';
+      if (cellExplored(cx - 1, cy)) ctx.fillRect(cx * cs - e, cy * cs, e, cs);
+      if (cellExplored(cx + 1, cy)) ctx.fillRect((cx + 1) * cs, cy * cs, e, cs);
+      if (cellExplored(cx, cy - 1)) ctx.fillRect(cx * cs, cy * cs - e, cs, e);
+      if (cellExplored(cx, cy + 1)) ctx.fillRect(cx * cs, (cy + 1) * cs, cs, e);
+    }
+  }
 }
 
 function drawPollution(ctx, vx0, vy0, vx1, vy1) {
@@ -873,13 +959,18 @@ function renderMinimap(mc) {
       g.fillRect((i % PW) * POLL_CELL * sx, Math.floor(i / PW) * POLL_CELL * sy, POLL_CELL * sx, POLL_CELL * sy);
     }
   }
+  g.fillStyle = '#07090c';
+  for (let i = 0; i < explored.length; i++) {
+    if (!explored[i]) g.fillRect(Math.floor((i % PW) * POLL_CELL * sx), Math.floor(Math.floor(i / PW) * POLL_CELL * sy), Math.ceil(POLL_CELL * sx), Math.ceil(POLL_CELL * sy));
+  }
   for (const e of S.entities) {
     const s = sizeOf(e.type);
+    if (e.type === 'nest' && !tileExplored(e.x, e.y)) continue;
     g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(e.x * sx, e.y * sy, Math.max(1.5, s * sx), Math.max(1.5, s * sy));
   }
   g.fillStyle = '#ff7a5c';
-  for (const b of S.biters) if (b.state === 'attack') g.fillRect(b.x * sx - 1, b.y * sy - 1, 2, 2);
+  for (const b of S.biters) if (b.state === 'attack' && tileExplored(Math.floor(b.x), Math.floor(b.y))) g.fillRect(b.x * sx - 1, b.y * sy - 1, 2, 2);
   const vw = cw / view.zoom / TILE, vh = ch / view.zoom / TILE;
   g.strokeStyle = '#fff';
   g.lineWidth = 1;

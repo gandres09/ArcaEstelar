@@ -8,8 +8,8 @@ const TILE = 32;
 const W = 320, H = 240;                           // tamaño del mapa en casillas
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];  // derecha, abajo, izquierda, arriba
 const DIR_ARROWS = ['→', '↓', '←', '↑'];
-const SAVE_KEY = 'mini-fabrica-v3';
-const SAVE_VERSION = 3;
+const SAVE_KEY = 'mini-fabrica-v4';
+const SAVE_VERSION = 4;
 
 // shape: cómo se dibuja el objeto
 const ITEMS = {
@@ -20,6 +20,9 @@ const ITEMS = {
   quartz:         { name: 'Cuarzo',             color: '#e9e3f7', shape: 'ore' },
   titanium_ore:   { name: 'Mineral de titanio', color: '#4fb3a4', shape: 'ore' },
   oil:            { name: 'Petróleo crudo',     color: '#3b2a20', shape: 'barrel' },
+  water:          { name: 'Agua',               color: '#3a8fd8', shape: 'barrel' },
+  steam:          { name: 'Vapor',              color: '#e8eef4', shape: 'barrel' },
+  lubricant:      { name: 'Lubricante',         color: '#4fae5c', shape: 'barrel' },
 
   iron_plate:     { name: 'Placa de hierro',    color: '#d6dee8', shape: 'plate' },
   copper_plate:   { name: 'Placa de cobre',     color: '#f29a5c', shape: 'plate' },
@@ -35,6 +38,9 @@ const ITEMS = {
   circuit:        { name: 'Circuito',           color: '#3fae5a', shape: 'chip' },
   processor:      { name: 'Procesador',         color: '#c0392b', shape: 'chip' },
   engine:         { name: 'Motor',              color: '#6c7a89', shape: 'part' },
+  electric_engine:{ name: 'Motor eléctrico',    color: '#4d8fc4', shape: 'part' },
+  control_unit:   { name: 'Unidad de control',  color: '#2f6fb0', shape: 'chip' },
+  low_density:    { name: 'Estructura liviana', color: '#c99a5c', shape: 'plate' },
   battery:        { name: 'Batería',            color: '#d4b13c', shape: 'battery' },
   solid_fuel:     { name: 'Combustible sólido', color: '#7a5a2e', shape: 'fuel' },
   rocket_fuel:    { name: 'Combustible de cohete', color: '#ff8a1f', shape: 'fuel' },
@@ -54,14 +60,16 @@ const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'];
 
 // Recursos del mapa (el índice es el id guardado en el mapa)
-const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil'];
+const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water'];
 const ORE_GROUND = {
   iron_ore: '#3c4655', copper_ore: '#553826', coal: '#1b1d1c', stone: '#5b5444',
-  quartz: '#6a6680', titanium_ore: '#1f4a45', oil: '#151012',
+  quartz: '#6a6680', titanium_ore: '#1f4a45', oil: '#151012', water: '#1d4f86',
 };
 
 // Combustibles
-const FUELS = { coal: 4000, solid_fuel: 12000 };   // kJ (generador)
+const FUELS = { coal: 4000, solid_fuel: 12000 };   // kJ por unidad
+const GENERATOR_EFFICIENCY = 0.5;                  // el generador a carbón desperdicia la mitad
+const STEAM_ENERGY = 1000;                         // kJ por unidad de vapor
 const FURNACE_FUEL = { coal: 8, solid_fuel: 24 };  // fundiciones por unidad (horno de piedra)
 
 // Horno: entra `n` del material y sale 1 producto
@@ -87,13 +95,17 @@ const RECIPES = {
   engine:       { machine: 'asm',  tier: 2, in: { steel: 1, gear: 2 },                      out: 'engine',       n: 1, time: 5,   tech: 'advanced_assembly' },
   processor:    { machine: 'asm',  tier: 2, in: { circuit: 2, silicon: 1, plastic: 2 },     out: 'processor',    n: 1, time: 6,   tech: 'silicon' },
   sci_blue:     { machine: 'asm',  tier: 2, in: { engine: 1, processor: 1, sulfur: 1 },     out: 'sci_blue',     n: 2, time: 12,  tech: 'chemical_science' },
-  sci_purple:   { machine: 'asm',  tier: 2, in: { titanium_plate: 2, processor: 1, battery: 1 }, out: 'sci_purple', n: 1, time: 15, tech: 'space_science' },
-  hull:         { machine: 'asm',  tier: 2, in: { titanium_plate: 4, steel: 2 },            out: 'hull',         n: 1, time: 8,   tech: 'titanium' },
-  thruster:     { machine: 'asm',  tier: 2, in: { engine: 2, titanium_plate: 2, processor: 1 }, out: 'thruster', n: 1, time: 10,  tech: 'rocketry' },
-  nav_computer: { machine: 'asm',  tier: 2, in: { processor: 4, circuit: 4 },               out: 'nav_computer', n: 1, time: 12,  tech: 'rocketry' },
-  life_support: { machine: 'asm',  tier: 2, in: { processor: 2, steel: 2, battery: 2 },     out: 'life_support', n: 1, time: 12,  tech: 'rocketry' },
+  electric_engine: { machine: 'asm', tier: 2, in: { engine: 1, circuit: 2, lubricant: 2 },  out: 'electric_engine', n: 1, time: 8, tech: 'electric_engines' },
+  control_unit: { machine: 'asm',  tier: 2, in: { processor: 2, battery: 1 },               out: 'control_unit', n: 1, time: 8,   tech: 'control_units' },
+  low_density:  { machine: 'asm',  tier: 2, in: { steel: 2, copper_plate: 5, plastic: 2 },  out: 'low_density',  n: 1, time: 10,  tech: 'titanium' },
+  sci_purple:   { machine: 'asm',  tier: 2, in: { low_density: 1, control_unit: 1, titanium_plate: 1 }, out: 'sci_purple', n: 2, time: 15, tech: 'space_science' },
+  hull:         { machine: 'asm',  tier: 2, in: { low_density: 2, titanium_plate: 2 },      out: 'hull',         n: 1, time: 10,  tech: 'titanium' },
+  thruster:     { machine: 'asm',  tier: 2, in: { electric_engine: 2, rocket_fuel: 2, titanium_plate: 2 }, out: 'thruster', n: 1, time: 12, tech: 'rocketry' },
+  nav_computer: { machine: 'asm',  tier: 2, in: { control_unit: 3, processor: 2 },          out: 'nav_computer', n: 1, time: 12,  tech: 'rocketry' },
+  life_support: { machine: 'asm',  tier: 2, in: { control_unit: 1, electric_engine: 1, water: 5 }, out: 'life_support', n: 1, time: 12, tech: 'rocketry' },
   plastic:      { machine: 'chem', tier: 1, in: { oil: 1, coal: 1 },                       out: 'plastic',      n: 2, time: 2,   tech: 'oil' },
-  sulfur:       { machine: 'chem', tier: 1, in: { oil: 2 },                                 out: 'sulfur',       n: 1, time: 1.5, tech: 'oil' },
+  sulfur:       { machine: 'chem', tier: 1, in: { oil: 1, water: 1 },                       out: 'sulfur',       n: 1, time: 1.5, tech: 'oil' },
+  lubricant:    { machine: 'chem', tier: 1, in: { oil: 1, water: 1 },                       out: 'lubricant',    n: 1, time: 1,   tech: 'electric_engines' },
   battery:      { machine: 'chem', tier: 1, in: { sulfur: 1, iron_plate: 1, copper_plate: 1 }, out: 'battery',  n: 1, time: 4,   tech: 'batteries' },
   rocket_fuel:  { machine: 'chem', tier: 1, in: { solid_fuel: 4, oil: 2 },                  out: 'rocket_fuel',  n: 1, time: 8,   tech: 'rocketry' },
 };
@@ -142,7 +154,15 @@ const BUILDINGS = {
   bigpole:     { name: 'Torre de alta tensión', cat: 'energía', reach: 24, supply: 1, hp: 150, cost: { steel: 5, copper_plate: 5 }, tech: 'big_poles',
                  desc: 'Lleva energía lejos: conecta a 24 casillas.' },
   generator:   { name: 'Generador a carbón',  cat: 'energía', output: 900, hp: 300, poll: 25, cost: { iron_plate: 20, brick: 10, gear: 5 }, tech: 'electricity',
-                 desc: 'Quema carbón o combustible sólido y genera hasta 900 kW.' },
+                 desc: 'Quema carbón o combustible sólido y genera hasta 900 kW. Simple, pero desperdicia la mitad del combustible.' },
+  offshore:    { name: 'Bomba de agua',       cat: 'energía', time: 0.5, hp: 150, cost: { iron_plate: 5, gear: 2, circuit: 2 }, tech: 'steam_power',
+                 desc: 'Va en la orilla, junto al agua. Saca 2 de agua por segundo, sin fin y sin electricidad.' },
+  boiler:      { name: 'Caldera',             cat: 'energía', rate: 1.8, hp: 200, poll: 30, cost: { stone: 10, iron_plate: 5 }, tech: 'steam_power',
+                 desc: 'Con agua y carbón hace vapor (hasta 1,8 por segundo). Sale por la flecha.' },
+  steam_engine:{ name: 'Máquina de vapor',    cat: 'energía', output: 900, hp: 300, cost: { iron_plate: 10, gear: 8 }, tech: 'steam_power',
+                 desc: 'Convierte vapor en hasta 900 kW. El vapor que le sobra pasa a la siguiente por la flecha.' },
+  radar:       { name: 'Radar',               cat: 'energía', power: 300, scan: 12, hp: 250, cost: { iron_plate: 10, gear: 5, circuit: 5 }, tech: 'electricity',
+                 desc: 'Explora el mapa de a poco alrededor suyo. Usa 300 kW.' },
   solar:       { name: 'Panel solar',         cat: 'energía', output: 60, hp: 150, cost: { silicon: 10, steel: 5, copper_plate: 10 }, tech: 'solar',
                  desc: 'Genera 60 kW de día, 30 kW al atardecer y al amanecer, y nada de noche.' },
   accumulator: { name: 'Acumulador',          cat: 'energía', capacity: 5000, rate: 300, hp: 150, cost: { battery: 5, iron_plate: 2 }, tech: 'batteries',
@@ -159,9 +179,11 @@ const BUILDINGS = {
 
   shipyard:    { name: 'Astillero',           cat: 'nave', size: 5, hp: 3000, cost: { steel: 200, brick: 200, processor: 50 }, tech: 'rocketry',
                  desc: 'Acá se arma la nave. Recibe las piezas por cinta o desde el inventario.' },
+  landfill:    { name: 'Relleno',             cat: 'terreno', hp: 1, cost: { stone: 20 }, tech: 'landfill',
+                 desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const UNDERGROUND_REACH = 5;
 
@@ -179,6 +201,10 @@ const TECHS = {
                        desc: 'Receta del pack de ciencia verde.' },
   electricity:       { name: 'Electricidad',         packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['steel', 'logistic_science'],
                        desc: 'Generador, postes, taladro eléctrico, lámparas y combustible sólido.' },
+  steam_power:       { name: 'Energía a vapor',      packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['electricity'],
+                       desc: 'Bomba de agua, caldera y máquina de vapor: el doble de energía por cada carbón.' },
+  landfill:          { name: 'Relleno',              packs: ['sci_red', 'sci_green'], units: 30, time: 12, req: ['steam_power'],
+                       desc: 'Rellenar agua con piedra para ganar terreno.' },
   sorting:           { name: 'Clasificación',        packs: ['sci_red', 'sci_green'], units: 30, time: 12, req: ['logistics', 'logistic_science'],
                        desc: 'Filtro para separar objetos de una cinta mezclada.' },
   logistics2:        { name: 'Logística 2',          packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['logistics', 'logistic_science'],
@@ -191,7 +217,7 @@ const TECHS = {
                        desc: 'Ensambladora avanzada y motores.' },
   big_poles:         { name: 'Alta tensión',         packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],
                        desc: 'Torres que llevan energía a 24 casillas.' },
-  oil:               { name: 'Petróleo',             packs: ['sci_red', 'sci_green'], units: 100, time: 15, req: ['advanced_assembly'],
+  oil:               { name: 'Petróleo',             packs: ['sci_red', 'sci_green'], units: 100, time: 15, req: ['advanced_assembly', 'steam_power'],
                        desc: 'Bomba de petróleo, planta química, plástico y azufre.' },
   solar:             { name: 'Energía solar',        packs: ['sci_red', 'sci_green'], units: 100, time: 15, req: ['silicon'],
                        desc: 'Paneles solares.' },
@@ -208,10 +234,14 @@ const TECHS = {
   laser_turrets:     { name: 'Torretas láser',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['batteries', 'defense'],
                        desc: 'Torretas que no necesitan munición.' },
   titanium:          { name: 'Metalurgia de titanio', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['chemical_science'],
-                       desc: 'Placas de titanio y placas de casco.' },
-  space_science:     { name: 'Ciencia espacial',     packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 25, req: ['titanium', 'batteries'],
+                       desc: 'Placas de titanio, estructura liviana y placas de casco.' },
+  electric_engines:  { name: 'Motores eléctricos',   packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],
+                       desc: 'Lubricante (petróleo + agua) y motores eléctricos.' },
+  control_units:     { name: 'Unidades de control',  packs: ['sci_red', 'sci_green', 'sci_blue'], units: 120, time: 20, req: ['batteries'],
+                       desc: 'Procesador + batería: el cerebro de la nave.' },
+  space_science:     { name: 'Ciencia espacial',     packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 25, req: ['titanium', 'control_units'],
                        desc: 'Receta del pack de ciencia espacial.' },
-  rocketry:          { name: 'Cohetería',            packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 300, time: 30, req: ['space_science'],
+  rocketry:          { name: 'Cohetería',            packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 300, time: 30, req: ['space_science', 'electric_engines'],
                        desc: 'Astillero, propulsores, navegación, soporte vital y combustible de cohete.' },
 };
 const TECH_ORDER = Object.keys(TECHS);
