@@ -699,7 +699,7 @@ function netSetNick(s) {
   if (n.length < 2) { toast('El nombre tiene que tener al menos 2 letras o números.'); return false; }
   NET.nick = n;
   try { localStorage.setItem(NICK_KEY, n); } catch (_) { /* sin almacenamiento */ }
-  if (NET.uid) NET.db.doc('data/users/' + NET.uid + '/perfil').set({ nombre: n }).catch(() => {});
+  if (NET.uid && NET.db) NET.db.doc('data/users/' + NET.uid + '/perfil').set({ nombre: n }).catch(() => {});
   netLobbyPresence();
   if (NET.on) netSendPresence();
   toast(`Tu nombre ahora es <b>${escapeHtml(n)}</b>.`);
@@ -731,11 +731,19 @@ function netStatusOf(uid) {
 
 // --------------------------- Ventana "En línea" ---------------------------
 
+function netNickHtml() {
+  return `<div class="net-nick"><label for="net-nick">Tu nombre de jugador</label><input id="net-nick" type="text" maxlength="16" autocomplete="off" placeholder="Elegí un nombre" value="${escapeHtml(NET.nick || '')}"><button type="button" class="small-btn" data-nick="1">Guardar</button></div>` +
+    (NET.nick ? '' : '<p class="bad small">Elegí un nombre: es el que ven los demás arriba de tu personaje.</p>');
+}
+
 function netRenderModal() {
   const box = $('online-body');
   if (!box) return;
   if (!NET.available && typeof P2P !== 'undefined' && P2P.standalone) {
-    box.innerHTML = p2pPanelHtml();
+    if (!NET.nick) { try { NET.nick = cleanNick(localStorage.getItem(NICK_KEY)); } catch (_) { /* nada */ } }
+    const typing = document.activeElement && document.activeElement.id === 'net-nick' ? $('net-nick').value : null;
+    box.innerHTML = netNickHtml() + p2pPanelHtml();
+    if (typing !== null) { const i = $('net-nick'); i.value = typing; i.focus(); }
     return;
   }
   if (!NET.available) {
@@ -761,8 +769,7 @@ function netRenderModal() {
   let h = NET.p2p ? p2pPanelHtml() : '';
 
   // Mi nombre
-  h += `<div class="net-nick"><label for="net-nick">Tu nombre de usuario</label><input id="net-nick" type="text" maxlength="16" autocomplete="off" placeholder="Elegí un nombre" value="${escapeHtml(NET.nick)}"><button type="button" class="small-btn" data-nick="1">Guardar</button></div>`;
-  if (!NET.nick) h += '<p class="bad small">Elegí un nombre: es el que ven los demás arriba de tu personaje.</p>';
+  h += netNickHtml();
 
   // Dónde estoy
   if (NET.on) {
@@ -873,7 +880,54 @@ function netUpdateChip() {
 
 // --------------------------- Arranque ---------------------------
 
+
+// Botones de la ventana En línea: se conectan una sola vez, aunque no haya conexión
+let netUiBound = false;
+function netBindUi() {
+  if (netUiBound) return;
+  netUiBound = true;
+  // Botones de la ventana (se redibuja seguido: un solo manejador)
+  $('online-body').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    if (b.dataset.share) {
+      if (NET.worlds[myWorldId()] && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo'; b.classList.add('danger'); return; }
+      netShareCurrent();
+    }
+    if (b.dataset.leave) netLeave();
+    if (b.dataset.nick && netSetNick($('net-nick').value)) netRenderModal();
+    if (b.dataset.join) netJoin(b.dataset.join);
+    if (b.dataset.invite) netInvite(b.dataset.invite);
+    if (b.dataset.add) { netAddFriend(b.dataset.add); netRenderModal(); }
+    if (b.dataset.unfriend) {
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Quitar?'; return; }
+      netRemoveFriend(b.dataset.unfriend); netRenderModal();
+    }
+  });
+  $('online-body').addEventListener('keydown', (ev) => {
+    if (ev.target.id === 'net-nick' && ev.key === 'Enter' && netSetNick(ev.target.value)) netRenderModal();
+    ev.stopPropagation();   // que escribir no mueva el personaje
+  });
+  $('online-body').addEventListener('input', (ev) => {
+    if (ev.target.id !== 'net-q') return;
+    clearTimeout(netSearchTimer);
+    const q = ev.target.value.trim();
+    netSearchTimer = setTimeout(() => netSearch(q), 300);
+  });
+  $('invite').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-inv]');
+    if (!b) return;
+    const box = $('invite');
+    box.hidden = true;
+    if (b.dataset.inv === 'join') {
+      if (box.dataset.from) netAddFriend(box.dataset.from);
+      netJoin(box.dataset.wid);
+    }
+  });
+}
+
 async function netInit() {
+  netBindUi();
   let framed = true;
   try { framed = window.top !== window; } catch (_) { framed = true; }
   NET.diag = { claude: !!(window.claude && typeof window.claude.use === 'function'), framed, room: null, db: null, user: null, id: null };
@@ -918,43 +972,5 @@ async function netInit() {
   netLobbyPresence();
   watchSharedBlueprints();
 
-  // Botones de la ventana (se redibuja seguido: un solo manejador)
-  $('online-body').addEventListener('click', (ev) => {
-    const b = ev.target.closest('button');
-    if (!b) return;
-    if (b.dataset.share) {
-      if (NET.worlds[myWorldId()] && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo'; b.classList.add('danger'); return; }
-      netShareCurrent();
-    }
-    if (b.dataset.leave) netLeave();
-    if (b.dataset.nick && netSetNick($('net-nick').value)) netRenderModal();
-    if (b.dataset.join) netJoin(b.dataset.join);
-    if (b.dataset.invite) netInvite(b.dataset.invite);
-    if (b.dataset.add) { netAddFriend(b.dataset.add); netRenderModal(); }
-    if (b.dataset.unfriend) {
-      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Quitar?'; return; }
-      netRemoveFriend(b.dataset.unfriend); netRenderModal();
-    }
-  });
-  $('online-body').addEventListener('keydown', (ev) => {
-    if (ev.target.id === 'net-nick' && ev.key === 'Enter' && netSetNick(ev.target.value)) netRenderModal();
-    ev.stopPropagation();   // que escribir no mueva el personaje
-  });
-  $('online-body').addEventListener('input', (ev) => {
-    if (ev.target.id !== 'net-q') return;
-    clearTimeout(netSearchTimer);
-    const q = ev.target.value.trim();
-    netSearchTimer = setTimeout(() => netSearch(q), 300);
-  });
-  $('invite').addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-inv]');
-    if (!b) return;
-    const box = $('invite');
-    box.hidden = true;
-    if (b.dataset.inv === 'join') {
-      if (box.dataset.from) netAddFriend(box.dataset.from);
-      netJoin(box.dataset.wid);
-    }
-  });
   netUpdateChip();
 }
