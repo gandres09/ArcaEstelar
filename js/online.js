@@ -470,9 +470,7 @@ async function netJoinInner(wid, meta) {
 function netJoinFail(msg) {
   if (NET.wroom) { NET.wroom.leave().catch(() => {}); NET.wroom = null; }
   NET.wid = null; NET.meta = null; NET.role = null;
-  if (!load()) startNewGame((Math.random() * 2 ** 31) | 0, false);
-  toolbarKey = '';
-  updateUI();
+  loadAsync().then((ok) => { if (!ok) startNewGame((Math.random() * 2 ** 31) | 0, false); toolbarKey = ''; updateUI(); });
   toast(msg);
 }
 
@@ -500,11 +498,13 @@ function netLeave(quiet) {
   netResetSession();
   document.body.classList.remove('online');
   if (quiet === true) return;
-  if (!load()) startNewGame((Math.random() * 2 ** 31) | 0, false);
-  netLobbyPresence();
-  toolbarKey = '';
   closeModals();
-  updateUI();
+  loadAsync().then((ok) => {
+    if (!ok) startNewGame((Math.random() * 2 ** 31) | 0, false);
+    netLobbyPresence();
+    toolbarKey = '';
+    updateUI();
+  });
   toast('Volviste a tu partida.');
 }
 

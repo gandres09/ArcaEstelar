@@ -35,7 +35,31 @@ function serialize() {
 function save() {
   if (NET.busy) return false;
   if (NET.on) return netSaveMine();   // en línea: el mundo lo guarda el anfitrión
-  try { localStorage.setItem(SAVE_KEY, serialize()); return true; } catch (_) { return false; }
+  try {
+    const raw = serialize();
+    // Las partidas grandes se guardan comprimidas (el navegador deja unos pocos MB)
+    if (raw.length < 900000) { localStorage.setItem(SAVE_KEY, raw); return true; }
+    if (!saveBusy) {
+      saveBusy = true;
+      gzipBase64(raw).then((z) => {
+        try { localStorage.setItem(SAVE_KEY, z); } catch (_) { toast('⚠️ La partida ya no entra en el navegador. Usá ☰ → Copiar código de partida para no perderla.'); }
+      }).finally(() => { saveBusy = false; });
+    }
+    return true;
+  } catch (_) { return false; }
+}
+let saveBusy = false;
+
+async function loadAsync() {
+  try {
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    if (raw.startsWith('Z:') || raw.startsWith('R:')) raw = await unpackCode(raw);
+    loadFrom(raw);
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function loadFrom(raw) {
@@ -153,10 +177,10 @@ async function importGame() {
 
 // --------------------------- Arranque ---------------------------
 
-function init() {
+async function init() {
   resize();
   window.addEventListener('resize', resize);
-  if (!load()) {
+  if (!(await loadAsync())) {
     startNewGame((Math.random() * 2 ** 31) | 0, false);
     openModal('help');
   }
