@@ -720,13 +720,21 @@ function netRenderModal() {
   const box = $('online-body');
   if (!box) return;
   if (!NET.available) {
-    box.innerHTML = NET.why === 'link'
+    const dg = NET.diag || {};
+    const ok = (v) => (v ? '✅' : v === false ? '❌' : '–');
+    const diag = `<p class="muted small">Diagnóstico: dentro de Claude ${ok(dg.framed)} · sala en vivo ${ok(dg.room)} · datos ${ok(dg.db)} · cuenta ${ok(dg.user)} · identificado ${ok(dg.id)}</p>`;
+    if (NET.why === 'top') {
+      box.innerHTML = '<p><b>Abriste el juego como página suelta.</b> Así no hay juego en línea: abrilo <b>dentro de claude.ai</b> (desde la invitación o tu lista de artifacts), no con "abrir en pestaña nueva".</p>' + diag;
+      return;
+    }
+    box.innerHTML = (NET.why === 'link'
       ? '<p><b>No te podés conectar en tiempo real desde este acceso.</b> Claude no deja jugar en línea a quien entra con el <b>link público</b> o sin iniciar sesión.</p>' +
         '<p>Para jugar juntos, el dueño del juego tiene que <b>invitarte por email</b> desde el botón <b>Compartir</b> del artifact. Entrá con tu cuenta de Claude y abrí el juego desde esa invitación.</p>' +
+        '<p><b>¿Ya te invitaron por email y igual ves esto?</b> Pedile al dueño que en <b>Compartir</b> cambie el acceso general de "Cualquiera con el link" a <b>solo personas invitadas</b>: mientras el link público está activo, Claude puede tratar a todos como visitantes del link. Después recargá el juego.</p>' +
         '<p class="muted small">Igual podés jugar tu propia partida: se guarda en este navegador.</p>'
       : NET.why === 'error'
         ? '<p>No se pudo conectar con el servicio en línea. Probá recargar la página en un rato.</p>'
-        : '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b>, con tu cuenta (no desde el archivo suelto).</p>';
+        : '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b>, con tu cuenta (no desde el archivo suelto).</p>') + diag;
     return;
   }
   const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;
@@ -843,11 +851,17 @@ function netUpdateChip() {
 // --------------------------- Arranque ---------------------------
 
 async function netInit() {
-  if (!window.claude || typeof window.claude.use !== 'function') return;
-  let room, db, user;
-  try { [room, db, user] = await Promise.all([claude.use('room'), claude.use('db'), claude.use('user')]); } catch (_) { NET.why = 'error'; return; }
-  // Sin sala: entró por el link público (o sin sesión). La plataforma no deja conectarse así.
-  if (!room || !db) { NET.why = 'link'; return; }
+  let framed = true;
+  try { framed = window.top !== window; } catch (_) { framed = true; }
+  NET.diag = { claude: !!(window.claude && typeof window.claude.use === 'function'), framed, room: null, db: null, user: null, id: null };
+  if (!NET.diag.claude) return;
+  // Cada capacidad por separado: si una falla, igual sabemos cuáles sí llegaron
+  const tryUse = (n) => claude.use(n).catch(() => null);
+  const [room, db, user] = await Promise.all([tryUse('room'), tryUse('db'), tryUse('user')]);
+  Object.assign(NET.diag, { room: !!room, db: !!db, user: !!user });
+  if (user) { try { NET.diag.id = !!(await user.id()); NET.diag.edit = await user.canEdit(); } catch (_) { /* nada */ } }
+  // Sin sala: la plataforma no lo deja conectarse en tiempo real
+  if (!room || !db) { NET.why = !framed ? 'top' : 'link'; return; }
   NET.room = room; NET.db = db; NET.user = user; NET.available = true;
   try { NET.uid = user ? await user.id() : null; } catch (_) { NET.uid = null; }
   try { NET.canWrite = user && user.can ? (await user.can('data.write')) !== false : true; } catch (_) { NET.canWrite = true; }
