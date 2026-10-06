@@ -170,6 +170,47 @@ async function exportGame() {
   }
 }
 
+// Partida en un archivo .txt: se descarga y se vuelve a subir
+async function downloadGame() {
+  const code = await gzipBase64(serialize());
+  const d = new Date(), two = (n) => String(n).padStart(2, '0');
+  const filename = `mini-fabrica-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.txt`;
+  // Dentro de Claude la descarga pasa por la plataforma (pide confirmación)
+  let dl = null;
+  if (window.claude && !NET.p2p) { try { dl = await claude.use('downloads'); } catch (_) { dl = null; } }
+  if (dl) {
+    try { await dl.save({ filename, data: code }); toast('⬇️ Partida descargada: ' + filename); }
+    catch (e) { if (!e || e.code !== 'declined') toast('No se pudo descargar. Usá “Copiar código de partida”.'); }
+    return;
+  }
+  try {
+    const url = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast('⬇️ Partida descargada: ' + filename);
+  } catch (_) {
+    toast('Este navegador no deja descargar. Usá “Copiar código de partida”.');
+  }
+}
+
+async function loadGameFile(file) {
+  if (!file) return;
+  try {
+    const text = (await file.text()).trim();
+    const raw = text.startsWith('{') ? text : await unpackCode(text);
+    loadFrom(raw);
+    save();
+    closeModals();
+    toolbarKey = '';
+    updateUI();
+    toast('📂 Partida cargada desde ' + file.name + '.');
+  } catch (_) {
+    toast('Ese archivo no es una partida de Mini Fábrica (o está incompleto).');
+  }
+}
+
 async function importGame() {
   try {
     const raw = await unpackCode($('import-text').value);
@@ -234,6 +275,13 @@ async function init() {
     else toast(ok ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.');
   });
   $('btn-export').addEventListener('click', exportGame);
+  $('btn-file-save').addEventListener('click', downloadGame);
+  $('btn-file-load').addEventListener('click', () => {
+    if (NET.on && !netInMyWorld()) { toast('Salí del mundo de tu amigo para cargar una partida.'); return; }
+    $('file-load').value = '';
+    $('file-load').click();
+  });
+  $('file-load').addEventListener('change', (ev) => loadGameFile(ev.target.files && ev.target.files[0]));
   $('btn-import-open').addEventListener('click', () => { $('import-box').hidden = false; $('import-text').focus(); });
   $('btn-import').addEventListener('click', importGame);
   $('btn-new').addEventListener('click', () => openModal('newgame'));
