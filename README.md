@@ -159,9 +159,11 @@ Con personaje, el planeta tiene combate y botín:
 
 - **Ataque automático**: el personaje ataca al enemigo más cercano que esté al alcance de su arma.
 - **Nivel y experiencia** (hasta 30): más vida y daño por nivel; el equipo de cada material pide un nivel mínimo.
-- **Armería**: espada, martillo, pistola, rifle, lanzallamas, traje liviano y armadura pesada, en niveles I (hierro) a V (estelar). Piden materiales de la fábrica y partes de monstruos (quitina, colmillo, cristal antiguo, corazón de bestia). Se pueden mejorar (conservan los bonus) y desarmar (devuelven la mitad).
+- **Equipo estilo RPG**: casillas de arma, cabeza, cuello, manos, pecho, pies y dos anillos; se arrastra del bolso a cada casilla (mouse o dedo).
+- **Armería**: espada, martillo, pistola, rifle, lanzallamas, traje liviano, armadura pesada, casco, guantes, botas, anillo y amuleto, en niveles I (hierro) a V (estelar). Piden materiales de la fábrica y partes de monstruos (quitina, colmillo, cristal antiguo, corazón de bestia). Se pueden mejorar (conservan los bonus) y desarmar (devuelven la mitad).
 - **Rareza**: el botín puede ser raro, épico o legendario, con bonus de daño, velocidad, vida, armadura, robo de vida o velocidad al correr.
 - **Criaturas** por zonas (escarabajo, acechador, escupidor, gólem), más fuertes lejos de la nave; **jefes** en guaridas (Reina de la colmena, Coloso de piedra) que reaparecen a los 30 minutos; **ruinas** con cofres y guardianes.
 - **Muerte**: volvés a la nave con el equipo; la mochila queda donde caíste.
-- El perrito muerde a lo que se acerca. Las partidas nuevas usan un mapa de 1600×1200 casillas.
+- El perrito muerde a lo que se acerca. Las partidas nuevas usan un mapa de 1600×1200 casillas, con el cuarzo, el titanio y el petróleo lejos de la nave.
+- **En línea**: el anfitrión guarda una copia del personaje de cada invitado (nivel, equipo, mochila y perrito) en su mundo; si el navegador del invitado la pierde, la recupera al volver a entrar.
 

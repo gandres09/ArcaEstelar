@@ -210,6 +210,38 @@ function drawGearIcon(g, b, x, y, s, col) {
       g.fillStyle = '#ffb347'; g.beginPath(); g.moveTo(s * 0.9, 0); g.lineTo(s * 1.2, -s * 0.25); g.lineTo(s * 1.25, s * 0.2); g.closePath(); g.fill();
       g.fillStyle = col; g.fillRect(-s * 0.85, -s * 0.1, s * 0.5, s * 0.15);
       break;
+    case 'helmet':
+      g.fillStyle = '#9aa3ad';
+      g.beginPath(); g.arc(0, s * 0.15, s * 0.75, Math.PI, 0); g.lineTo(s * 0.75, s * 0.45); g.lineTo(-s * 0.75, s * 0.45); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#2b3036'; g.fillRect(-s * 0.5, s * 0.05, s, s * 0.18);
+      g.fillStyle = col; g.fillRect(-s * 0.08, -s * 0.6, s * 0.16, s * 0.6);
+      break;
+    case 'gloves':
+      g.fillStyle = '#8a6a48';
+      rrect(g, -s * 0.5, -s * 0.3, s * 0.85, s * 0.9, 4); g.fill(); g.stroke();
+      for (let i = 0; i < 4; i++) { rrect(g, -s * 0.5 + i * s * 0.22, -s * 0.85, s * 0.18, s * 0.6, 2); g.fill(); g.stroke(); }
+      rrect(g, s * 0.25, -s * 0.15, s * 0.45, s * 0.22, 2); g.fill(); g.stroke();
+      g.fillStyle = col; g.fillRect(-s * 0.5, s * 0.4, s * 0.85, s * 0.16);
+      break;
+    case 'boots':
+      g.fillStyle = '#6b4a2a';
+      g.beginPath(); g.moveTo(-s * 0.5, -s * 0.85); g.lineTo(s * 0.05, -s * 0.85); g.lineTo(s * 0.05, s * 0.2); g.lineTo(s * 0.85, s * 0.35); g.lineTo(s * 0.85, s * 0.75); g.lineTo(-s * 0.5, s * 0.75); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#2b3036'; g.fillRect(-s * 0.5, s * 0.6, s * 1.35, s * 0.15);
+      g.fillStyle = col; g.fillRect(-s * 0.5, -s * 0.6, s * 0.55, s * 0.16);
+      break;
+    case 'ring':
+      g.strokeStyle = '#e8c35a'; g.lineWidth = s * 0.25;
+      g.beginPath(); g.arc(0, s * 0.2, s * 0.55, 0, 7); g.stroke();
+      g.fillStyle = col; g.strokeStyle = '#1b1f24'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, -s * 0.85); g.lineTo(s * 0.32, -s * 0.5); g.lineTo(0, -s * 0.2); g.lineTo(-s * 0.32, -s * 0.5); g.closePath(); g.fill(); g.stroke();
+      break;
+    case 'amulet':
+      g.strokeStyle = '#c9a54a'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-s * 0.7, -s * 0.9); g.quadraticCurveTo(0, s * 0.2, s * 0.7, -s * 0.9); g.stroke();
+      g.strokeStyle = '#1b1f24'; g.lineWidth = 1;
+      g.fillStyle = '#e8c35a'; g.beginPath(); g.arc(0, s * 0.3, s * 0.48, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = col; g.beginPath(); g.arc(0, s * 0.3, s * 0.26, 0, 7); g.fill();
+      break;
     default: {   // armaduras: un peto
       g.fillStyle = b === 'heavy' ? '#7d858f' : '#a9c0d6';
       g.beginPath(); g.moveTo(-s * 0.7, -s * 0.7); g.lineTo(-s * 0.25, -s * 0.85); g.quadraticCurveTo(0, -s * 0.5, s * 0.25, -s * 0.85); g.lineTo(s * 0.7, -s * 0.7);

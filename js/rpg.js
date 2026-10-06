@@ -15,7 +15,25 @@ const GEAR = {
   flamer: { name: 'Lanzallamas',     slot: 'weapon', dmg: 5,  cd: 0.15, range: 4.5, splash: 1.3, ammo: 'solid_fuel', per: 40, tech: 'oil', desc: 'Quema todo lo que tiene adelante. 1 combustible sólido = 40 llamaradas.' },
   light:  { name: 'Traje liviano',   slot: 'armor', armor: 8,  hp: 15, move: 0.08, desc: 'Protege poco pero te deja correr más.' },
   heavy:  { name: 'Armadura pesada', slot: 'armor', armor: 16, hp: 30, move: -0.08, desc: 'Protege mucho pero pesa.' },
+  helmet: { name: 'Casco',           slot: 'head',  armor: 4,  hp: 8,  desc: 'Protege la cabeza.' },
+  gloves: { name: 'Guantes',         slot: 'hands', armor: 2,  hp: 4,  spd: 0.06, desc: 'Pegás un poco más rápido.' },
+  boots:  { name: 'Botas',           slot: 'feet',  armor: 3,  hp: 4,  move: 0.06, desc: 'Corrés más rápido.' },
+  ring:   { name: 'Anillo',          slot: 'ring',  dmgp: 0.04, desc: 'Más daño con cualquier arma. Podés usar dos.' },
+  amulet: { name: 'Amuleto',         slot: 'neck',  hp: 12, leech: 0.01, desc: 'Más vida y un poco de robo de vida.' },
 };
+// Lugares del cuerpo donde va el equipo (los anillos van en cualquiera de las dos manos)
+const SLOTS = {
+  weapon: { name: 'Arma',   ico: '🗡️' },
+  head:   { name: 'Cabeza', ico: '⛑️' },
+  neck:   { name: 'Cuello', ico: '📿' },
+  hands:  { name: 'Manos',  ico: '🧤' },
+  armor:  { name: 'Pecho',  ico: '🦺' },
+  ring1:  { name: 'Anillo', ico: '💍' },
+  feet:   { name: 'Pies',   ico: '🥾' },
+  ring2:  { name: 'Anillo', ico: '💍' },
+};
+const slotsFor = (b) => (GEAR[b].slot === 'ring' ? ['ring1', 'ring2'] : [GEAR[b].slot]);
+const wornSlot = (p, id) => Object.keys(SLOTS).find((k) => p.equip && p.equip[k] === id) || null;
 const GEAR_ORDER = Object.keys(GEAR);
 
 // Niveles del equipo: el material marca cuánto pega o protege
@@ -82,7 +100,8 @@ function ensureRpg(p) {
   if (p.lvl === undefined) p.lvl = 1;
   if (p.xp === undefined) p.xp = 0;
   if (!Array.isArray(p.gear)) p.gear = [];
-  if (!p.equip) p.equip = { weapon: null, armor: null };
+  if (!p.equip) p.equip = {};
+  for (const k in SLOTS) if (!(k in p.equip)) p.equip[k] = null;
   if (p.hp === undefined) p.hp = playerStats(p).maxHp;
   if (p.atkCd === undefined) p.atkCd = 0;
 }
@@ -104,7 +123,8 @@ function bonusText(x) {
 }
 function newGear(b, t, r = 0, seed = Math.random) {
   const x = {};
-  const keys = Object.keys(BONUS).filter((k) => GEAR[b].slot === 'weapon' ? k !== 'arm' : k !== 'spd' && k !== 'leech');
+  const sl = GEAR[b].slot;
+  const keys = Object.keys(BONUS).filter((k) => sl === 'weapon' ? k !== 'arm' : sl === 'ring' || sl === 'neck' ? true : k !== 'spd' && k !== 'leech');
   for (let i = 0; i < RARITY[r].bonus && keys.length; i++) {
     const k = keys.splice(Math.floor(seed() * keys.length), 1)[0];
     const [, lo, hi, fmt] = BONUS[k];
@@ -115,26 +135,40 @@ function newGear(b, t, r = 0, seed = Math.random) {
   return { id: 'g' + Date.now().toString(36) + Math.floor(seed() * 1e6).toString(36), b, t, r, x };
 }
 
-// Lo que da todo junto: nivel + arma + armadura + bonus
+// Lo que da todo junto: nivel + arma + todo lo que tiene puesto + bonus
 function playerStats(p) {
   const lvl = p.lvl || 1;
-  const w = gearById(p, p.equip && p.equip.weapon), a = gearById(p, p.equip && p.equip.armor);
+  const eq = p.equip || {};
+  const w = gearById(p, eq.weapon);
   const x = {};
-  for (const g of [w, a]) if (g) for (const k in g.x) x[k] = (x[k] || 0) + g.x[k];
+  let armor = 0, hp = 0, move = 0, spd = 0, dmgp = 0, leech = 0;
+  for (const k in SLOTS) {
+    const g = gearById(p, eq[k]);
+    if (!g) continue;
+    for (const b in g.x) x[b] = (x[b] || 0) + g.x[b];
+    if (k === 'weapon') continue;
+    const d = GEAR[g.b];
+    armor += (d.armor || 0) * TIERS[g.t].mult;
+    hp += (d.hp || 0) * g.t;
+    move += d.move || 0;
+    spd += d.spd || 0;
+    dmgp += (d.dmgp || 0) * g.t;
+    leech += d.leech || 0;
+  }
   const lvlMult = 1 + 0.04 * (lvl - 1);
+  const dm = 1 + (x.dmg || 0) + dmgp, sp = 1 + (x.spd || 0) + spd;
   let wpn;
   if (w) {
     const d = GEAR[w.b];
-    wpn = { ...d, dmg: d.dmg * TIERS[w.t].mult * lvlMult * (1 + (x.dmg || 0)), cd: d.cd / (1 + (x.spd || 0)), gear: w };
-  } else wpn = { name: 'Puños', melee: true, dmg: 4 * lvlMult * (1 + (x.dmg || 0)), cd: 0.6 / (1 + (x.spd || 0)), range: 1.4 };
-  const ad = a && GEAR[a.b];
-  const armor = (ad ? ad.armor * TIERS[a.t].mult : 0) + (x.arm || 0);
+    wpn = { ...d, dmg: d.dmg * TIERS[w.t].mult * lvlMult * dm, cd: d.cd / sp, gear: w };
+  } else wpn = { name: 'Puños', melee: true, dmg: 4 * lvlMult * dm, cd: 0.6 / sp, range: 1.4 };
+  armor += x.arm || 0;
   return {
     lvl, wpn, armor,
     reduce: armor / (armor + 50),
-    maxHp: Math.round(100 + 12 * (lvl - 1) + (ad ? ad.hp * a.t : 0) + (x.hp || 0)),
-    leech: x.leech || 0,
-    move: (ad ? ad.move : 0) + (x.move || 0),
+    maxHp: Math.round(100 + 12 * (lvl - 1) + hp + (x.hp || 0)),
+    leech: leech + (x.leech || 0),
+    move: move + (x.move || 0),
   };
 }
 
@@ -565,7 +599,14 @@ function tierAvailable(t) { return !TIERS[t].tech || hasTech(TIERS[t].tech); }
 function craftCost(b, t) {
   const c = { ...TIERS[t].cost };
   if (!GEAR[b].melee && GEAR[b].slot === 'weapon') c.circuit = (c.circuit || 0) + 2 * t;   // las de fuego llevan circuitos
-  if (GEAR[b].slot === 'armor') c.quitina = (c.quitina || 0) + 2 * t;
+  const sl = GEAR[b].slot;
+  // Las piezas chicas cuestan menos, pero piden partes de bichos de más lejos
+  const part = { head: 0.6, hands: 0.6, feet: 0.6, ring: 0.4, neck: 0.4 }[sl];
+  if (part) for (const k in c) c[k] = Math.max(1, Math.ceil(c[k] * part));
+  if (sl === 'armor') c.quitina = (c.quitina || 0) + 2 * t;
+  if (sl === 'head' || sl === 'hands' || sl === 'feet') c.quitina = (c.quitina || 0) + t;
+  if (sl === 'ring') c.colmillo = (c.colmillo || 0) + 2 * t;
+  if (sl === 'neck') c.cristal = (c.cristal || 0) + t;
   return c;
 }
 function upgradeCost(g) {
@@ -585,8 +626,8 @@ function craftGear(b, t) {
   const g = newGear(b, t, 0);
   p.gear.push(g);
   // Si no tenía nada en ese lugar, se lo pone
-  const slot = GEAR[b].slot;
-  if (!gearById(p, p.equip[slot])) p.equip[slot] = g.id;
+  const free = slotsFor(b).find((k) => !gearById(p, p.equip[k]));
+  if (free) p.equip[free] = g.id;
   sfx('place');
   toast(`🛠️ Fabricaste ${gearLabel(g)}`);
   return true;
@@ -616,14 +657,31 @@ function salvageGear(id) {
   toast(`♻️ Desarmaste ${gearLabel(g)}.`);
   return true;
 }
-function equipGear(id) {
+// Ponerse algo (en un lugar elegido, o en el primero libre); si ya lo tiene puesto, se lo saca
+function equipGear(id, to) {
   const p = S.player, g = gearById(p, id);
-  if (!g) return;
-  if (p.lvl < TIERS[g.t].lvl) { toast(`Necesitás nivel ${TIERS[g.t].lvl} para usarlo.`); return; }
-  const slot = GEAR[g.b].slot;
-  p.equip[slot] = p.equip[slot] === id ? null : id;
-  p.mag = 0;
+  if (!g) return false;
+  ensureRpg(p);
+  const from = wornSlot(p, id);
+  if (!to && from) { p.equip[from] = null; p.mag = 0; sfx('click'); return true; }
+  const ok = slotsFor(g.b);
+  if (to && !ok.includes(to)) { toast(`${GEAR[g.b].name} va en ${ok.map((k) => SLOTS[k].name.toLowerCase()).join(' o ')}.`); return false; }
+  if (p.lvl < TIERS[g.t].lvl) { toast(`Necesitás nivel ${TIERS[g.t].lvl} para usarlo.`); return false; }
+  const slot = to || ok.find((k) => !gearById(p, p.equip[k])) || ok[0];
+  if (from === slot) return false;
+  if (from) p.equip[from] = gearById(p, p.equip[slot]) ? p.equip[slot] : null;   // cambiar los anillos de mano
+  p.equip[slot] = id;
+  if (slot === 'weapon') p.mag = 0;
   sfx('click');
+  return true;
+}
+function unequipSlot(slot) {
+  const p = S.player;
+  if (!p.equip[slot]) return false;
+  p.equip[slot] = null;
+  if (slot === 'weapon') p.mag = 0;
+  sfx('click');
+  return true;
 }
 
 // --------------------------- Interfaz ---------------------------
@@ -644,9 +702,17 @@ function gearIcon(b, r = 0) {
 const gearImg = (b, r, cls = 'ico') => `<img class="${cls}" src="${gearIcon(b, r)}" alt="">`;
 
 function gearStatText(g) {
-  const d = GEAR[g.b], m = TIERS[g.t].mult;
-  if (d.slot === 'weapon') return `${Math.round(d.dmg * m * (1 + ((g.x && g.x.dmg) || 0)))} de daño · ${(1 / d.cd * (1 + ((g.x && g.x.spd) || 0))).toFixed(1)} golpes/s · alcance ${d.range}`;
-  return `${Math.round(d.armor * m + ((g.x && g.x.arm) || 0))} de armadura · +${d.hp * g.t + ((g.x && g.x.hp) || 0)} de vida`;
+  const d = GEAR[g.b], m = TIERS[g.t].mult, x = g.x || {};
+  if (d.slot === 'weapon') return `${Math.round(d.dmg * m * (1 + (x.dmg || 0)))} de daño · ${(1 / d.cd * (1 + (x.spd || 0))).toFixed(1)} golpes/s · alcance ${d.range}`;
+  const t = [];
+  const arm = (d.armor || 0) * m + (x.arm || 0);
+  if (arm) t.push(`${Math.round(arm)} de armadura`);
+  if (d.hp) t.push(`+${d.hp * g.t} de vida`);
+  if (d.dmgp) t.push(`+${Math.round(d.dmgp * g.t * 100)} % de daño`);
+  if (d.spd) t.push(`+${Math.round(d.spd * 100)} % velocidad de ataque`);
+  if (d.leech) t.push(`${Math.round(d.leech * 100)} % robo de vida`);
+  if (d.move) t.push(`${d.move > 0 ? '+' : ''}${Math.round(d.move * 100)} % al correr`);
+  return t.join(' · ');
 }
 
 // Fila de la barra de arriba: vida y nivel
@@ -657,32 +723,207 @@ function heroChipText() {
   return `❤️ ${Math.ceil(p.hp)}/${st.maxHp} · ⭐ ${p.lvl}`;
 }
 
+// --- Ventana de equipo: casillas del cuerpo + bolso, con arrastrar y soltar ---
+let gearSel = null;   // { id } o { slot }
+
+function gearStatsHtml() {
+  const p = S.player, st = playerStats(p), need = xpFor(p.lvl);
+  return `<div class="gs-lvl"><b>⭐ Nivel ${p.lvl}</b>${p.lvl < MAX_LEVEL ? ` <span class="muted small">${p.xp} / ${need}</span>${bar(p.xp / need)}` : ' <span class="ok small">máximo</span>'}</div>` +
+    `<div class="gs-row"><span title="Vida">❤️ ${Math.ceil(p.hp)}/${st.maxHp}</span><span title="Daño por golpe">⚔️ ${Math.round(st.wpn.dmg)}</span>` +
+    `<span title="Golpes por segundo">⚡ ${(1 / st.wpn.cd).toFixed(1)}/s</span><span title="Armadura (menos daño recibido)">🛡️ ${Math.round(st.armor)} <small>−${Math.round(st.reduce * 100)} %</small></span>` +
+    (st.move ? `<span title="Velocidad al correr">👟 ${st.move > 0 ? '+' : ''}${Math.round(st.move * 100)} %</span>` : '') +
+    (st.leech ? `<span title="Robo de vida">🩸 ${Math.round(st.leech * 100)} %</span>` : '') + '</div>';
+}
+
+function gearCell(g, attrs, cls = '') {
+  if (!g) return '';
+  const r = RARITY[g.r || 0];
+  return `<div class="gcell ${cls}" ${attrs} style="--rc:${r.color}">${gearImg(g.b, g.r || 0, 'gimg')}<span class="gt">${TIERS[g.t].roman}</span></div>`;
+}
+
+// Cuánto cambia si te lo ponés en vez de lo que tenés
+function gearCompare(g) {
+  const p = S.player, from = wornSlot(p, g.id);
+  if (from || p.lvl < TIERS[g.t].lvl) return '';
+  const slot = slotsFor(g.b).find((k) => !gearById(p, p.equip[k])) || slotsFor(g.b)[0];
+  const before = playerStats(p);
+  const old = p.equip[slot];
+  p.equip[slot] = g.id;
+  const after = playerStats(p);
+  p.equip[slot] = old;
+  const d = [];
+  const add = (v, name, f) => {
+    const txt = f === 'pct' ? Math.round(v * 100) + ' %' : f === 'dec' ? v.toFixed(1) : Math.round(v);
+    if (Math.abs(v) >= (f === 'pct' ? 0.005 : f === 'dec' ? 0.05 : 0.5)) d.push(`<span class="${v > 0 ? 'ok' : 'bad'}">${v > 0 ? '+' : ''}${txt} ${name}</span>`);
+  };
+  add(after.wpn.dmg - before.wpn.dmg, 'daño');
+  add(1 / after.wpn.cd - 1 / before.wpn.cd, 'golpes/s', 'dec');
+  add(after.armor - before.armor, 'armadura');
+  add(after.maxHp - before.maxHp, 'vida');
+  add(after.move - before.move, 'al correr', 'pct');
+  add(after.leech - before.leech, 'robo de vida', 'pct');
+  return d.length ? `<div class="small">Si te lo ponés: ${d.join(' · ')}</div>` : '';
+}
+
+function gearDetailHtml() {
+  const p = S.player;
+  let g = null, slot = null;
+  if (gearSel && gearSel.slot) { slot = gearSel.slot; g = gearById(p, p.equip[slot]); }
+  else if (gearSel && gearSel.id) g = gearById(p, gearSel.id);
+  if (!g) {
+    if (slot) return `<div class="gdetail muted small">${SLOTS[slot].ico} <b>${SLOTS[slot].name}</b>: vacío. Arrastrá acá algo de tu bolso, o tocá un objeto y después “Ponérmelo”.</div>`;
+    return '<div class="gdetail muted small">Tocá un objeto para ver qué hace. Arrastralo a una casilla del cuerpo para ponértelo (en el celu, mantené apretado y arrastrá).</div>';
+  }
+  const on = wornSlot(p, g.id), lowLvl = p.lvl < TIERS[g.t].lvl, d = GEAR[g.b];
+  return `<div class="gdetail">${gearCell(g, '', 'big')}<div class="gear-info"><div>${gearLabel(g)}${on ? ' <span class="ok small">· puesto</span>' : ''}</div>` +
+    `<div class="muted small">${SLOTS[slotsFor(g.b)[0]].name} · ${gearStatText(g)}</div>` +
+    (g.r ? `<div class="small" style="color:${RARITY[g.r].color}">${RARITY[g.r].name}: ${bonusText(g.x)}</div>` : `<div class="muted small">${d.desc}</div>`) +
+    (lowLvl ? `<div class="bad small">Necesitás nivel ${TIERS[g.t].lvl}</div>` : gearCompare(g)) +
+    `<div class="gear-btns"><button type="button" class="small-btn${on ? '' : ' primary'}" data-geq="${g.id}" ${lowLvl && !on ? 'disabled' : ''}>${on ? 'Sacármelo' : 'Ponérmelo'}</button>` +
+    `<button type="button" class="small-btn" data-gsal="${g.id}" title="Desarmar: devuelve la mitad de los materiales">♻️ Desarmar</button></div></div></div>`;
+}
+
 function renderGearModal() {
   const box = $('gear-body');
   if (!box || !playerOn()) { if (box) box.innerHTML = '<p>El equipo es para jugar con personaje.</p>'; return; }
   const p = S.player;
   ensureRpg(p);
-  const st = playerStats(p);
-  const need = xpFor(p.lvl);
-  let h = `<div class="hero-stats"><div><b>Nivel ${p.lvl}</b>${p.lvl < MAX_LEVEL ? ` <span class="muted small">${p.xp} / ${need} de experiencia</span>${bar(p.xp / need)}` : ' <span class="ok small">nivel máximo</span>'}</div>` +
-    `<div class="hero-grid"><span>❤️ Vida</span><b>${Math.ceil(p.hp)} / ${st.maxHp}</b><span>⚔️ ${escapeHtml(st.wpn.name)}</span><b>${Math.round(st.wpn.dmg)} de daño · ${(1 / st.wpn.cd).toFixed(1)}/s</b>` +
-    `<span>🛡️ Armadura</span><b>${Math.round(st.armor)} (−${Math.round(st.reduce * 100)} % de daño)</b>` +
-    (st.move ? `<span>👟 Velocidad</span><b>${st.move > 0 ? '+' : ''}${Math.round(st.move * 100)} %</b>` : '') +
-    (st.leech ? `<span>🩸 Robo de vida</span><b>${Math.round(st.leech * 100)} %</b>` : '') + '</div></div>';
-  const sorted = [...p.gear].sort((a, b) => ((p.equip.weapon === b.id || p.equip.armor === b.id) - (p.equip.weapon === a.id || p.equip.armor === a.id)) || (b.t - a.t) || ((b.r || 0) - (a.r || 0)));
-  h += `<h3>🎒 Tu equipo <span class="muted small">(${p.gear.length}/${GEAR_BAG})</span></h3>`;
-  if (!sorted.length) h += '<p class="muted">Todavía no tenés armas ni armaduras. Construí una <b>Armería</b> para fabricarlas, o conseguilas peleando y saqueando ruinas.</p>';
-  for (const g of sorted) {
-    const on = p.equip.weapon === g.id || p.equip.armor === g.id;
-    const lowLvl = p.lvl < TIERS[g.t].lvl;
-    h += `<div class="gear-row${on ? ' on' : ''}">${gearImg(g.b, g.r || 0)}<div class="gear-info"><div>${gearLabel(g)}${on ? ' <span class="ok small">· puesto</span>' : ''}</div>` +
-      `<div class="muted small">${gearStatText(g)}</div>` + (g.r ? `<div class="small" style="color:${RARITY[g.r].color}">${RARITY[g.r].name}: ${bonusText(g.x)}</div>` : '') +
-      (lowLvl ? `<div class="bad small">Necesitás nivel ${TIERS[g.t].lvl}</div>` : '') + '</div>' +
-      `<div class="gear-btns"><button type="button" class="small-btn${on ? '' : ' primary'}" data-geq="${g.id}" ${lowLvl && !on ? 'disabled' : ''}>${on ? 'Quitar' : 'Usar'}</button>` +
-      `<button type="button" class="small-btn" data-gsal="${g.id}" title="Desarmar: devuelve la mitad de los materiales">♻️</button></div></div>`;
+  if (gearSel && gearSel.id && !gearById(p, gearSel.id)) gearSel = null;
+  let h = `<div class="hero-stats" id="gear-stats">${gearStatsHtml()}</div>`;
+  // El muñeco: cada casilla es una parte del cuerpo
+  h += '<div class="gdoll"><svg class="gsil" viewBox="0 0 100 160" aria-hidden="true"><circle cx="50" cy="22" r="15"/><path d="M28 44h44l10 52-12 2-6-30v86H56l-6-48-6 48H36V68l-6 30-12-2z"/></svg>';
+  for (const k in SLOTS) {
+    const g = gearById(p, p.equip[k]);
+    const sel = gearSel && gearSel.slot === k ? ' sel' : '';
+    h += `<div class="gslot s-${k}${g ? ' full' : ''}${sel}" data-slot="${k}" title="${SLOTS[k].name}">` +
+      (g ? gearCell(g, `data-gid="${g.id}"`) : `<span class="gico">${SLOTS[k].ico}</span><span class="gname">${SLOTS[k].name}</span>`) + '</div>';
   }
-  h += '<p class="muted small">Peleás solo: tu personaje ataca al enemigo más cercano que esté al alcance de tu arma. Las armas de fuego gastan munición (las fabricás en la ensambladora) y el lanzallamas, combustible sólido.</p>';
+  h += '</div>';
+  h += `<div id="gear-detail">${gearDetailHtml()}</div>`;
+  // El bolso: lo que no tenés puesto
+  const order = Object.keys(GEAR);
+  const bag = p.gear.filter((g) => !wornSlot(p, g.id)).sort((a, b) => (order.indexOf(a.b) - order.indexOf(b.b)) || (b.t - a.t) || ((b.r || 0) - (a.r || 0)));
+  h += `<div class="pick-title">🎒 Bolso de equipo <span class="muted small">(${p.gear.length}/${GEAR_BAG})</span></div><div class="gbag" data-bag="1">`;
+  for (const g of bag) {
+    const cls = (gearSel && gearSel.id === g.id ? 'sel ' : '') + (p.lvl < TIERS[g.t].lvl ? 'low' : '');
+    h += gearCell(g, `data-gid="${g.id}"`, cls);
+  }
+  for (let i = bag.length; i < Math.max(16, Math.ceil((bag.length + 1) / 8) * 8); i++) h += '<div class="gcell empty"></div>';
+  h += '</div>';
+  if (!p.gear.length) h += '<p class="muted small">Todavía no tenés equipo. Construí una <b>Armería</b> para fabricarlo, o conseguilo peleando y saqueando ruinas.</p>';
+  h += '<p class="muted small">Tu personaje ataca solo al enemigo más cercano que esté al alcance del arma. Las armas de fuego gastan munición y el lanzallamas, combustible sólido.</p>';
   box.innerHTML = h;
+}
+
+// Arrastrar equipo: con mouse enseguida; con el dedo, manteniendo apretado un momento
+const gdrag = { on: false, pend: null, timer: 0, ghost: null, id: null, from: null };
+function gearDragStart(id, from, x, y) {
+  gdrag.on = true; gdrag.id = id; gdrag.from = from;
+  const g = gearById(S.player, id);
+  const el = document.createElement('div');
+  el.id = 'drag-ghost';
+  el.innerHTML = `<img src="${gearIcon(g.b, g.r || 0)}" width="44" height="44" alt="">`;
+  document.body.appendChild(el);
+  gdrag.ghost = el;
+  gearDragMove(x, y);
+  for (const k of slotsFor(g.b)) { const s = document.querySelector(`#gear-body .gslot[data-slot="${k}"]`); if (s) s.classList.add('can'); }
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) { /* nada */ }
+}
+function gearDropAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  return el ? { slot: el.closest('#gear-body .gslot'), bag: el.closest('#gear-body .gbag') } : {};
+}
+function gearDragMove(x, y) {
+  gdrag.ghost.style.left = x + 'px'; gdrag.ghost.style.top = y + 'px';
+  const t = gearDropAt(x, y);
+  for (const s of document.querySelectorAll('#gear-body .drop-ok')) s.classList.remove('drop-ok');
+  const tgt = t.slot || t.bag;
+  if (tgt) tgt.classList.add('drop-ok');
+}
+function gearDragEnd(x, y, cancel) {
+  clearTimeout(gdrag.timer);
+  gdrag.pend = null;
+  if (!gdrag.on) return;
+  gdrag.on = false;
+  if (gdrag.ghost) gdrag.ghost.remove();
+  gdrag.ghost = null;
+  gearDragEndedAt = performance.now();
+  if (!cancel) {
+    const t = gearDropAt(x, y);
+    if (t.slot) { if (equipGear(gdrag.id, t.slot.dataset.slot)) gearSel = { slot: t.slot.dataset.slot }; }
+    else if (t.bag && gdrag.from) { unequipSlot(gdrag.from); gearSel = { id: gdrag.id }; }
+  }
+  renderGearModal();
+}
+let gearDragEndedAt = 0;
+
+function initRpgUi() {
+  const body = $('gear-body');
+  body.addEventListener('click', (ev) => {
+    if (performance.now() - gearDragEndedAt < 300) return;
+    const b = ev.target.closest('button');
+    if (b) {
+      if (b.dataset.geq) { equipGear(b.dataset.geq); renderGearModal(); }
+      if (b.dataset.gsal) {
+        if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro?'; return; }
+        salvageGear(b.dataset.gsal); gearSel = null; renderGearModal();
+      }
+      return;
+    }
+    const slot = ev.target.closest('.gslot');
+    if (slot) { gearSel = { slot: slot.dataset.slot }; renderGearModal(); return; }
+    const c = ev.target.closest('.gbag [data-gid]');
+    if (c) { gearSel = { id: c.dataset.gid }; renderGearModal(); }
+  });
+  // Doble clic: ponérselo o sacárselo de una
+  body.addEventListener('dblclick', (ev) => {
+    const c = ev.target.closest('[data-gid]');
+    if (c) { equipGear(c.dataset.gid); renderGearModal(); }
+  });
+  body.addEventListener('pointerdown', (ev) => {
+    const c = ev.target.closest('[data-gid]');
+    if (!c || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    const slot = c.closest('.gslot');
+    gdrag.pend = { id: c.dataset.gid, from: slot ? slot.dataset.slot : null, x: ev.clientX, y: ev.clientY, touch: ev.pointerType !== 'mouse' };
+    if (gdrag.pend.touch) {
+      const pd = gdrag.pend;
+      gdrag.timer = setTimeout(() => { if (gdrag.pend === pd) gearDragStart(pd.id, pd.from, pd.x, pd.y); }, 260);
+    }
+  });
+  document.addEventListener('pointermove', (ev) => {
+    const pd = gdrag.pend;
+    if (gdrag.on) { gearDragMove(ev.clientX, ev.clientY); return; }
+    if (!pd) return;
+    const far = Math.hypot(ev.clientX - pd.x, ev.clientY - pd.y) > 7;
+    if (!far) return;
+    if (pd.touch) { clearTimeout(gdrag.timer); gdrag.pend = null; return; }   // con el dedo, moverse rápido es desplazar
+    gearDragStart(pd.id, pd.from, ev.clientX, ev.clientY);
+  });
+  document.addEventListener('pointerup', (ev) => gearDragEnd(ev.clientX, ev.clientY, false));
+  document.addEventListener('pointercancel', () => { if (!gdrag.on) { clearTimeout(gdrag.timer); gdrag.pend = null; } });
+  // Mientras se arrastra con el dedo, la ventana no se desplaza
+  document.addEventListener('touchmove', (ev) => {
+    if (!gdrag.on) return;
+    ev.preventDefault();
+    const t = ev.touches[0];
+    if (t) gearDragMove(t.clientX, t.clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', (ev) => {
+    if (!gdrag.on) return;
+    const t = ev.changedTouches[0];
+    gearDragEnd(t.clientX, t.clientY, false);
+  });
+  body.addEventListener('contextmenu', (ev) => { if (ev.target.closest('[data-gid]')) ev.preventDefault(); });
+  $('hero-chip').addEventListener('click', () => openModal('gear'));
+}
+
+// Mientras la ventana está abierta, la vida se actualiza sin redibujar todo (para no perder clics)
+let gearSoftAt = 0;
+function renderGearModalSoft() {
+  if (performance.now() - gearSoftAt < 1000) return;
+  gearSoftAt = performance.now();
+  const el = $('gear-stats');
+  if (el) el.innerHTML = gearStatsHtml();
 }
 
 // Panel de la Armería
@@ -707,7 +948,7 @@ function armoryHtml() {
     `<div class="tc-cost">Pide: ${costHtml(cost, true)}</div>` + (why ? `<p class="bad small">${why}</p>` : '') +
     `<div class="actions"><button type="button" class="primary" data-act="gcraft" ${why ? 'disabled' : ''}>🛠️ Fabricar</button></div>`;
   // Mejorar lo que tenés puesto
-  const worn = ['weapon', 'armor'].map((s) => gearById(p, p.equip[s])).filter(Boolean);
+  const worn = Object.keys(SLOTS).map((s) => gearById(p, p.equip[s])).filter(Boolean);
   if (worn.length) {
     h += '<div class="pick-title">Mejorar lo que tenés puesto (conserva los bonus)</div>';
     for (const g of worn) {
@@ -719,26 +960,4 @@ function armoryHtml() {
   }
   h += '<div class="actions"><button type="button" data-act="gearopen">⚔️ Ver mi equipo</button></div>';
   return h;
-}
-
-function initRpgUi() {
-  $('gear-body').addEventListener('click', (ev) => {
-    const b = ev.target.closest('button');
-    if (!b) return;
-    if (b.dataset.geq) { equipGear(b.dataset.geq); renderGearModal(); }
-    if (b.dataset.gsal) {
-      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro?'; return; }
-      salvageGear(b.dataset.gsal); renderGearModal();
-    }
-  });
-  $('hero-chip').addEventListener('click', () => openModal('gear'));
-}
-
-// Mientras la ventana está abierta, la vida se actualiza sin redibujar todo (para no perder clics)
-let gearSoftAt = 0;
-function renderGearModalSoft() {
-  if (performance.now() - gearSoftAt < 1500) return;
-  gearSoftAt = performance.now();
-  if (document.activeElement && $('gear').contains(document.activeElement)) return;
-  renderGearModal();
 }

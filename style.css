@@ -490,3 +490,48 @@ img { -webkit-user-drag: none; }
 .gear-info { flex: 1; min-width: 0; font-size: 13px; }
 .gear-btns { display: flex; gap: 4px; flex-shrink: 0; }
 .pick.tier { min-width: 36px; line-height: 1.2; font: 700 13px "Chakra Petch", system-ui, sans-serif; padding: 6px 8px; }
+
+/* Cómo jugar: corto, con temas desplegables */
+#help ol.quick { padding-left: 1.3em; margin: 8px 0; }
+#help ol.quick li { margin: 5px 0; }
+.help-sec { border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; padding: 0 10px; }
+.help-sec > summary { cursor: pointer; padding: 9px 0; font-weight: 600; list-style: none; }
+.help-sec > summary::-webkit-details-marker { display: none; }
+.help-sec > summary::after { content: '▸'; float: right; opacity: .6; }
+.help-sec[open] > summary::after { content: '▾'; }
+.help-sec[open] { padding-bottom: 8px; }
+.help-sec ul, .help-sec ol { margin-top: 0; }
+
+/* Equipo estilo RPG: muñeco con casillas + bolso */
+#gear-stats .gs-lvl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#gear-stats .gs-lvl .bar { flex: 1; min-width: 80px; }
+#gear-stats .gs-row { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; font-weight: 600; }
+#gear-stats .gs-row small { color: var(--muted); font-weight: 400; }
+.gdoll { position: relative; display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 10px 26px; justify-content: center; padding: 10px 0; margin: 4px 0 8px;
+  background: radial-gradient(ellipse at center, rgba(255,255,255,0.05), transparent 70%); border-radius: 10px; }
+.gsil { position: absolute; left: 50%; top: 4px; width: 120px; height: calc(100% - 8px); transform: translateX(-50%); fill: rgba(255,255,255,0.06); pointer-events: none; }
+.gslot { position: relative; width: 64px; height: 64px; border: 2px dashed var(--border); border-radius: 10px; background: rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.gslot .gico { font-size: 20px; opacity: 0.45; line-height: 1; }
+.gslot .gname { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.gslot.full { border-style: solid; }
+.gslot.sel, .gcell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.gslot.can { border-color: var(--ok); background: rgba(92,196,122,0.12); }
+.gslot.drop-ok, .gbag.drop-ok { box-shadow: 0 0 0 3px var(--accent); }
+.s-weapon { grid-area: 1 / 1; } .s-head { grid-area: 1 / 2; } .s-neck { grid-area: 1 / 3; }
+.s-hands { grid-area: 2 / 1; } .s-armor { grid-area: 2 / 2; } .s-ring1 { grid-area: 2 / 3; }
+.s-feet { grid-area: 3 / 2; } .s-ring2 { grid-area: 3 / 3; }
+.gcell { position: relative; width: 46px; height: 46px; border-radius: 8px; background: var(--panel-2); border: 2px solid var(--rc, var(--border));
+  display: flex; align-items: center; justify-content: center; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.gslot .gcell { width: 100%; height: 100%; border: 0; background: transparent; box-shadow: inset 0 0 0 2px var(--rc); border-radius: 8px; }
+.gcell .gimg { width: 38px; height: 38px; pointer-events: none; }
+.gslot .gcell .gimg { width: 48px; height: 48px; }
+.gcell .gt { position: absolute; right: 2px; bottom: 0; font: 700 10px "Chakra Petch", system-ui, sans-serif; text-shadow: 0 1px 2px #000; }
+.gcell.empty { border-style: dashed; border-color: var(--border); opacity: 0.4; cursor: default; }
+.gcell.low { opacity: 0.55; }
+.gcell.big { width: 52px; height: 52px; flex-shrink: 0; cursor: default; }
+.gbag { display: grid; grid-template-columns: repeat(auto-fill, 46px); gap: 5px; justify-content: center; padding: 6px; border-radius: 8px; }
+.gdetail { display: flex; gap: 10px; align-items: flex-start; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; min-height: 52px; }
+.gdetail .gear-btns { margin-top: 6px; }
+#drag-ghost img { pointer-events: none; }
+@media (max-width: 380px) { .gdoll { gap: 8px 16px; } }

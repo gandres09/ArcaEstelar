@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=202610062238">
+  <link rel="stylesheet" href="style.css?v=1791326903">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -149,21 +149,31 @@
         <h1>Arca Estelar</h1>
         <button type="button" class="close" data-close>✕</button>
       </div>
-      <p>Te estrellaste en un planeta desconocido. Para salir vas a tener que levantar una fábrica cada vez más grande, investigar y armar una <b>nave espacial</b>.</p>
-      <h3>Tres etapas</h3>
+      <p>Te estrellaste en un planeta desconocido. Armá una fábrica, investigá y construí una nave para escapar.</p>
+      <ol class="quick">
+        <li>👆 Tocá el suelo para caminar y un <b>mineral</b> o <b>árbol</b> para juntarlo.</li>
+        <li>🔥 Con piedra hacé un <b>Horno</b>: cargale carbón y mineral para tener placas.</li>
+        <li>⛏️ Poné <b>Taladros</b> y <b>Cintas</b> que lleven todo a la <b>Nave</b>.</li>
+        <li>🧪 Seguí el panel <b>Siguiente paso</b>: te guía en cada etapa.</li>
+        <li>⚔️ Afuera hay criaturas: tu personaje <b>pelea solo</b>. Tocá ❤️ ⭐ arriba para ver tu equipo.</li>
+      </ol>
+      <p class="muted small">¿Querés saber más? Tocá un tema:</p>
+      <details class="help-sec"><summary>🚀 Las tres etapas</summary>
       <ol>
         <li>🚀 <b>Llegar al espacio:</b> armá la nave en el Astillero y lanzala. Queda en órbita como estación y desde ahí ves todo el planeta.</li>
         <li>🌱 <b>Limpiar el planeta:</b> borrá todos los nidos con el <b>Enlace orbital</b> y dejá el aire limpio con <b>Purificadores</b> (polución total menor a 30 durante 5 minutos).</li>
         <li>🌌 <b>Escapar del sistema solar:</b> superconductores, ciencia estelar, fusión y motores de curvatura para el <b>Arca estelar</b>.</li>
       </ol>
-      <h3>Cómo empezar</h3>
+      </details>
+      <details class="help-sec"><summary>🏭 Cómo empezar, paso a paso</summary>
       <ol>
-        <li>Arrancás <b>sin nada</b>, con tu personaje junto al <b>Nave</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
+        <li>Arrancás <b>sin nada</b>, con tu personaje junto a la <b>Nave</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
         <li>Sacá <b>piedra</b> y armá un <b>Horno</b>. Cargale <b>carbón</b> (o <b>madera</b>) y <b>hierro</b> tocándolo, y sacá las placas.</li>
-        <li>Con placas y piedra poné <b>Taladros</b> sobre el mineral y llevá todo con <b>Cintas</b>. Lo que entra al <b>Nave</b> queda guardado para construir.</li>
+        <li>Con placas y piedra poné <b>Taladros</b> sobre el mineral y llevá todo con <b>Cintas</b>. Lo que entra a la <b>Nave</b> queda guardado para construir.</li>
         <li>Con una <b>Ensambladora</b> hacé engranajes y <b>Ciencia roja</b>, y llevala a un <b>Laboratorio</b>. El panel <b>Siguiente paso</b> te guía.</li>
       </ol>
-      <h3>Tu personaje</h3>
+      </details>
+      <details class="help-sec"><summary>🧍 Tu personaje y el perrito</summary>
       <ul>
         <li>Tocá el suelo para caminar (o <kbd>WASD</kbd>). 🎯 centra la cámara en él.</li>
         <li>Construye solo lo que está a su alcance (el círculo amarillo). Si mandás algo lejos, camina hasta ahí y lo hace.</li>
@@ -172,24 +182,26 @@
         <li>Tenés un <b>perrito</b> que te acompaña. Tocalo para alimentarlo, acariciarlo, ponerle nombre, elegir su color o dejarlo sentado (por ejemplo, cuidando tu base). Sube de <b>nivel</b> con comida y mimos, y gana collar, medallita, pañuelo y hasta una corona. La comida le dura media hora de juego; después tiene hambre, y si pasa otra media hora sin comer, <b>se escapa</b>.</li>
         <li>¿Preferís el modo de antes, sin personaje? Elegí <b>Clásico</b> en <b>Nuevo juego</b>.</li>
       </ul>
-      <h3>⚔️ Aventura</h3>
+      </details>
+      <details class="help-sec"><summary>⚔️ Aventura, armas y armaduras</summary>
       <ul>
         <li>Afuera hay <b>criaturas</b>: cuanto más lejos de la nave, más fuertes. Tu personaje <b>ataca solo</b> al enemigo más cercano que esté al alcance de su arma; vos te movés.</li>
         <li>Matar y explorar da <b>experiencia</b>: cada nivel da más vida y más daño. Arriba ves tu vida y tu nivel (❤️ · ⭐); tocalos para ver tu equipo.</li>
-        <li>Construí una <b>Armería</b> para fabricar <b>espadas, martillos, pistolas, rifles, lanzallamas y armaduras</b>. Van del nivel I (hierro) al V (estelar) y piden materiales de la fábrica y <b>partes de monstruos</b> (quitina, colmillos, cristales, corazones de bestia).</li>
+        <li>Construí una <b>Armería</b> para fabricar <b>armas</b> (espada, martillo, pistola, rifle, lanzallamas), <b>armaduras, cascos, guantes, botas, anillos y amuletos</b>. En ⚔️ Equipo arrastrá cada cosa a su casilla del cuerpo para ponértela (en el celu, mantené apretado y arrastrá). Van del nivel I (hierro) al V (estelar) y piden materiales de la fábrica y <b>partes de monstruos</b> (quitina, colmillos, cristales, corazones de bestia).</li>
         <li>A veces cae equipo <b style="color:#5aa0ff">raro</b>, <b style="color:#b67cff">épico</b> o <b style="color:#f0a742">legendario</b>, con bonus especiales. Mejorarlo en la Armería conserva los bonus.</li>
         <li>Hay <b>ruinas</b> con cofres para saquear (puntos celestes en el mapa) y <b>guaridas</b> con jefes (puntos rojos). Tu perrito muerde a lo que se acerca.</li>
         <li>Si te derrotan, volvés a la nave con tu equipo; tu <b>mochila</b> queda donde caíste y la recuperás pasando por ahí.</li>
       </ul>
-
-      <h3>En el celular</h3>
+      </details>
+      <details class="help-sec"><summary>📱 En el celular</summary>
       <ul>
         <li>Elegí un edificio abajo, <b>tocá</b> dónde va para ver cómo queda y <b>tocá de nuevo</b> para construirlo.</li>
         <li>Cintas: tocá dónde empiezan y dónde terminan, y confirmá.</li>
         <li>Desarmar: tocá un edificio dos veces, o dos esquinas para desarmar una zona.</li>
         <li>Arrastrá para mover la cámara y pellizcá para el zoom. Si te equivocás, usá <b>Deshacer</b>.</li>
       </ul>
-      <h3>En línea con amigos</h3>
+      </details>
+      <details class="help-sec"><summary>🌐 En línea con amigos</summary>
       <ul>
         <li>La primera vez, invitá a tus amigos por email desde <b>Compartir</b> (necesitan cuenta de Claude).</li>
         <li>En ☰ → <b>En línea y amigos</b> (o el botón 🌐 de arriba) agregalos a tu lista de <b>Amigos</b>: ves quién está conectado y en qué mundo.</li>
@@ -197,17 +209,19 @@
         <li><b>Invitar</b> abre tu mundo y a tu amigo le aparece un aviso para unirse. También podés entrar al mundo de un amigo con <b>Unirme</b>.</li>
         <li>La fábrica, la Nave y la investigación son de todos; la mochila es de cada uno. Tu partida propia queda guardada aparte.</li>
       </ul>
-      <h3>Con teclado y mouse</h3>
+      </details>
+      <details class="help-sec"><summary>⌨️ Con teclado y mouse</summary>
       <ul class="keys">
         <li><kbd>1</kbd>–<kbd>0</kbd> edificios (repetí la tecla para cambiar de variante) · <kbd>Esc</kbd> cancelar</li>
         <li><kbd>R</kbd> girar · <kbd>Q</kbd> copiar el edificio bajo el cursor · <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer</li>
         <li><kbd>X</kbd> desarmar (arrastrá para un área) · <kbd>C</kbd> copiar área · <kbd>V</kbd> pegar · clic derecho desarma</li>
         <li><kbd>WASD</kbd> o arrastrar con la mano: mover · rueda: zoom · <kbd>T</kbd> investigación · <kbd>P</kbd> polución · <kbd>B</kbd> planos</li>
       </ul>
-      <h3>Para tener en cuenta</h3>
+      </details>
+      <details class="help-sec"><summary>💡 Trucos y consejos</summary>
       <ul>
         <li>El mapa es enorme y <b>da la vuelta</b>: si salís por el norte, volvés por el sur (y lo mismo de este a oeste).</li>
-        <li>Los yacimientos se agotan. El cuarzo, el titanio y el petróleo están más lejos: buscalos en el mapa.</li>
+        <li>Los yacimientos se agotan. El cuarzo, el titanio y el petróleo están <b>lejos</b> de la Nave (en las partidas nuevas, el titanio a más de 140 casillas): hay que salir a explorar.</li>
         <li>Hay día y noche. Los paneles solares no generan de noche y rinden la mitad al atardecer y al amanecer.</li>
         <li>Las máquinas contaminan. Cuando la polución llega a los <b>nidos</b>, los bichos atacan. Defendete con muros y torretas.</li>
         <li><b>Árboles:</b> tocalos con la mano para talarlos (4 de madera cada uno; el personaje sigue con los de al lado). Construir encima también los tala. La madera es combustible y sirve para el <b>Cofre de madera</b> y el <b>Vivero</b>. Ojo: los bosques absorben polución, y el Vivero vuelve a plantar.</li>
@@ -223,6 +237,8 @@
         <li><b>Módulos</b> en máquinas eléctricas y laboratorios: más velocidad, productividad o eficiencia. Al final hay investigaciones <b>infinitas</b>.</li>
         <li>El <b>agua</b> es infinita. Bomba de agua en la orilla → caldera con carbón → máquinas de vapor en fila: el doble de energía por carbón que el generador. Los bichos no cruzan el agua.</li>
       </ul>
+      </details>
+
       <button id="btn-help-close" type="button" class="primary">¡A construir!</button>
     </div>
   </div>
@@ -310,27 +326,27 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=202610062238"></script>
-  <script src="js/world.js?v=202610062238"></script>
-  <script src="js/sim.js?v=202610062238"></script>
-  <script src="js/enemies.js?v=202610062238"></script>
-  <script src="js/trains.js?v=202610062238"></script>
-  <script src="js/robots.js?v=202610062238"></script>
-  <script src="js/fluids.js?v=202610062238"></script>
-  <script src="js/player.js?v=202610062238"></script>
-  <script src="js/online.js?v=202610062238"></script>
-  <script src="js/p2p.js?v=202610062238"></script>
-  <script src="js/cloud.js?v=202610062238"></script>
-  <script src="js/pet.js?v=202610062238"></script>
-  <script src="js/rpg.js?v=202610062238"></script>
-  <script src="js/render.js?v=202610062238"></script>
-  <script src="js/rpgdraw.js?v=202610062238"></script>
-  <script src="js/audio.js?v=202610062238"></script>
-  <script src="js/ui.js?v=202610062238"></script>
-  <script src="js/progress.js?v=202610062238"></script>
-  <script src="js/blueprints.js?v=202610062238"></script>
-  <script src="js/input.js?v=202610062238"></script>
-  <script src="js/dragdrop.js?v=202610062238"></script>
-  <script src="js/main.js?v=202610062238"></script>
+  <script src="js/data.js?v=1791326903"></script>
+  <script src="js/world.js?v=1791326903"></script>
+  <script src="js/sim.js?v=1791326903"></script>
+  <script src="js/enemies.js?v=1791326903"></script>
+  <script src="js/trains.js?v=1791326903"></script>
+  <script src="js/robots.js?v=1791326903"></script>
+  <script src="js/fluids.js?v=1791326903"></script>
+  <script src="js/player.js?v=1791326903"></script>
+  <script src="js/online.js?v=1791326903"></script>
+  <script src="js/p2p.js?v=1791326903"></script>
+  <script src="js/cloud.js?v=1791326903"></script>
+  <script src="js/pet.js?v=1791326903"></script>
+  <script src="js/rpg.js?v=1791326903"></script>
+  <script src="js/render.js?v=1791326903"></script>
+  <script src="js/rpgdraw.js?v=1791326903"></script>
+  <script src="js/audio.js?v=1791326903"></script>
+  <script src="js/ui.js?v=1791326903"></script>
+  <script src="js/progress.js?v=1791326903"></script>
+  <script src="js/blueprints.js?v=1791326903"></script>
+  <script src="js/input.js?v=1791326903"></script>
+  <script src="js/dragdrop.js?v=1791326903"></script>
+  <script src="js/main.js?v=1791326903"></script>
 </body>
 </html>

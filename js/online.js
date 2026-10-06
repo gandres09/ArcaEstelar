@@ -115,6 +115,22 @@ function netApply(a) {
       case 'hn': { const n = at(a.x, a.y); if (n && n.type === 'nest') damageEntity(n, a.d); return true; }
       case 'pk': if (S.drops) S.drops = S.drops.filter((d) => d.id !== a.id); return true;
       case 'rl': { const r = (S.ruins || []).find((k) => k.id === a.id); if (r) r.looted = true; return true; }
+      case 'me': {
+        if (!a.u && !a.n) return true;
+        if (!S.guests) S.guests = {};
+        const key = a.u || 'n:' + a.n;
+        const e = S.guests[key] || (S.guests[key] = { pages: [] });
+        e.n = a.n; e.at = Date.now();
+        if (a.d) e.d = a.d;
+        if (a.i) e.i = a.i;
+        if (Array.isArray(a.g) && a.gp >= 0 && a.gp < 10) {
+          e.gn = a.gn;
+          if (!Array.isArray(e.pages)) e.pages = [];
+          e.pages[a.gp] = a.g;
+          e.pages.length = Math.min(e.pages.length, a.gn);
+        }
+        return true;
+      }
       case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; } return true; }
     }
     return true;
@@ -162,7 +178,7 @@ function netHostProcess(peers) {
       const a = acts[i];
       if (!a || typeof a.k !== 'string') continue;
       const ok = netApply(a);
-      if (ok) NET.log.push({ g: ++NET.gs, c: pr.cid, a });
+      if (ok && a.k !== 'me') NET.log.push({ g: ++NET.gs, c: pr.cid, a });   // la copia de un personaje no hace falta reenviarla
       else if (a.k === 'p') { NET.rej.push([pr.cid, s, a.t]); if (NET.rej.length > 12) NET.rej.shift(); }
       last = s;
       NET.presAt = 0;
@@ -255,6 +271,7 @@ function netSendPresence() {
     // Una sola acción gigante (por ejemplo, un cofre muy lleno): se manda sin su contenido
     if (!pres.q && NET.pending.length) {
       const first = NET.pending[0];
+      if (first.a.k === 'me') { NET.pending.shift(); return netSendPresence(); }   // la copia del personaje no entró: se manda otra más adelante
       if (first.a.f) { first.a = { ...first.a, f: { dir: first.a.f.dir, recipe: first.a.f.recipe, filter: first.a.f.filter } }; }
     }
   }
@@ -327,8 +344,17 @@ function applyShared(obj, first) {
     decodeFog(obj.fog);
     let me = null;
     try { me = JSON.parse(localStorage.getItem(NET_ME_KEY) || 'null'); } catch (_) { /* nada */ }
-    S.pinv = me && me.seed === st.seed && me.pinv ? me.pinv : {};
-    S.player = S.character ? (me && me.seed === st.seed && me.player ? me.player : newPlayer(W / 2 + 0.5 + (Math.random() - 0.5) * 4, H / 2 + 3.5)) : null;
+    if (me && me.seed !== st.seed) me = null;
+    // Si el anfitrión tiene una copia más nueva de mi personaje (o mi navegador la perdió), uso esa
+    const copy = S.character ? netGuestCopy(st) : null;
+    const restored = !!(copy && copy.d && (!me || !me.player || (me.at || 0) < copy.at));
+    S.pinv = restored && copy.d.pinv ? copy.d.pinv : (me && me.pinv) || {};
+    S.player = S.character ? (me && me.player ? me.player : newPlayer(W / 2 + 0.5 + (Math.random() - 0.5) * 4, H / 2 + 3.5)) : null;
+    if (restored) {
+      const { pinv, ...d } = copy.d;
+      for (const k in d) if (d[k] != null) S.player[k] = d[k];
+      if (!me || !me.player) toast('🧍 Recuperé tu personaje desde el mundo del anfitrión.');
+    }
     if (S.player) { S.player.path = null; S.player.queue = S.player.queue || []; S.player.craft = S.player.craft || []; }
     NET.lastGs = obj.gs || 0;
     NET.buf = [];
@@ -541,8 +567,42 @@ function netInMyWorld() {
 
 // Guarda lo propio (personaje y mochila) mientras se juega en línea
 function netSaveMine() {
-  try { localStorage.setItem(NET_ME_KEY, JSON.stringify({ seed: S.seed, player: S.player, pinv: S.pinv }, saveReplacer)); } catch (_) { /* sin almacenamiento */ }
+  try { localStorage.setItem(NET_ME_KEY, JSON.stringify({ seed: S.seed, player: S.player, pinv: S.pinv, at: Date.now() }, saveReplacer)); } catch (_) { /* sin almacenamiento */ }
+  netBackupMine();
   return true;
+}
+
+// Copia de mi personaje (nivel, equipo, mochila, perrito) dentro del mundo del anfitrión:
+// así queda en su partida (y en su .txt) aunque mi navegador borre lo guardado.
+let netBackupAt = 0;
+function netBackupMine() {
+  if (!NET.on || netInMyWorld() || !S.player || NET.role === 'host') return;
+  if (Date.now() - netBackupAt < 20000) return;
+  netBackupAt = Date.now();
+  const p = S.player, u = NET.uid || null, n = NET.nick || null;
+  if (!u && !n) return;
+  const pet = p.pet ? JSON.parse(JSON.stringify(p.pet, saveReplacer)) : null;
+  // En partes chicas, para que cada una entre en el mensaje
+  const pages = [];
+  for (let i = 0; i < (p.gear || []).length; i += 8) pages.push(p.gear.slice(i, i + 8));
+  if (!pages.length) pages.push([]);
+  netPush({ k: 'me', u, n, d: { lvl: p.lvl, xp: p.xp, equip: p.equip, pet }, gn: pages.length, gp: 0, g: pages[0] });
+  for (let i = 1; i < pages.length; i++) netPush({ k: 'me', u, n, gn: pages.length, gp: i, g: pages[i] });
+  if (JSON.stringify(S.pinv || {}).length < 2000) netPush({ k: 'me', u, n, i: S.pinv || {} });
+}
+// La copia guardada de un invitado, ya armada
+function guestData(e) {
+  if (!e || !e.d) return null;
+  const gear = e.pages && e.pages.length === e.gn && e.pages.every(Array.isArray) ? e.pages.flat() : null;
+  return { ...e.d, ...(gear ? { gear } : {}), pinv: e.i || null };
+}
+function netGuestCopy(st) {
+  const g = st && st.guests;
+  if (!g) return null;
+  let e = NET.uid && g[NET.uid];
+  if (!e && NET.nick) { const m = Object.values(g).filter((x) => x.n === NET.nick); if (m.length === 1) e = m[0]; }
+  const d = guestData(e);
+  return d ? { d, at: e.at || 0 } : null;
 }
 
 // --------------------------- Los otros jugadores ---------------------------
