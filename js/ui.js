@@ -327,9 +327,6 @@ function currentHint() {
     }
     return air + ' Cuando se cumpla, empieza la última etapa.';
   }
-  // El cofre de la nave tiene restos para arrancar
-  const starter = S.entities.find((e) => e.starter && e.total > 0);
-  if (starter && S.playTime < 1800) return `Al lado de la nave quedó un <b>cofre con restos</b> del choque. Tocalo con la ✋ Mano y sacá lo que tiene: te va a servir para arrancar.`;
   // Arranque con personaje: todo empieza a mano
   if (playerOn() && !S.entities.some((e) => e.type === 'miner' || e.type === 'eminer')) {
     const pv = (k) => S.pinv[k] || 0;
