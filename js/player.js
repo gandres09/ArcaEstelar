@@ -305,6 +305,7 @@ function updatePlayer(dt) {
       if (p.mineT >= CHOP_TIME) {
         p.mineT = 0;
         chopTree(p.mine.x, p.mine.y);
+        netPush({ k: 'c', x: p.mine.x, y: p.mine.y });
         giveItem('wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove', p.mine.x, p.mine.y);
         const next = nearestTree(p.mine.x, p.mine.y, 4);
         if (next) startMining(next.x, next.y); else p.mine = null;
@@ -320,6 +321,7 @@ function updatePlayer(dt) {
       if (p.mineT >= HAND_MINE_TIME) {
         p.mineT = 0;
         const got = mineOre(p.mine.x, p.mine.y);
+        if (got) netPush({ k: 'm', x: p.mine.x, y: p.mine.y });
         if (got) { giveItem(got, 1); countProduced(got); sfx('click'); }
       }
     } else if (!p.path) walkTo(p.mine.x, p.mine.y, MINE_REACH - 0.6);

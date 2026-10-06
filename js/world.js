@@ -139,6 +139,7 @@ function generateMap(seed) {
   // Despejar la zona del Núcleo
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
   oreBase = oreAmt.slice();
+  oreTypeBase = oreType.slice();
   chopped = new Set(); planted = new Map(); treeCache.clear();
   computeForest();
   resetMapGraphics();
@@ -552,7 +553,56 @@ function getChunk(cx, cy) {
 }
 
 // Guardado del mapa: el mapa se rearma con la semilla y solo se guardan las casillas que cambiaron
-let oreBase = null;
+let oreBase = null, oreTypeBase = null;
+
+// Pone el mapa igual al de otro jugador (en línea), redibujando solo lo que cambió
+function applyOreCode(code) {
+  const amt = oreBase.slice();
+  if (code && code.startsWith('d:')) {
+    const s = atob(code.slice(2));
+    const bytes = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    const d = new Uint32Array(bytes.buffer, 0, bytes.length >> 2);
+    for (let k = 0; k + 1 < d.length; k += 2) if (d[k] < amt.length) amt[d[k]] = d[k + 1];
+  }
+  const changed = [];
+  for (let i = 0; i < amt.length; i++) {
+    if (amt[i] === oreAmt[i]) continue;
+    const before = oreStep(i);
+    oreAmt[i] = amt[i];
+    oreType[i] = amt[i] ? oreTypeBase[i] : 0;
+    if (oreStep(i) !== before || !amt[i]) changed.push(i);
+  }
+  if (changed.length > 3000) resetMapGraphics();
+  else for (const i of changed) invalidateTile(i % W, Math.floor(i / W));
+}
+
+// Igual para los árboles: tala o planta solo las diferencias
+function applyTrees(t) {
+  const nc = new Set(t && Array.isArray(t.c) ? t.c : []), np = new Set(t && Array.isArray(t.p) ? t.p : []);
+  const touched = new Set();
+  for (const i of chopped) if (!nc.has(i)) touched.add(i);
+  for (const i of nc) if (!chopped.has(i)) touched.add(i);
+  for (const i of planted.keys()) if (!np.has(i)) touched.add(i);
+  for (const i of np) if (!planted.has(i)) touched.add(i);
+  for (const i of touched) {
+    const x = i % W, y = Math.floor(i / W);
+    const had = treeAt(x, y);
+    if (nc.has(i)) chopped.add(i); else chopped.delete(i);
+    if (np.has(i)) { if (!planted.has(i)) planted.set(i, makeTree(x, y)); } else planted.delete(i);
+    const has = treeAt(x, y);
+    if (had !== has) treeCellChange(x, y, has ? 1 : -1);
+    treeChanged(x, y);
+  }
+}
+
+// La niebla se suma: lo que exploró cualquiera queda explorado
+function mergeFog(s) {
+  if (typeof s !== 'string' || s.length !== PW * PH) return;
+  let n = 0;
+  for (let i = 0; i < s.length; i++) if (s.charCodeAt(i) === 49 && !explored[i]) { explored[i] = 1; n++; }
+  if (n) fogDirty = true;
+}
 function encodeOre() {
   const diff = [];
   for (let i = 0; i < oreAmt.length; i++) if (oreAmt[i] !== oreBase[i]) diff.push(i, oreAmt[i]);

@@ -907,11 +907,16 @@ function drawPlayer(g, lod) {
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(mx + 3, my - 8, TILE - 6, 5);
     g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * Math.min(1, p.mineT / (p.mine.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
+  drawAvatar(g, p, x, y, '#ffb347', '#d9782a');
+}
+
+// Un personaje visto de arriba (el propio en naranja; los demás con su color)
+function drawAvatar(g, p, x, y, light, dark) {
   g.save();
   g.translate(x, y);
   g.fillStyle = 'rgba(0,0,0,0.3)';
   g.beginPath(); g.ellipse(3, 5, 11, 8, 0, 0, Math.PI * 2); g.fill();
-  g.rotate(p.ang);
+  g.rotate(p.ang || 0);
   const swing = p.moving ? Math.sin(p.step) * 4 : 0;
   // Piernas
   g.fillStyle = '#3b4250';
@@ -922,7 +927,7 @@ function drawPlayer(g, lod) {
   g.beginPath(); g.roundRect(-11, -6, 6, 12, 2); g.fill();
   // Cuerpo (traje naranja)
   const body = g.createLinearGradient(-8, -9, 8, 9);
-  body.addColorStop(0, '#ffb347'); body.addColorStop(1, '#d9782a');
+  body.addColorStop(0, light); body.addColorStop(1, dark);
   g.fillStyle = body;
   g.beginPath(); g.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2); g.fill();
   g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.stroke();
@@ -930,7 +935,7 @@ function drawPlayer(g, lod) {
   const arm = p.mining ? Math.sin(time * 14) * 0.9 : swing * 0.1;
   g.save();
   g.rotate(arm);
-  g.fillStyle = '#d9782a';
+  g.fillStyle = dark;
   g.beginPath(); g.ellipse(4, 8, 4, 3, 0, 0, Math.PI * 2); g.fill();
   if (p.mining) {
     g.strokeStyle = '#8a6a44'; g.lineWidth = 2;
@@ -939,7 +944,7 @@ function drawPlayer(g, lod) {
     g.beginPath(); g.moveTo(14, 5); g.quadraticCurveTo(17, 10, 14, 15); g.stroke();
   }
   g.restore();
-  g.fillStyle = '#d9782a';
+  g.fillStyle = dark;
   g.beginPath(); g.ellipse(4, -8, 4, 3, 0, 0, Math.PI * 2); g.fill();
   // Casco con visor
   g.fillStyle = '#f2f2ee';
@@ -949,6 +954,32 @@ function drawPlayer(g, lod) {
   g.fillStyle = 'rgba(255,255,255,0.6)';
   g.beginPath(); g.arc(4.5, -1.2, 1, 0, Math.PI * 2); g.fill();
   g.restore();
+}
+
+// Los otros jugadores conectados, con su nombre arriba
+function drawRemotePlayers(g, lod) {
+  for (const a of NET.avatars.values()) {
+    const col = netColor(a.by);
+    const x = a.x * TILE, y = a.y * TILE;
+    if (lod) { g.fillStyle = col; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); continue; }
+    drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
+    const pr = a.by && NET.profiles[a.by];
+    const name = (pr && pr.name) || 'Jugador';
+    g.font = '600 11px Barlow, system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'bottom';
+    const w = g.measureText(name).width + 10;
+    g.fillStyle = 'rgba(10,14,20,0.75)';
+    rrect(g, x - w / 2, y - 32, w, 15, 4); g.fill();
+    g.fillStyle = '#fff';
+    g.fillText(name, x, y - 19);
+  }
+}
+
+function shadeHex(hex, k) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c * (1 + k))));
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
 }
 
 function drawGhostsAndRobots(g, vx0, vy0, vx1, vy1) {
@@ -1343,6 +1374,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   }
   drawTrains(ctx, lod);
   if (playerOn()) drawPlayer(ctx, lod);
+  if (NET.on) drawRemotePlayers(ctx, lod);
   if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);
   drawEffects(ctx, rdt);
   drawShots(ctx);
@@ -1485,6 +1517,7 @@ function g_reach(g, p) {
 // --------------------------- Despegue ---------------------------
 
 function startLaunch(yard) {
+  netPush({ k: 'L', x: yard.x, y: yard.y });
   launchAnim = { yard, t: 0 };
   sfx('launch');
   const h = sizeOf(yard.type) / 2;

@@ -184,8 +184,9 @@ function contents(e) {
   return c;
 }
 
-function canPlace(type, x, y) {
-  if (type === 'train') return canPlaceTrain(x, y);
+// free: lo aplica la red (otro jugador ya lo pagó y lo vio posible)
+function canPlace(type, x, y, free = false) {
+  if (type === 'train') return free ? (isRail(at(x, y)) && !trainAt(x, y) ? { ok: true } : { ok: false }) : canPlaceTrain(x, y);
   const s = sizeOf(type);
   if (s === 1) {
     const existing = at(x, y);
@@ -199,7 +200,7 @@ function canPlace(type, x, y) {
     }
   }
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
-    if (!tileExplored(x + dx, y + dy)) return { ok: false, why: 'Zona sin explorar' };
+    if (!free && !tileExplored(x + dx, y + dy)) return { ok: false, why: 'Zona sin explorar' };
     if (type !== 'landfill' && oreAt(x + dx, y + dy) === 'water') return { ok: false, why: 'No se puede construir sobre el agua' };
   }
   const o = oreAt(x, y);
@@ -208,6 +209,7 @@ function canPlace(type, x, y) {
   if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
   if ((type === 'miner' || type === 'eminer') && !minerTile(x, y, BUILDINGS[type].area)) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
+  if (free) return { ok: true };
   if (!isUnlocked(type)) return { ok: false, why: 'Falta investigar: ' + TECHS[BUILDINGS[type].tech].name };
   if (!canAfford(BUILDINGS[type].cost)) return { ok: false, why: 'Faltan materiales' };
   return { ok: true };
@@ -274,7 +276,7 @@ function undo() {
       const e = place(s.type, s.x, s.y, s.dir, { silent: true });
       if (e) { if (s.recipe) e.recipe = s.recipe; if (s.filter) e.filter = s.filter; n++; }
     } else if (op.kind === 'rotate') {
-      if (S.entities.includes(op.e)) { op.e.dir = op.from; undergroundDirty = true; n++; }
+      if (S.entities.includes(op.e)) { op.e.dir = op.from; undergroundDirty = true; netTouch(op.e); n++; }
     }
   }
   return n;
@@ -284,22 +286,28 @@ function undo() {
 
 function place(type, x, y, dir, opts = {}) {
   x = wrapX(x); y = wrapY(y);
-  const res = canPlace(type, x, y);
+  const res = canPlace(type, x, y, !!opts.free);
   if (!res.ok) return null;
   if (res.rotate) {
     if (res.rotate.dir !== dir) {
       if (!opts.silent) record({ kind: 'rotate', e: res.rotate, from: res.rotate.dir });
       res.rotate.dir = dir;
+      netTouch(res.rotate);
     }
     return res.rotate;
   }
-  if (type === 'train') return placeTrain(x, y);
-  pay(BUILDINGS[type].cost);
+  if (type === 'train') {
+    const t = placeTrain(x, y, !!opts.free);
+    if (t) netPush({ k: 'p', t: 'train', x, y });
+    return t;
+  }
+  if (!opts.free) pay(BUILDINGS[type].cost);
   if (type === 'landfill') {
     // El relleno no es un edificio: convierte el agua en tierra
     oreType[tIdx(x, y)] = 0;
     oreAmt[tIdx(x, y)] = 0;
     invalidateTile(x, y);
+    netPush({ k: 'p', t: 'landfill', x, y });
     return { type: 'landfill' };
   }
   const e = makeEntity(type, x, y, dir);
@@ -311,7 +319,7 @@ function place(type, x, y, dir, opts = {}) {
   const sz = sizeOf(type);
   let wood = 0;
   for (let dy = 0; dy < sz; dy++) for (let dx = 0; dx < sz; dx++) if (chopTree(x + dx, y + dy)) wood += WOOD_PER_TREE;
-  if (wood) { giveItem('wood', wood); countProduced('wood', wood); }
+  if (wood && !opts.free) { giveItem('wood', wood); countProduced('wood', wood); }
   powerDirty = true;
   undergroundDirty = true;
   fluidDirty = true;
@@ -321,6 +329,7 @@ function place(type, x, y, dir, opts = {}) {
     S.ghosts = S.ghosts.filter((g) => g.x + sizeOf(g.type) <= x || g.x >= x + s || g.y + sizeOf(g.type) <= y || g.y >= y + s);
   }
   if (!opts.silent) record({ kind: 'place', e });
+  netPlaced(e);
   return e;
 }
 
@@ -328,9 +337,12 @@ function removeEntity(e, opts = {}) {
   if (!e || e.type === 'hub' || e.type === 'nest' || !S.entities.includes(e)) return false;
   if (!opts.destroyed) {
     if (!opts.silent) sfx('remove');
-    refund(BUILDINGS[e.type].cost);
-    refund(contents(e));
+    if (!opts.noRefund) {
+      refund(BUILDINGS[e.type].cost);
+      refund(contents(e));
+    }
     if (!opts.silent) record({ kind: 'remove', snap: snapshot(e) });
+    netPush({ k: 'r', t: e.type, x: e.x, y: e.y });
   }
   occupy(e, null);
   S.entities.splice(S.entities.indexOf(e), 1);
@@ -346,6 +358,7 @@ function rotateEntity(e, step) {
   record({ kind: 'rotate', e, from: e.dir });
   e.dir = (e.dir + step + 4) % 4;
   undergroundDirty = true;
+  netTouch(e);
 }
 
 // Daño a edificios del jugador (lo usan los enemigos)
@@ -650,6 +663,7 @@ function labSpeedMult() { return 1 + 0.1 * infLevel('inf_lab'); }
 function setResearch(id) {
   if (!techAvailable(id)) return;
   if (S.research.current !== id) S.research = { current: id, progress: 0 };
+  netPush({ k: 'R', id });
 }
 
 function finishResearch() {
@@ -686,6 +700,7 @@ function weaponMult() {
 function update(dt) {
   if (powerDirty) rebuildPower();
   if (undergroundDirty) pairUndergrounds();
+  NET.sim++;   // lo que pasa adentro de la simulación no se manda por la red
   S.playTime += dt;
   tickStats(dt);
   S.dayTime += dt / DAY_LENGTH;
@@ -1057,10 +1072,17 @@ function update(dt) {
   S.stageTimer = (S.stageTimer || 0) + dt;
   if (S.stageTimer >= 1) { S.stageTimer -= 1; stageTick(); }
   updateFluids();
+  // Lo que hace el personaje sí es una acción del jugador
+  NET.sim--;
+  const invBefore = NET.on ? { ...S.inv } : null;
   updatePlayer(dt);
+  if (invBefore) netInvDelta(invBefore);
+  NET.sim++;
   updateTrains(dt);
   updateRobots(dt);
   updateEnemies(dt);
+  NET.sim--;
+  if (NET.on) NET.shadow = { ...S.inv };
 }
 
 // ¿Están todas las piezas de la nave?

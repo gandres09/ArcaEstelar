@@ -20,6 +20,10 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Mapa enorme que da la vuelta** (640 × 480): saliendo por un borde se entra por el opuesto, sin costuras.
   Yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
 - **Investigación con laboratorios** y 5 packs de ciencia (roja, verde, azul, espacial y estelar), 41 tecnologías, 4 infinitas y 5 eras.
+- **En línea (cooperativo)**: abierto desde su link de Claude, varios jugadores comparten la misma fábrica en
+  tiempo real, cada uno con su personaje y su mochila. Quien comparte la partida es el anfitrión: su navegador lleva
+  la simulación y guarda el mundo cada pocos segundos; si se va, otro con permiso de edición toma la posta.
+  Se invita a los amigos por email desde Compartir.
 - **Madera**: los árboles se talan con la mano (o construyendo encima) y dan madera, que sirve de combustible,
   para el cofre de madera y para el vivero. Los bosques absorben polución: talarlos tiene su costo, y el vivero
   vuelve a plantar.
@@ -101,6 +105,7 @@ lubricante), baterías, procesadores con silicio y titanio.
 - `js/enemies.js`: polución, nidos, bichos y torretas.
 - `js/trains.js`: vías, estaciones y trenes.
 - `js/robots.js`: planos y robots de construcción.
+- `js/online.js`: el modo en línea (presencia de los jugadores, acciones y fotos del mundo).
 - `js/player.js`: el personaje (caminar, alcance, mochila, extraer y fabricar a mano).
 - `js/audio.js`: efectos de sonido y música.
 - `js/progress.js`: logros e historial de producción con su gráfico.

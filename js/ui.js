@@ -19,7 +19,7 @@ const KEY_GROUPS = [
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
-const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach'];
+const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online'];
 
 // --------------------------- Íconos ---------------------------
 
@@ -787,6 +787,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       if (shipReady(e)) { closeInspector(); startLaunch(e); }
       return;
   }
+  if (e.type !== 'train') netTouch(e);   // en línea: los demás ven el cambio
   updateInspector();
   updateInventory();
 });
@@ -853,6 +854,7 @@ function openModal(id) {
   if (id === 'research') { researchHtml = ''; renderResearch(); }
   if (id === 'stats') { renderStats(); renderChartPicker(); renderChart(); }
   if (id === 'ach') renderAchievements();
+  if (id === 'online') netRenderModal();
   if (id === 'menu') { $('import-box').hidden = true; $('export-text').hidden = true; }
 }
 
@@ -950,6 +952,7 @@ function showWin(final = true) {
 }
 
 function updateUI() {
+  netUpdateChip();
   updateToolbar();
   updateTopbar();
   if (getComputedStyle($('side')).display !== 'none') updateSide();

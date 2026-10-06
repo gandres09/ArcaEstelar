@@ -19,6 +19,7 @@
       <span id="evo" class="chip" title="Evolución de los enemigos"></span>
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
+      <button id="net-chip" type="button" class="chip btn-chip" hidden title="Jugar en línea">🌐</button>
     </div>
     <div id="ship-mini" title="Progreso de la etapa">
       <span id="stage-icon">🚀</span>
@@ -92,6 +93,7 @@
           <label class="check"><input type="checkbox" id="mute"> Silenciar todo</label>
         </div>
         <hr>
+        <button id="btn-online" type="button">🌐 Jugar en línea</button>
         <button id="btn-stats" type="button">📊 Producción y estadísticas</button>
         <button id="btn-ach" type="button">🏆 Logros</button>
         <button id="btn-help" type="button">❔ Cómo jugar</button>
@@ -158,6 +160,12 @@
         <li>Cintas: tocá dónde empiezan y dónde terminan, y confirmá.</li>
         <li>Desarmar: tocá un edificio dos veces, o dos esquinas para desarmar una zona.</li>
         <li>Arrastrá para mover la cámara y pellizcá para el zoom. Si te equivocás, usá <b>Deshacer</b>.</li>
+      </ul>
+      <h3>En línea con amigos</h3>
+      <ul>
+        <li>Abrí el juego desde su link de Claude, entrá a ☰ → <b>Jugar en línea</b> y compartí tu partida.</li>
+        <li>Invitá a tus amigos por email desde <b>Compartir</b> (necesitan cuenta de Claude). Cuando abran el link, tocan <b>🌐 Unirme</b>.</li>
+        <li>La fábrica, el Núcleo y la investigación son de todos; la mochila es de cada uno. Tu partida propia queda guardada aparte.</li>
       </ul>
       <h3>Con teclado y mouse</h3>
       <ul class="keys">
@@ -229,6 +237,16 @@
     </div>
   </div>
 
+  <div id="online" class="modal" hidden>
+    <div class="modal-box panel">
+      <div class="modal-head">
+        <h1>🌐 En línea</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="online-body"></div>
+    </div>
+  </div>
+
   <div id="win" class="modal" hidden>
     <div class="modal-box panel">
       <h1 id="win-title">🚀 ¡Llegaste al espacio!</h1>
@@ -246,6 +264,7 @@
   <script src="js/robots.js"></script>
   <script src="js/fluids.js"></script>
   <script src="js/player.js"></script>
+  <script src="js/online.js"></script>
   <script src="js/render.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/ui.js"></script>

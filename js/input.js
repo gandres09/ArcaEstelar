@@ -437,7 +437,7 @@ function dragTo(target) {
       toolDir = d;
       if (dragging.placed && at(dragging.x, dragging.y) === dragging.placed && dragging.placed.dir !== d) {
         record({ kind: 'rotate', e: dragging.placed, from: dragging.placed.dir });
-        dragging.placed.dir = d;
+        dragging.placed.dir = d; netTouch(dragging.placed);
       }
     }
     const a = anchorFor(tool, next);

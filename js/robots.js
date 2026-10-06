@@ -26,6 +26,7 @@ function addGhost(type, x, y, dir, extra = {}) {
   if (!placeableIgnoringCost(type, x, y).ok) return null;
   const g = { id: S.nextId++, type, x, y, dir, recipe: extra.recipe || null, filter: extra.filter || null };
   S.ghosts.push(g);
+  netPush({ k: 'g', t: type, x, y, d: dir, r: g.recipe, f: g.filter });
   return g;
 }
 
@@ -40,6 +41,7 @@ function placeOrGhost(type, x, y, dir, extra = {}) {
 }
 
 function removeGhostsIn(r) {
+  netPush({ k: 'gx', r: { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 } });
   const before = S.ghosts.length;
   S.ghosts = S.ghosts.filter((g) => wrapX(g.x - r.x0) > r.x1 - r.x0 || wrapY(g.y - r.y0) > r.y1 - r.y0);
   return before - S.ghosts.length;

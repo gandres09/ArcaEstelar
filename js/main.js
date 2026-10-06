@@ -19,6 +19,7 @@ function serialize() {
 }
 
 function save() {
+  if (NET.on) return netSaveMine();   // en línea: el mundo lo guarda el anfitrión
   try { localStorage.setItem(SAVE_KEY, serialize()); return true; } catch (_) { return false; }
 }
 
@@ -215,6 +216,9 @@ function init() {
   setInterval(updateUI, 250);
   setInterval(checkAchievements, 2000);
   setInterval(() => renderMinimap(minimap), 500);
+  $('btn-online').addEventListener('click', () => openModal('online'));
+  $('net-chip').addEventListener('click', () => openModal('online'));
+  netInit();
 
   let last = performance.now();
   function frame(now) {
@@ -226,15 +230,16 @@ function init() {
       handMining.prog += dt;
       if (handMining.tree) {
         if (handMining.prog >= CHOP_TIME) {
-          if (chopTree(handMining.x, handMining.y)) { add(S.inv, 'wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove'); }
+          if (chopTree(handMining.x, handMining.y)) { netPush({ k: 'c', x: handMining.x, y: handMining.y }); add(S.inv, 'wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove'); }
           handMining = null;
         }
       } else if (handMining.prog >= HAND_MINE_TIME) {
         handMining.prog = 0;
         const o = mineOre(handMining.x, handMining.y);
-        if (o) { add(S.inv, o, 1); countProduced(o); } else handMining = null;
+        if (o) { netPush({ k: 'm', x: handMining.x, y: handMining.y }); add(S.inv, o, 1); countProduced(o); } else handMining = null;
       }
     }
+    netTick(dt);
     if (!launchAnim || launchAnim.t < 8) update(dt);
     sampleProduction(dt);
     updateLaunch(dt);

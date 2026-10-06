@@ -72,15 +72,17 @@ function canPlaceTrain(x, y) {
   return { ok: true };
 }
 
-function placeTrain(x, y) {
-  if (!canPlaceTrain(x, y).ok) return null;
-  pay(BUILDINGS.train.cost);
+function placeTrain(x, y, free = false) {
+  if (!free && !canPlaceTrain(x, y).ok) return null;
+  if (!free) pay(BUILDINGS.train.cost);
   const t = { id: S.nextId++, type: 'train', x: wrapX(x), y: wrapY(y), cargo: {}, total: 0, fuelType: null, fuel: 0, energy: 0, state: 'idle', wait: 0, target: null, last: null, ang: 0 };
   S.trains.push(t);
   return t;
 }
 
-function removeTrain(t) {
+function removeTrain(t, noRefund = false) {
+  netPush({ k: 'tr', x: Math.round(t.x), y: Math.round(t.y) });
+  if (noRefund) { S.trains.splice(S.trains.indexOf(t), 1); t._dead = true; return; }
   refund(BUILDINGS.train.cost);
   for (const k in t.cargo) add(S.inv, k, t.cargo[k]);
   if (t.fuelType) add(S.inv, t.fuelType, t.fuel);
