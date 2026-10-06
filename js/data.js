@@ -383,7 +383,7 @@ const ERAS = [
 // Lo que necesita la nave para despegar
 const SHIP = { hull: 120, thruster: 40, nav_computer: 20, life_support: 25, rocket_fuel: 300 };
 // Y el Arca estelar, para la etapa final
-const ARK = { hull: 400, warp_drive: 24, fusion_core: 30, habitat: 40, shield: 40, nav_computer: 60, rocket_fuel: 800 };
+const ARK = { hull: 280, warp_drive: 16, fusion_core: 20, habitat: 28, shield: 28, nav_computer: 40, rocket_fuel: 550 };
 const shipNeeds = (e) => (e.type === 'starport' ? ARK : SHIP);
 
 // Las tres etapas del juego

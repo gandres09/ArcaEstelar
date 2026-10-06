@@ -7,7 +7,7 @@ const path = require('path');
 
 const ctx = vm.createContext({});
 const code = fs.readFileSync(path.join(__dirname, '..', 'js', 'data.js'), 'utf8');
-const D = vm.runInContext(code + '\n;({ ITEMS, RECIPES, SMELT, TECHS, SHIP, BUILDINGS, PACKS })', ctx);
+const D = vm.runInContext(code + '\n;({ ITEMS, RECIPES, SMELT, TECHS, SHIP, ARK, BUILDINGS, PACKS })', ctx);
 
 const RAW = new Set(['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water']);
 
@@ -65,6 +65,15 @@ for (const [p, s] of Object.entries(stages)) {
   report(`Etapa ${p} (${s.techs.length} techs, ${fmt(s.labSeconds)} s de lab)`, s.acc);
 }
 report('Nave', ship);
+const ark = newAcc();
+for (const [k, n] of Object.entries(D.ARK)) expand(k, n, ark);
+report('Arca estelar (etapa 3)', ark);
+const charge = newAcc();
+expand('orbital_charge', 1, charge);
+report('Una carga orbital (etapa 2)', charge);
+const filt = newAcc();
+expand('air_filter', 100, filt);
+report('100 filtros de aire (etapa 2)', filt);
 
 const total = newAcc();
 for (const a of [research, ship]) {

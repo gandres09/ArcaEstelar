@@ -19,7 +19,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
   lanzar el Arca estelar con superconductores, ciencia estelar, fusión y motores de curvatura.
 - **Mapa enorme que da la vuelta** (640 × 480): saliendo por un borde se entra por el opuesto, sin costuras.
   Yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
-- **Investigación con laboratorios** y 5 packs de ciencia (roja, verde, azul, espacial y estelar), 41 tecnologías, 4 infinitas y 5 eras.
+- **Investigación con laboratorios** y 5 packs de ciencia (roja, verde, azul, espacial y estelar), 43 tecnologías, 4 infinitas y 5 eras.
 - **En línea (cooperativo)**: abierto desde su link de Claude, varios jugadores comparten la misma fábrica en
   tiempo real, cada uno con su personaje y su mochila. Quien comparte la partida es el anfitrión: su navegador lleva
   la simulación y guarda el mundo cada pocos segundos; si se va, otro con permiso de edición toma la posta.
@@ -38,6 +38,16 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Polución y enemigos**: las máquinas contaminan, la nube se expande y cuando llega a los nidos los bichos atacan.
   Evolucionan con el tiempo y aparecen nidos nuevos. Te defendés con muros, torretas con munición y torretas láser.
   Se puede jugar en modo pacífico.
+- **Cintas de dos carriles** como en Factorio: carga lateral, curvas que conservan el carril, brazos que dejan en el
+  carril de enfrente; subterráneas, divisores y filtros conservan el carril.
+- **Robots logísticos**: cofres de provisión y cofres de pedido (con objetos y cantidades); los robots traen lo
+  pedido desde los cofres de provisión o el Núcleo, dentro de la zona de los puertos.
+- **Trenes con señales y horarios**: las señales cortan la vía en tramos para que anden varios trenes; cada tren
+  tiene paradas con condición (esperar, hasta llenarse, hasta vaciarse) y las estaciones tienen nombre.
+- **Biblioteca de planos** (tecla B): guardar lo copiado con nombre y miniatura, pegarlo, pasarlo como código y
+  compartirlo en línea.
+- **Red de señales**: sensores que mandan valores a 8 canales de colores y condiciones para prender o apagar
+  máquinas, brazos, cintas, bombas, generadores y lámparas.
 - **Logística**: cintas en 3 velocidades, subterráneas, divisores, filtros, cofres, **brazos insertadores** (normales,
   rápidos y con filtro) y **receptores** que entregan al Núcleo desde cualquier lugar. Con la Red logística, los
   brazos también sacan del inventario a través de los receptores.
@@ -70,13 +80,13 @@ Y el **Arca estelar** (etapa 3), en el Dique estelar:
 
 | Pieza | Cantidad | Se hace con |
 | --- | --- | --- |
-| Placa de casco | 400 | igual que en la nave |
-| Motor de curvatura | 24 | núcleo de fusión + propulsores + procesadores cuánticos |
-| Núcleo de fusión | 30 | superconductores + procesadores cuánticos + acero + titanio |
-| Módulo de hábitat | 40 | casco + soporte vital + plástico |
-| Escudo deflector | 40 | superconductores + baterías + procesadores cuánticos |
-| Computadora de navegación | 60 | igual que en la nave |
-| Combustible de cohete | 800 | igual que en la nave |
+| Placa de casco | 280 | igual que en la nave |
+| Motor de curvatura | 16 | núcleo de fusión + propulsores + procesadores cuánticos |
+| Núcleo de fusión | 20 | superconductores + procesadores cuánticos + acero + titanio |
+| Módulo de hábitat | 28 | casco + soporte vital + plástico |
+| Escudo deflector | 28 | superconductores + baterías + procesadores cuánticos |
+| Computadora de navegación | 40 | igual que en la nave |
+| Combustible de cohete | 550 | igual que en la nave |
 
 Para llegar hay que combinar casi todas las líneas: hierro, cobre, acero, petróleo con agua (plástico, azufre,
 lubricante), baterías, procesadores con silicio y titanio.
