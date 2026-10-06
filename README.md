@@ -148,7 +148,7 @@ En `tools/` hay dos herramientas para ajustar el balance después de tocar `js/d
 ## Jugar con código de sala (fuera de Claude)
 
 El juego también funciona como página común, por ejemplo en GitHub Pages
-(`https://gandres09.github.io/Pruebas/`). Ahí, en ☰ → En línea, uno toca
+(`https://gandres09.github.io/ArcaEstelar/`). Ahí, en ☰ → En línea, uno toca
 **Crear sala con mi partida** y le pasa el código de 8 caracteres al otro, que lo
 escribe en **Unirme**. La conexión es directa entre los navegadores (WebRTC con
 PeerJS para el primer contacto); la compu de quien crea la sala lleva la partida.
