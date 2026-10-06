@@ -75,11 +75,23 @@ function init() {
   for (const m of document.querySelectorAll('.modal')) {
     m.addEventListener('pointerdown', (ev) => { if (ev.target === m) closeModals(); });
   }
+  // Confirmación en dos pasos (sin diálogos del navegador)
+  let newArmed = null;
   $('btn-new').addEventListener('click', () => {
-    if (confirm('¿Empezar un juego nuevo? Se pierde la fábrica actual.')) {
-      startNewGame((Math.random() * 2 ** 31) | 0);
-      updateUI();
+    const b = $('btn-new');
+    if (!newArmed) {
+      b.textContent = '¿Seguro? Se borra todo';
+      b.classList.add('danger');
+      newArmed = setTimeout(() => { newArmed = null; b.textContent = 'Nuevo juego'; b.classList.remove('danger'); }, 3500);
+      return;
     }
+    clearTimeout(newArmed);
+    newArmed = null;
+    b.textContent = 'Nuevo juego';
+    b.classList.remove('danger');
+    startNewGame((Math.random() * 2 ** 31) | 0);
+    updateUI();
+    $('help').hidden = false;
   });
   $('side-toggle').addEventListener('click', () => document.body.classList.toggle('side-hidden'));
   if (window.innerWidth < 760) document.body.classList.add('side-hidden');
