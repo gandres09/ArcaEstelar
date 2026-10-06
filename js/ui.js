@@ -804,7 +804,10 @@ function chestPicker(e) {
   h += '<div class="pick-title">Poner <span class="muted">(tocá un objeto tuyo' + (isTouch() ? '' : ' o arrastralo acá') + ')</span></div>';
   h += mine.length && e.total < def.capacity
     ? '<div class="picker">' + mine.map((k) => `<button type="button" class="pick stack" data-act="cput" data-v="${k}" title="Poner ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(avail(k))}</span></button>`).join('') + '</div>'
-    : `<p class="muted small">${e.total >= def.capacity ? 'El cofre está lleno.' : 'No tenés objetos para poner.'}</p>`;
+    : `<p class="${e.total >= def.capacity ? 'muted' : 'bad'} small">${e.total >= def.capacity ? 'El cofre está lleno.'
+      : usePocket() && !nearStorage() ? 'Tu mochila está vacía. Lejos del Núcleo solo podés usar lo que llevás encima: acercate al Núcleo y pasá cosas a la mochila (tocándolas en el panel de inventario).'
+        : 'No tenés objetos para poner.'}</p>`;
+  if (mine.length && usePocket() && !nearStorage()) h += '<p class="muted small">Lejos del Núcleo se usa solo lo que llevás en la mochila.</p>';
   if (inside.length) h += '<div class="actions"><button type="button" data-act="empty">Vaciar todo al inventario</button></div>';
   return h;
 }
