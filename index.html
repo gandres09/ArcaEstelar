@@ -2,27 +2,44 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Mini Fábrica</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="game"></canvas>
 
-  <div id="topbar" class="panel">
-    <div id="inventory"></div>
-    <div id="menu">
-      <button id="btn-help" type="button">Ayuda</button>
-      <button id="btn-new" type="button">Nuevo juego</button>
+  <header id="topbar" class="panel">
+    <div class="brand">Mini Fábrica</div>
+    <div id="ship-mini" title="Progreso de la nave">
+      <span>🚀 Nave</span>
+      <div class="bar"><div id="ship-mini-bar"></div></div>
+      <span id="ship-mini-pct">0%</span>
     </div>
-  </div>
+    <nav id="menu">
+      <button id="btn-research" type="button">🔬 Investigación <kbd>T</kbd></button>
+      <button id="btn-stats" type="button">📊 Producción</button>
+      <button id="btn-help" type="button">❔ Ayuda</button>
+      <button id="btn-new" type="button">Nuevo juego</button>
+    </nav>
+  </header>
+
+  <aside id="side" class="panel">
+    <canvas id="minimap" width="200" height="150" title="Clic para moverte"></canvas>
+    <section>
+      <h2>Siguiente paso</h2>
+      <div id="hint"></div>
+    </section>
+    <section>
+      <h2>Inventario <small>(Núcleo)</small></h2>
+      <div id="inventory"></div>
+    </section>
+  </aside>
+  <button id="side-toggle" type="button" class="panel" title="Mostrar/ocultar panel">☰</button>
+
+  <div id="inspector" class="panel" hidden></div>
 
   <div id="toolbar" class="panel"></div>
-
-  <div id="goals" class="panel">
-    <h2>Objetivo</h2>
-    <div id="goal-body"></div>
-  </div>
 
   <div id="tooltip" class="panel" hidden></div>
   <div id="toast"></div>
@@ -30,35 +47,69 @@
   <div id="help" class="modal" hidden>
     <div class="modal-box panel">
       <h1>Mini Fábrica</h1>
-      <p>Construí una fábrica automática: extraé minerales, fundilos en placas, fabricá piezas y llevalas al <b>Núcleo</b> para cumplir objetivos y desbloquear edificios.</p>
+      <p>Te estrellaste en un planeta desconocido. Para salir de acá vas a tener que construir una fábrica cada vez más grande y armar una <b>nave espacial</b>.</p>
       <h3>Cómo empezar</h3>
       <ol>
-        <li>Poné un <b>Taladro</b> (tecla 2) sobre mineral de hierro (gris azulado).</li>
-        <li>Con <b>R</b> girás la flecha: es hacia donde el taladro saca el mineral.</li>
-        <li>Llevá el mineral con <b>Cintas</b> (tecla 1, arrastrá para trazar) hasta un <b>Horno</b> (tecla 3).</li>
-        <li>El horno necesita <b>carbón</b>: hacé clic sobre él con la mano para cargarle carbón del inventario, o mandale carbón por cinta.</li>
-        <li>Llevá las placas del horno al Núcleo con más cintas.</li>
+        <li>Poné un <b>Taladro</b> sobre el mineral de hierro (gris azulado). La flecha indica por dónde saca el mineral; girala con <kbd>R</kbd>.</li>
+        <li>Llevá el mineral con <b>Cintas</b> (arrastrá para trazar) hasta un <b>Horno</b>.</li>
+        <li>El horno quema <b>carbón</b>: cargalo desde su panel (clic con la mano) o mandale carbón por cinta.</li>
+        <li>Llevá las placas al <b>Núcleo</b>: todo lo que entra va a tu inventario y sirve para construir e investigar.</li>
+        <li>Abrí <b>Investigación</b> para desbloquear edificios y recetas. El panel <b>Siguiente paso</b> te va guiando.</li>
       </ol>
       <h3>Controles</h3>
       <ul class="keys">
-        <li><kbd>1</kbd>–<kbd>6</kbd> elegir edificio · <kbd>Esc</kbd> mano</li>
-        <li><kbd>R</kbd> girar · <kbd>Clic derecho</kbd> desarmar (devuelve el costo)</li>
-        <li><kbd>WASD</kbd> / flechas o arrastrar con la mano: mover cámara · <kbd>Rueda</kbd> zoom</li>
-        <li>Con la mano: mantené clic sobre un mineral para extraerlo a mano, clic en un horno para cargar carbón y recoger placas, clic en una ensambladora para cambiar la receta.</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd> elegir edificio (repetí la tecla para cambiar de variante) · <kbd>Esc</kbd> mano</li>
+        <li><kbd>R</kbd> girar · <kbd>Q</kbd> copiar el edificio bajo el cursor · <kbd>X</kbd> o <kbd>clic derecho</kbd> desarmar</li>
+        <li><kbd>WASD</kbd>/flechas o arrastrar con la mano: mover · <kbd>rueda</kbd> o pellizcar: zoom</li>
+        <li>Mantené clic sobre un mineral con la mano para extraerlo a mano.</li>
+      </ul>
+      <h3>Consejos</h3>
+      <ul>
+        <li>Los yacimientos se agotan: buscá más en el minimapa. El cuarzo y el titanio están lejos del Núcleo.</li>
+        <li>Las máquinas eléctricas necesitan estar a 2 casillas de un <b>poste</b> conectado a un <b>generador</b>.</li>
+        <li>Las cintas aceptan objetos por los costados: así se juntan dos líneas.</li>
       </ul>
       <button id="btn-help-close" type="button" class="primary">¡A construir!</button>
     </div>
   </div>
 
+  <div id="research" class="modal" hidden>
+    <div class="modal-box panel wide">
+      <div class="modal-head">
+        <h1>🔬 Investigación</h1>
+        <button type="button" class="close" data-close="research">✕</button>
+      </div>
+      <p class="muted">Cada investigación se paga con objetos de tu inventario.</p>
+      <div id="tech-list"></div>
+    </div>
+  </div>
+
+  <div id="stats" class="modal" hidden>
+    <div class="modal-box panel wide">
+      <div class="modal-head">
+        <h1>📊 Producción</h1>
+        <button type="button" class="close" data-close="stats">✕</button>
+      </div>
+      <div id="stats-body"></div>
+    </div>
+  </div>
+
   <div id="win" class="modal" hidden>
     <div class="modal-box panel">
-      <h1>🚀 ¡Cohete lanzado!</h1>
-      <p>Tu fábrica completó todos los objetivos.</p>
-      <p id="win-stats"></p>
+      <h1>🚀 ¡Escapaste del planeta!</h1>
+      <p>La nave despegó y dejaste atrás el planeta. Tu fábrica lo hizo posible.</p>
+      <div id="win-stats"></div>
+      <p class="muted">Podés seguir jugando y armar otra nave.</p>
       <button id="btn-win-close" type="button" class="primary">Seguir jugando</button>
     </div>
   </div>
 
-  <script src="game.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

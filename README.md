@@ -1,44 +1,58 @@
 # Mini Fábrica
 
-Un juego de automatización y recolección de recursos para el navegador, inspirado en Factorio.
-Hecho con HTML, CSS y JavaScript puro: no necesita instalar nada.
+Un juego de automatización para el navegador, inspirado en Factorio. Te estrellaste en un planeta
+desconocido y la única forma de salir es construir una fábrica cada vez más grande hasta armar una
+**nave espacial**.
 
-## Cómo jugar
+Está hecho con HTML, CSS y JavaScript puro: no necesita instalar nada. Abrí `index.html` en el
+navegador (doble clic alcanza). Funciona con mouse y teclado, y también en pantallas táctiles.
 
-Abrí `index.html` en el navegador (doble clic alcanza).
+## Cómo se juega
 
-1. Poné **Taladros** sobre los yacimientos de mineral.
-2. Llevá el mineral con **Cintas** hasta los **Hornos**, que lo funden en placas usando carbón.
-3. Mandá las placas al **Núcleo** para cumplir objetivos y desbloquear edificios nuevos.
-4. Con la **Ensambladora** fabricás engranajes y circuitos.
-5. Completá los 4 objetivos para lanzar el cohete 🚀.
+1. Poné **taladros** sobre los yacimientos. Se agotan, así que vas a tener que expandirte.
+2. Llevá el mineral con **cintas** hasta los **hornos**, que lo funden en placas.
+3. Mandá las placas al **Núcleo**: todo lo que entra va a tu inventario.
+4. Con el inventario construís edificios e **investigás** tecnologías nuevas (13 en total).
+5. Montá una **red eléctrica** con generadores y postes para las máquinas avanzadas.
+6. Fabricá las piezas de la nave, llevalas al **Astillero** y ¡despegá! 🚀
 
-### Controles
+El panel **Siguiente paso** te va guiando.
 
-| Acción | Tecla |
-| --- | --- |
-| Elegir edificio | `1` – `6` |
-| Mano (extraer, interactuar) | `Esc` o `Q` |
-| Girar | `R` (`Shift+R` al revés) |
-| Desarmar (devuelve el costo) | Clic derecho |
-| Mover la cámara | `WASD`, flechas o arrastrar con la mano |
-| Zoom | Rueda del mouse |
+## La nave
 
-La partida se guarda automáticamente en el navegador.
-
-## Edificios
-
-| Edificio | Qué hace | Se desbloquea |
+| Pieza | Cantidad | Se hace con |
 | --- | --- | --- |
-| Cinta | Mueve objetos | Desde el inicio |
-| Taladro | Extrae mineral | Desde el inicio |
-| Horno | Mineral → placas (consume carbón) | Desde el inicio |
-| Ensambladora | Engranajes y circuitos | Objetivo 1 |
-| Divisor | Reparte objetos en 3 direcciones | Objetivo 2 |
-| Cinta rápida | Cinta al doble de velocidad | Objetivo 3 |
+| Placa de casco | 40 | titanio + acero |
+| Propulsor | 12 | motores + titanio + procesador |
+| Computadora de navegación | 6 | procesadores + circuitos |
+| Soporte vital | 8 | procesadores + acero + silicio |
+| Combustible de cohete | 100 | combustible sólido (de carbón) |
+
+El cuarzo (para el silicio) aparece a media distancia del Núcleo y el titanio bien lejos.
+
+## Controles
+
+| Acción | Teclado / mouse | Táctil |
+| --- | --- | --- |
+| Elegir edificio | `1`–`9` (repetí para cambiar de variante) | barra de abajo |
+| Mano: ver detalles, extraer a mano | `Esc` | botón ✋ |
+| Girar | `R` (`Shift+R` al revés) | botón 🔄 |
+| Desarmar (devuelve el costo) | `X` o clic derecho | botón 🗑️ |
+| Copiar el edificio bajo el cursor | `Q` | — |
+| Investigación | `T` | botón de arriba |
+| Mover la cámara | `WASD`, flechas o arrastrar | arrastrar |
+| Zoom | rueda | pellizcar |
+
+La partida se guarda sola en el navegador.
 
 ## Archivos
 
-- `index.html`: estructura de la página y la interfaz.
+- `index.html`: página e interfaz.
 - `style.css`: estilos.
-- `game.js`: mapa, simulación, dibujo, controles y guardado.
+- `js/data.js`: objetos, recetas, edificios, investigaciones y la nave. Es el lugar para ajustar el balance.
+- `js/world.js`: generación del mapa, yacimientos y dibujo del terreno.
+- `js/sim.js`: simulación de edificios, cintas y electricidad.
+- `js/render.js`: dibujo de edificios, objetos, minimapa y el despegue.
+- `js/ui.js`: paneles, inspector, investigación y estadísticas.
+- `js/input.js`: mouse, táctil y teclado.
+- `js/main.js`: arranque, guardado y bucle principal.
