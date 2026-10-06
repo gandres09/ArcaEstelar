@@ -413,3 +413,15 @@ textarea {
 .net-list { list-style: none; padding: 0; margin: 6px 0; }
 .net-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .net-list .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+.net-list li .grow { flex: 1; min-width: 0; }
+.net-list .small-btn { padding: 2px 8px; font-size: 12px; }
+.net-search { margin: 6px 0 4px; }
+.net-search input { width: 100%; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; }
+#invite {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  z-index: 20; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 10px 14px; max-width: calc(100vw - 32px);
+  border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 26px rgba(0, 0, 0, 0.55);
+}
+#invite[hidden] { display: none !important; }

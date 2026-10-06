@@ -19,6 +19,7 @@ function serialize() {
 }
 
 function save() {
+  if (NET.busy) return false;
   if (NET.on) return netSaveMine();   // en línea: el mundo lo guarda el anfitrión
   try { localStorage.setItem(SAVE_KEY, serialize()); return true; } catch (_) { return false; }
 }

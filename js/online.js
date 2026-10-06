@@ -26,7 +26,7 @@ const NET = {
   acks: {}, log: [], gs: 0, rej: [], lastSnap: 0, snapping: false, leaseAt: 0,
   // Invitado
   lastGs: 0, buf: [], rejDone: new Set(), snapVer: 0, loading: false, wanted: null, hostSeenAt: 0, lastHostAck: {},
-  presAt: 0, avatars: new Map(), profiles: {},
+  presAt: 0, avatars: new Map(), profiles: {}, worlds: {}, wid: null, wroom: null,
 };
 
 const NET_ME_KEY = 'mini-fabrica-online-yo';
@@ -123,7 +123,7 @@ function netApply(a) {
 function netTick(dt) {
   if (!NET.on) return;
   netFlush();
-  const peers = NET.room.peers();
+  const peers = NET.wroom.peers();
   if (NET.role === 'host') netHostProcess(peers);
   else netClientProcess(peers);
   NET.shadow = { ...S.inv };
@@ -137,7 +137,7 @@ function netTick(dt) {
   } else if (NET.canWrite && now - NET.hostSeenAt > LEASE_MS + 4000 && now - NET.leaseAt > 5000) {
     // Nadie está de anfitrión: si puedo, tomo el turno
     NET.leaseAt = now;
-    netTryHost(false);
+    netTryHost(false).then((ok) => { if (ok) { netLobbyPresence(); toast('🌐 Quedaste de anfitrión del mundo.'); } });
   }
 }
 
@@ -219,7 +219,7 @@ function netSendPresence() {
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
-    const here = new Set(NET.room.peers().map((p) => p.presence && p.presence.cid).filter(Boolean));
+    const here = new Set(NET.wroom.peers().map((p) => p.presence && p.presence.cid).filter(Boolean));
     pres.ack = {};
     for (const c in NET.acks) if (here.has(c)) pres.ack[c] = NET.acks[c];
     pres.rej = NET.rej;
@@ -246,7 +246,7 @@ function netSendPresence() {
       if (first.a.f) { first.a = { ...first.a, f: { dir: first.a.f.dir, recipe: first.a.f.recipe, filter: first.a.f.filter } }; }
     }
   }
-  NET.room.presence(pres).catch(() => {});
+  NET.wroom.presence(pres).catch(() => {});
 }
 
 // --------------------------- Fotos del mundo ---------------------------
@@ -260,9 +260,10 @@ async function netSnapshot() {
     const body = JSON.stringify({ s: rest, pollution: savePollution(), fog: encodeFog(), ore: encodeOre(), trees: encodeTrees(), acks: NET.acks, gs: NET.gs }, saveReplacer);
     const code = await gzipBase64(body);
     const CH = 200000, n = Math.max(1, Math.ceil(code.length / CH)), ver = Date.now();
-    for (let i = 0; i < n; i++) await NET.db.doc('snap/c' + i).set({ ver, d: code.slice(i * CH, (i + 1) * CH) });
-    const meta = { ver, chunks: n, host: NET.cid, hostUid: NET.uid, at: new Date().toISOString(), seed: S.seed, gs: NET.gs, stage: stageOf(), mapW: W, mapH: H };
-    await NET.db.doc('world/meta').set(meta);
+    for (let i = 0; i < n; i++) await snapDoc(NET.wid, i).set({ ver, d: code.slice(i * CH, (i + 1) * CH) });
+    const meta = { ver, chunks: n, host: NET.cid, hostUid: NET.uid, owner: NET.meta && NET.meta.owner || NET.uid, at: new Date().toISOString(),
+      seed: S.seed, gs: NET.gs, stage: stageOf(), mapW: W, mapH: H, char: !!S.character };
+    await worldDoc(NET.wid).set(meta);
     NET.meta = meta;
   } catch (err) {
     console.warn('No se pudo guardar el mundo en línea', err);
@@ -275,7 +276,7 @@ async function netSnapshot() {
 async function netReadSnapshot(meta) {
   const parts = [];
   for (let i = 0; i < meta.chunks; i++) {
-    const d = await NET.db.doc('snap/c' + i).get();
+    const d = await snapDoc(NET.wid, i).get();
     const v = d.exists ? d.data() : null;
     if (!v || v.ver !== meta.ver) return null;   // se está escribiendo otra: se espera la próxima
     parts.push(v.d);
@@ -354,11 +355,12 @@ function netRemapRefs() {
 
 async function netRenewLease() {
   try {
-    const r = await NET.db.doc('world/lease').acquire({ holder: NET.cid, ttlMs: LEASE_MS });
+    const r = await leaseDoc(NET.wid).acquire({ holder: NET.cid, ttlMs: LEASE_MS });
     if (!r.acquired && NET.role === 'host') {
       // Otro tomó el turno: paso a ser invitado
       NET.role = 'client';
       NET.lastGs = NET.gs;
+      netLobbyPresence();
       toast('Otro jugador quedó de anfitrión.');
     }
   } catch (_) { /* se reintenta en la próxima */ }
@@ -368,7 +370,7 @@ async function netRenewLease() {
 async function netTryHost(fromLocal) {
   if (!NET.canWrite) return false;
   let r;
-  try { r = await NET.db.doc('world/lease').acquire({ holder: NET.cid, ttlMs: LEASE_MS }); } catch (_) { return false; }
+  try { r = await leaseDoc(NET.wid).acquire({ holder: NET.cid, ttlMs: LEASE_MS }); } catch (_) { return false; }
   if (!r.acquired) return false;
   if (!fromLocal && !NET.on && NET.meta) {
     if (!(await netLoadSnapshot(NET.meta, true))) return false;
@@ -385,30 +387,94 @@ async function netTryHost(fromLocal) {
   return true;
 }
 
-// --------------------------- Entrar y salir ---------------------------
+// --------------------------- Mundos ---------------------------
+// Cada jugador con permiso de edición puede tener su mundo: worlds/<id> (datos),
+// leases/<id> (turno de anfitrión), snaps/<id>-c<n> (la foto en partes).
 
-async function netShareCurrent() {
-  if (!(await netTryHost(true))) { toast('No se pudo: otro jugador está de anfitrión o no tenés permiso para guardar.'); return; }
-  netStart();
-  await netSnapshot();
-  toast('🌐 Tu partida ahora es un mundo en línea. Invitá a tus amigos desde Compartir.');
-  netRenderModal();
+const worldDoc = (wid) => NET.db.doc('worlds/' + wid);
+const leaseDoc = (wid) => NET.db.doc('leases/' + wid);
+const snapDoc = (wid, i) => NET.db.doc('snaps/' + wid + '-c' + i);
+const myWorldId = () => 'w-' + String(NET.uid || NET.cid).replace(/[^A-Za-z0-9_-]/g, '');
+
+// Nombre de la sala de un mundo (solo minúsculas y números)
+function roomNameOf(wid) {
+  let h = 2166136261;
+  for (let i = 0; i < wid.length; i++) { h ^= wid.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return 'w' + (h >>> 0).toString(36) + wid.length.toString(36);
 }
 
-async function netJoin() {
-  if (!NET.meta) return;
-  save();   // la partida propia queda guardada aparte
-  const ok = (NET.canWrite && !netHostAlive()) ? await netTryHost(false) : await netLoadSnapshot(NET.meta, true);
-  if (!ok && !NET.on && NET.role !== 'host') { toast('No se pudo cargar el mundo en línea. Probá de nuevo en unos segundos.'); return; }
+async function netEnterRoom(wid) {
+  if (NET.wroom && NET.wid === wid) return true;
+  if (NET.wroom) { try { await NET.wroom.leave(); } catch (_) { /* ya no estaba */ } }
+  NET.wid = wid;
+  NET.meta = NET.worlds[wid] || null;
+  try { NET.wroom = await NET.room.join(roomNameOf(wid)); } catch (_) { NET.wroom = null; return false; }
+  NET.wroom.onPeers(() => { netResolveNames(); if (!$('online').hidden) netRenderModal(); }, () => {});
+  return true;
+}
+
+function netResetSession() {
+  NET.role = null; NET.pending = []; NET.own = []; NET.out = []; NET.touched.clear();
+  NET.log = []; NET.buf = []; NET.acks = {}; NET.gs = 0; NET.lastGs = 0; NET.lastHostAck = {}; NET.snapVer = 0;
+  NET.rej = []; NET.rejDone = new Set(); NET.avatars.clear();
+}
+
+// --------------------------- Entrar y salir ---------------------------
+
+// Comparte la partida actual como "mi mundo" y quedo de anfitrión
+async function netShareCurrent() {
+  if (!NET.canWrite) { toast('Para tener tu propio mundo necesitás permiso de edición en el juego.'); return false; }
+  if (NET.on) return true;   // ya estoy en un mundo: las invitaciones van a ese
+  netResetSession();
+  if (!(await netEnterRoom(myWorldId()))) { toast('No se pudo abrir la sala en línea.'); return false; }
+  NET.meta = null;
+  if (!(await netTryHost(true))) { toast('No se pudo: tu mundo ya tiene otro anfitrión abierto (¿otra pestaña?).'); return false; }
+  netStart();
+  await netSnapshot();
+  netLobbyPresence();
+  toast('🌐 Tu partida ahora es tu mundo en línea. Invitá a tus amigos desde 🌐 → Amigos.');
+  if (!$('online').hidden) netRenderModal();
+  return true;
+}
+
+async function netJoin(wid) {
+  const meta = NET.worlds[wid];
+  if (!meta) { toast('Ese mundo ya no está.'); return; }
+  if (NET.on && NET.wid === wid) { closeModals(); return; }
+  if (NET.on) netLeave(true); else save();   // la partida propia queda guardada aparte
+  NET.busy = true;           // mientras se cambia de mundo no se guarda nada encima de la partida propia
+  try { await netJoinInner(wid, meta); } finally { NET.busy = false; }
+}
+
+async function netJoinInner(wid, meta) {
+  netResetSession();
+  if (!(await netEnterRoom(wid))) return netJoinFail('No se pudo entrar a la sala del mundo.');
+  const hostAlive = netWorldHostAlive(wid);
+  let ok;
+  if (NET.canWrite && !hostAlive) ok = await netTryHost(false);
+  if (!ok) ok = await netLoadSnapshot(meta, true);
+  if (!ok) return netJoinFail('No se pudo cargar el mundo. Probá de nuevo en unos segundos.');
   if (!NET.role) NET.role = 'client';
   netStart();
-  toast(NET.role === 'host' ? '🌐 Entraste al mundo en línea. Sos el anfitrión.' : '🌐 Entraste al mundo en línea.');
+  netLobbyPresence();
+  toast(NET.role === 'host' ? '🌐 Entraste al mundo. Sos el anfitrión.' : `🌐 Entraste al mundo de ${netNameOf(meta.owner)}.`);
   closeModals();
   updateUI();
 }
 
-function netHostAlive() {
-  return NET.room.peers().some((p) => !p.sameTab && p.presence && p.presence.host === 1);
+// Si no se pudo entrar, se vuelve a la partida propia
+function netJoinFail(msg) {
+  if (NET.wroom) { NET.wroom.leave().catch(() => {}); NET.wroom = null; }
+  NET.wid = null; NET.meta = null; NET.role = null;
+  if (!load()) startNewGame((Math.random() * 2 ** 31) | 0, false);
+  toolbarKey = '';
+  updateUI();
+  toast(msg);
+}
+
+// ¿Hay alguien de anfitrión en ese mundo? (se ve en la sala general)
+function netWorldHostAlive(wid) {
+  return NET.room.peers().some((p) => !p.sameTab && p.presence && p.presence.w === wid && p.presence.h === 1);
 }
 
 function netStart() {
@@ -420,14 +486,18 @@ function netStart() {
   updateUI();
 }
 
-function netLeave() {
+// quiet: se sale para entrar a otro mundo (no recarga la partida propia)
+function netLeave(quiet) {
   if (NET.role === 'host') netSnapshot();
-  save();
-  NET.on = false; NET.role = null;
-  NET.pending = []; NET.own = []; NET.out = []; NET.touched.clear(); NET.log = []; NET.buf = [];
-  NET.room.presence({ p: null, q: null, host: null, ack: null, log: null, rej: null }).catch(() => {});
+  if (NET.on) netSaveMine();
+  NET.on = false;
+  if (NET.wroom) { NET.wroom.leave().catch(() => {}); NET.wroom = null; }
+  NET.wid = null; NET.meta = null;
+  netResetSession();
   document.body.classList.remove('online');
+  if (quiet === true) return;
   if (!load()) startNewGame((Math.random() * 2 ** 31) | 0, false);
+  netLobbyPresence();
   toolbarKey = '';
   closeModals();
   updateUI();
@@ -461,14 +531,124 @@ function netUpdateAvatars(peers, dt) {
 
 async function netResolveNames() {
   if (!NET.user || !NET.user.profiles) return;
-  const ids = [...new Set([...NET.avatars.values()].map((a) => a.by).filter(Boolean))];
+  const ids = [...new Set([...[...NET.avatars.values()].map((a) => a.by), ...NET.friends,
+    ...NET.lobby.map((p) => p.by || (p.presence && p.presence.uid)), ...Object.values(NET.worlds).map((m) => m.owner)].filter(Boolean))];
   if (!ids.length) return;
   try { Object.assign(NET.profiles, await NET.user.profiles(ids)); } catch (_) { /* sin nombres */ }
 }
 
 function netPlayerCount() {
-  if (!NET.room) return 0;
-  return NET.room.peers().filter((p) => p.kind === 'viewer' && p.presence && p.presence.cid).length;
+  if (!NET.wroom) return 0;
+  return NET.wroom.peers().filter((p) => p.kind === 'viewer' && p.presence && p.presence.cid).length;
+}
+
+// --------------------------- Amigos e invitaciones ---------------------------
+// Los amigos se guardan en este dispositivo (y en tu espacio privado del juego si se puede).
+// Invitar no usa mensajes: se anota en tu presencia de la sala general y la otra persona lo ve.
+
+const FRIENDS_KEY = 'mini-fabrica-amigos';
+NET.friends = [];
+NET.invites = [];          // invitaciones que mandé: [uid, wid, hora]
+NET.seenInv = new Set();   // las que ya me mostraron
+NET.lobby = [];            // quiénes tienen el juego abierto
+
+function netLoadFriends() {
+  try { NET.friends = JSON.parse(localStorage.getItem(FRIENDS_KEY) || '[]').filter((x) => typeof x === 'string'); } catch (_) { NET.friends = []; }
+  if (NET.uid) {
+    NET.db.doc('data/users/' + NET.uid + '/amigos').get().then((d) => {
+      const ids = d.exists && Array.isArray(d.data().ids) ? d.data().ids : [];
+      const all = [...new Set([...NET.friends, ...ids.filter((x) => typeof x === 'string')])];
+      if (all.length !== NET.friends.length) { NET.friends = all; netSaveFriends(); }
+    }).catch(() => {});
+  }
+}
+
+function netSaveFriends() {
+  try { localStorage.setItem(FRIENDS_KEY, JSON.stringify(NET.friends)); } catch (_) { /* sin almacenamiento */ }
+  if (NET.uid) NET.db.doc('data/users/' + NET.uid + '/amigos').set({ ids: NET.friends }).catch(() => {});
+}
+
+function netAddFriend(uid) {
+  if (!uid || uid === NET.uid || NET.friends.includes(uid)) return;
+  NET.friends.push(uid);
+  netSaveFriends();
+  netResolveNames();
+  toast(`👋 ${netNameOf(uid)} ahora es tu amigo.`);
+}
+
+function netRemoveFriend(uid) {
+  NET.friends = NET.friends.filter((x) => x !== uid);
+  netSaveFriends();
+}
+
+// Lo que todos ven de mí en la sala general: en qué mundo estoy y a quién invité
+function netLobbyPresence() {
+  if (!NET.room) return;
+  const now = Date.now();
+  NET.invites = NET.invites.filter((x) => now - x[2] < 120000);
+  NET.room.presence({
+    cid: NET.cid, uid: NET.uid,
+    w: NET.on ? NET.wid : null, h: NET.on && NET.role === 'host' ? 1 : null,
+    inv: NET.invites.length ? NET.invites : null,
+  }).catch(() => {});
+}
+
+async function netInvite(uid) {
+  if (!uid) return;
+  // Hace falta estar en un mundo: si no, comparto el mío
+  if (!NET.on && !(await netShareCurrent())) return;
+  NET.invites = NET.invites.filter((x) => x[0] !== uid);
+  NET.invites.push([uid, NET.wid, Date.now()]);
+  if (NET.invites.length > 8) NET.invites.shift();
+  netLobbyPresence();
+  toast(`📨 Invitaste a ${netNameOf(uid)}. Le aparece un aviso para unirse.`);
+}
+
+// ¿Alguien me invitó?
+function netCheckInvites() {
+  if (!NET.uid) return;
+  for (const p of NET.lobby) {
+    if (p.sameTab || !p.presence || !Array.isArray(p.presence.inv)) continue;
+    for (const inv of p.presence.inv) {
+      if (!Array.isArray(inv) || inv[0] !== NET.uid) continue;
+      const key = p.peer + ':' + inv[2];
+      if (NET.seenInv.has(key)) continue;
+      NET.seenInv.add(key);
+      if (NET.on && NET.wid === inv[1]) continue;
+      netShowInvite(p.by || p.presence.uid, inv[1]);
+    }
+  }
+}
+
+function netShowInvite(from, wid) {
+  const box = $('invite');
+  if (!box) return;
+  box.dataset.wid = wid;
+  box.dataset.from = from || '';
+  box.innerHTML = `<span>🌐 <b></b> te invita a su mundo</span>` +
+    '<button type="button" class="primary" data-inv="join">Unirme</button><button type="button" data-inv="no">Ahora no</button>';
+  box.querySelector('b').textContent = netNameOf(from);
+  box.hidden = false;
+  sfx('research');
+}
+
+function netNameOf(uid) {
+  if (!uid) return 'Alguien';
+  if (uid === NET.uid) return 'vos';
+  const p = NET.profiles[uid];
+  return (p && p.name) || 'Un jugador';
+}
+
+// Qué está haciendo alguien según su presencia en la sala general
+function netStatusOf(uid) {
+  const p = NET.lobby.find((x) => !x.sameTab && (x.by === uid || (x.presence && x.presence.uid === uid)));
+  if (!p) return { online: false, text: 'desconectado' };
+  const w = p.presence && p.presence.w;
+  if (!w) return { online: true, text: 'jugando su partida' };
+  const meta = NET.worlds[w];
+  const owner = meta && meta.owner;
+  if (NET.on && w === NET.wid) return { online: true, text: 'en este mundo', w };
+  return { online: true, text: owner === uid ? 'en su mundo' : `en el mundo de ${netNameOf(owner)}`, w };
 }
 
 // --------------------------- Ventana "En línea" ---------------------------
@@ -476,44 +656,86 @@ function netPlayerCount() {
 function netRenderModal() {
   const box = $('online-body');
   if (!box) return;
-  let h = '';
   if (!NET.available) {
-    h = '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b> (no desde el archivo suelto).</p>' +
-      '<p class="muted small">Para jugar con amigos: el dueño abre el juego, entra acá y comparte su partida. Después los invita por email desde <b>Compartir</b>.</p>';
-  } else if (NET.on) {
-    h += `<p>${NET.role === 'host' ? '🟢 <b>Sos el anfitrión:</b> tu compu lleva la simulación y guarda el mundo cada pocos segundos. Si te vas, otro jugador con permiso de edición toma la posta.' : '🟢 <b>Conectado</b> al mundo en línea.'}</p>`;
-    h += '<h3>Jugando ahora</h3><ul class="net-list">';
-    h += `<li><span class="dot" style="background:${netColor(NET.uid, NET.cid)}"></span>Vos${NET.role === 'host' ? ' · anfitrión' : ''}</li>`;
-    for (const a of NET.avatars.values()) {
-      const pr = a.by && NET.profiles[a.by];
-      h += `<li><span class="dot" style="background:${netColor(a.by)}"></span>${escapeHtml((pr && pr.name) || 'Jugador')}${a.host ? ' · anfitrión' : ''}</li>`;
-    }
-    h += '</ul><p class="muted small">El Núcleo, la investigación y la fábrica son de todos. La mochila es de cada uno.</p>';
-    h += '<div class="actions"><button type="button" id="net-leave">Salir y volver a mi partida</button></div>';
-  } else {
-    const m = NET.meta;
-    if (m) {
-      const n = netPlayerCount();
-      h += `<p>Hay un <b>mundo en línea</b> (etapa ${Math.min(3, m.stage || 1)} de 3). ${n ? `<b>${n}</b> jugando ahora.` : 'Ahora no hay nadie jugando.'}</p>`;
-      h += '<p class="muted small">Tu partida propia queda guardada aparte y volvés a ella cuando salís.</p>';
-      h += '<div class="actions"><button type="button" class="primary" id="net-join">Unirme</button></div>';
-      if (NET.canWrite) h += '<hr><p class="muted small">¿Querés que el mundo en línea sea tu partida actual? Se reemplaza el mundo compartido.</p><div class="actions"><button type="button" id="net-share">Usar mi partida actual</button></div>';
-    } else if (NET.canWrite) {
-      h += '<p>Todavía no hay un mundo en línea. Podés compartir <b>tu partida actual</b>: tus amigos entran a tu fábrica y juegan con vos.</p>';
-      h += '<div class="actions"><button type="button" class="primary" id="net-share">Compartir mi partida</button></div>';
-    } else {
-      h += '<p>Todavía no hay un mundo en línea. Quien te invitó tiene que abrir el juego y compartir su partida desde acá.</p>';
-    }
-    h += '<p class="muted small">Para invitar amigos: botón <b>Compartir</b> del artifact → invitalos por email. Necesitan cuenta de Claude.</p>';
+    box.innerHTML = '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b> (no desde el archivo suelto).</p>' +
+      '<p class="muted small">Ahí podés compartir tu mundo, armar tu lista de amigos e invitarlos con un toque.</p>';
+    return;
   }
+  const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;
+  const nm = (uid) => escapeHtml(netNameOf(uid));
+  let h = '';
+
+  // Dónde estoy
+  if (NET.on) {
+    const mine = NET.wid === myWorldId();
+    h += `<p>🟢 ${mine ? '<b>Estás en tu mundo</b>' : `<b>Estás en el mundo de ${nm(NET.meta && NET.meta.owner)}</b>`}${NET.role === 'host' ? ' · sos el anfitrión (tu compu lleva la simulación y lo guarda)' : ''}.</p>`;
+    h += '<ul class="net-list">';
+    h += `<li>${dot(NET.uid, NET.cid)}Vos${NET.role === 'host' ? ' · anfitrión' : ''}</li>`;
+    for (const a of NET.avatars.values()) h += `<li>${dot(a.by)}${nm(a.by)}${a.host ? ' · anfitrión' : ''}${a.by && !NET.friends.includes(a.by) && a.by !== NET.uid ? ` <button type="button" class="small-btn" data-add="${escapeHtml(a.by)}">+ Amigo</button>` : ''}</li>`;
+    h += '</ul><div class="actions"><button type="button" data-leave="1">Salir y volver a mi partida</button></div>';
+  } else if (NET.canWrite) {
+    h += '<p>Estás jugando tu partida. Podés convertirla en <b>tu mundo en línea</b> para que tus amigos entren.</p>';
+    h += `<div class="actions"><button type="button" class="primary" data-share="1">${NET.worlds[myWorldId()] ? 'Abrir mi mundo con esta partida' : 'Compartir mi partida'}</button></div>`;
+    if (NET.worlds[myWorldId()]) h += '<p class="muted small">Ojo: abrir tu mundo con esta partida reemplaza lo que tenía tu mundo guardado.</p>';
+  }
+
+  // Amigos
+  h += '<h3>👥 Amigos</h3>';
+  if (!NET.friends.length) h += '<p class="muted small">Todavía no agregaste amigos. Agregalos desde <b>Conectados ahora</b> o buscándolos acá abajo.</p>';
+  else {
+    h += '<ul class="net-list">';
+    const sorted = [...NET.friends].sort((a, b) => netStatusOf(b).online - netStatusOf(a).online);
+    for (const uid of sorted) {
+      const st = netStatusOf(uid);
+      let btns = '';
+      if (st.online && !(NET.on && st.w === NET.wid)) btns += `<button type="button" class="small-btn primary" data-invite="${escapeHtml(uid)}">Invitar</button>`;
+      if (st.w && !(NET.on && st.w === NET.wid) && NET.worlds[st.w]) btns += `<button type="button" class="small-btn" data-join="${escapeHtml(st.w)}">Unirme</button>`;
+      h += `<li>${dot(uid)}<span class="grow">${nm(uid)} <span class="muted small">· ${st.online ? '🟢 ' : ''}${st.text}</span></span>${btns}<button type="button" class="small-btn close" data-unfriend="${escapeHtml(uid)}" title="Quitar">✕</button></li>`;
+    }
+    h += '</ul>';
+  }
+  h += '<div class="net-search"><input id="net-q" type="search" placeholder="Buscar persona por nombre…" autocomplete="off"><div id="net-results"></div></div>';
+
+  // Conectados ahora que no son amigos
+  const others = NET.lobby.filter((p) => !p.sameTab && p.kind === 'viewer' && (p.by || (p.presence && p.presence.uid)) && !NET.friends.includes(p.by || p.presence.uid));
+  const seenU = new Set();
+  const rows = [];
+  for (const p of others) {
+    const uid = p.by || p.presence.uid;
+    if (uid === NET.uid || seenU.has(uid)) continue;
+    seenU.add(uid);
+    rows.push(`<li>${dot(uid)}<span class="grow">${nm(uid)} <span class="muted small">· ${netStatusOf(uid).text}</span></span><button type="button" class="small-btn" data-add="${escapeHtml(uid)}">+ Amigo</button><button type="button" class="small-btn primary" data-invite="${escapeHtml(uid)}">Invitar</button></li>`);
+  }
+  if (rows.length) h += '<h3>🟢 Conectados ahora</h3><ul class="net-list">' + rows.join('') + '</ul>';
+
+  // Mundos abiertos
+  const worlds = Object.entries(NET.worlds).filter(([w]) => !(NET.on && w === NET.wid));
+  if (worlds.length) {
+    h += '<h3>🌍 Mundos</h3><ul class="net-list">';
+    for (const [w, m] of worlds) {
+      const n = NET.lobby.filter((p) => p.presence && p.presence.w === w).length;
+      h += `<li>${dot(m.owner)}<span class="grow">${w === myWorldId() ? 'Tu mundo' : `Mundo de ${nm(m.owner)}`} <span class="muted small">· etapa ${Math.min(3, m.stage || 1)}/3 · ${n ? `${n} jugando` : 'nadie ahora'}</span></span><button type="button" class="small-btn" data-join="${escapeHtml(w)}">Entrar</button></li>`;
+    }
+    h += '</ul>';
+  }
+
+  h += '<p class="muted small">¿Alguien que todavía no tiene el juego? Invitalo por email desde el botón <b>Compartir</b> del artifact (necesita cuenta de Claude). Después ya aparece acá.</p>';
+  const q = $('net-q') && $('net-q').value;
   box.innerHTML = h;
-  $('net-join')?.addEventListener('click', netJoin);
-  $('net-leave')?.addEventListener('click', netLeave);
-  $('net-share')?.addEventListener('click', () => {
-    const b = $('net-share');
-    if (NET.meta && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo para reemplazarlo'; b.classList.add('danger'); return; }
-    netShareCurrent();
-  });
+  if (q) { $('net-q').value = q; }
+}
+
+let netSearchTimer = 0;
+async function netSearch(q) {
+  const out = $('net-results');
+  if (!out) return;
+  if (!NET.user || !NET.user.search) { out.innerHTML = '<p class="muted small">La búsqueda no está disponible acá.</p>'; return; }
+  let res = [];
+  try { res = await NET.user.search(q); } catch (_) { res = []; }
+  res = res.filter((p) => p.id && !p.isMe).slice(0, 6);
+  for (const p of res) NET.profiles[p.id] = p;
+  out.innerHTML = res.length ? '<ul class="net-list">' + res.map((p) => `<li><span class="dot" style="background:${p.color || '#888'}"></span><span class="grow">${escapeHtml(p.name || 'Alguien')}</span>${NET.friends.includes(p.id) ? '<span class="muted small">ya es amigo</span>' : `<button type="button" class="small-btn" data-add="${escapeHtml(p.id)}">+ Amigo</button>`}</li>`).join('') + '</ul>'
+    : (q ? '<p class="muted small">No encontré a nadie con ese nombre que tenga acceso al juego.</p>' : '');
 }
 
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -531,9 +753,10 @@ function netColor(by, fallback) {
 function netUpdateChip() {
   const chip = $('net-chip');
   if (!chip) return;
-  chip.hidden = !NET.available || (!NET.on && !NET.meta);
-  chip.textContent = NET.on ? `🌐 ${netPlayerCount() || 1}` : '🌐 Unirme';
-  chip.classList.toggle('warn', !NET.on && !!NET.meta);
+  chip.hidden = !NET.available;
+  const friendsOn = NET.friends.filter((u) => netStatusOf(u).online).length;
+  chip.textContent = NET.on ? `🌐 ${netPlayerCount() || 1}` : friendsOn ? `👥 ${friendsOn}` : '🌐';
+  chip.title = NET.on ? 'En línea' : friendsOn ? `${friendsOn} amigo${friendsOn > 1 ? 's' : ''} conectado${friendsOn > 1 ? 's' : ''}` : 'Jugar en línea';
 }
 
 // --------------------------- Arranque ---------------------------
@@ -546,18 +769,65 @@ async function netInit() {
   NET.room = room; NET.db = db; NET.user = user; NET.available = true;
   try { NET.uid = user ? await user.id() : null; } catch (_) { NET.uid = null; }
   try { NET.canWrite = user && user.can ? (await user.can('data.write')) !== false : true; } catch (_) { NET.canWrite = true; }
-  room.onPeers(() => {
+  netLoadFriends();
+  room.onPeers((ch) => {
+    NET.lobby = ch.peers;
     netResolveNames();
-    if (!$('online').hidden) netRenderModal();
-  }, () => {});
-  let firstMeta = true;
-  db.doc('world/meta').onSnapshot((snap) => {
-    NET.meta = snap.exists ? snap.data() : null;
-    if (NET.on && NET.role === 'client' && NET.meta && NET.meta.ver !== NET.snapVer) netLoadSnapshot(NET.meta, false);
-    if (firstMeta && NET.meta && !NET.on) toast('🌐 Hay un mundo en línea. Tocá <b>🌐 Unirme</b> arriba para entrar.');
-    firstMeta = false;
+    netCheckInvites();
+    // Avisar cuando se conecta un amigo
+    for (const p of ch.joined || []) {
+      const uid = p.by || (p.presence && p.presence.uid);
+      if (!p.sameTab && uid && NET.friends.includes(uid) && NET.lobbyReady) toast(`🟢 ${netNameOf(uid)} se conectó.`);
+    }
     netUpdateChip();
     if (!$('online').hidden) netRenderModal();
   }, () => {});
+  setTimeout(() => { NET.lobbyReady = true; }, 3000);
+  db.collection('worlds').onSnapshot((qs) => {
+    const w = {};
+    for (const d of qs.docs) if (d.exists) w[d.id] = d.data();
+    NET.worlds = w;
+    if (NET.wid) {
+      NET.meta = w[NET.wid] || NET.meta;
+      if (NET.on && NET.role === 'client' && NET.meta && NET.meta.ver !== NET.snapVer) netLoadSnapshot(NET.meta, false);
+    }
+    netUpdateChip();
+    if (!$('online').hidden) netRenderModal();
+  }, () => {});
+  netLobbyPresence();
+
+  // Botones de la ventana (se redibuja seguido: un solo manejador)
+  $('online-body').addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    if (b.dataset.share) {
+      if (NET.worlds[myWorldId()] && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo'; b.classList.add('danger'); return; }
+      netShareCurrent();
+    }
+    if (b.dataset.leave) netLeave();
+    if (b.dataset.join) netJoin(b.dataset.join);
+    if (b.dataset.invite) netInvite(b.dataset.invite);
+    if (b.dataset.add) { netAddFriend(b.dataset.add); netRenderModal(); }
+    if (b.dataset.unfriend) {
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Quitar?'; return; }
+      netRemoveFriend(b.dataset.unfriend); netRenderModal();
+    }
+  });
+  $('online-body').addEventListener('input', (ev) => {
+    if (ev.target.id !== 'net-q') return;
+    clearTimeout(netSearchTimer);
+    const q = ev.target.value.trim();
+    netSearchTimer = setTimeout(() => netSearch(q), 300);
+  });
+  $('invite').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-inv]');
+    if (!b) return;
+    const box = $('invite');
+    box.hidden = true;
+    if (b.dataset.inv === 'join') {
+      if (box.dataset.from) netAddFriend(box.dataset.from);
+      netJoin(box.dataset.wid);
+    }
+  });
   netUpdateChip();
 }
