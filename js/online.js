@@ -215,7 +215,7 @@ function netPlayerState() {
 }
 
 function netSendPresence() {
-  const pres = { cid: NET.cid, uid: NET.uid, p: netPlayerState(), q: null };
+  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, p: netPlayerState(), q: null };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -524,7 +524,7 @@ function netUpdateAvatars(peers, dt) {
     // Se acerca suave a la última posición conocida (por el lado corto del mapa)
     const k = Math.min(1, dt * 12);
     a.x = wrapX(a.x + wdx(x - a.x) * k); a.y = wrapY(a.y + wdy(y - a.y) * k);
-    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1 });
+    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n) });
   }
   for (const k of NET.avatars.keys()) if (!seen.has(k)) NET.avatars.delete(k);
 }
@@ -587,7 +587,7 @@ function netLobbyPresence() {
   const now = Date.now();
   NET.invites = NET.invites.filter((x) => now - x[2] < 120000);
   NET.room.presence({
-    cid: NET.cid, uid: NET.uid,
+    cid: NET.cid, uid: NET.uid, n: NET.nick || null,
     w: NET.on ? NET.wid : null, h: NET.on && NET.role === 'host' ? 1 : null,
     inv: NET.invites.length ? NET.invites : null,
   }).catch(() => {});
@@ -634,9 +634,56 @@ function netShowInvite(from, wid) {
 
 function netNameOf(uid) {
   if (!uid) return 'Alguien';
-  if (uid === NET.uid) return 'vos';
+  if (uid === NET.uid) return NET.nick || 'vos';
+  if (NET.nicks[uid]) return NET.nicks[uid];
   const p = NET.profiles[uid];
   return (p && p.name) || 'Un jugador';
+}
+
+// --------------------------- Nombre de usuario ---------------------------
+// Cada jugador elige su nombre; viaja en su presencia y se ve arriba de su personaje.
+
+const NICK_KEY = 'mini-fabrica-nombre', NICKS_KEY = 'mini-fabrica-apodos';
+NET.nick = '';
+NET.nicks = {};   // último nombre conocido de cada persona (para los amigos desconectados)
+
+function cleanNick(s) {
+  return String(s || '').replace(/[^\p{L}\p{N} _.\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+}
+
+async function netLoadNick() {
+  try { NET.nick = cleanNick(localStorage.getItem(NICK_KEY)); } catch (_) { NET.nick = ''; }
+  try { NET.nicks = JSON.parse(localStorage.getItem(NICKS_KEY) || '{}') || {}; } catch (_) { NET.nicks = {}; }
+  if (!NET.nick && NET.uid) {
+    try { const d = await NET.db.doc('data/users/' + NET.uid + '/perfil').get(); if (d.exists) NET.nick = cleanNick(d.data().nombre); } catch (_) { /* nada */ }
+  }
+  // Primera vez: arranca con el nombre de la cuenta, y se puede cambiar
+  if (!NET.nick && NET.user && NET.user.me) {
+    try { NET.nick = cleanNick((await NET.user.me()).name.split(' ')[0]); } catch (_) { /* nada */ }
+  }
+}
+
+function netSetNick(s) {
+  const n = cleanNick(s);
+  if (n.length < 2) { toast('El nombre tiene que tener al menos 2 letras o números.'); return false; }
+  NET.nick = n;
+  try { localStorage.setItem(NICK_KEY, n); } catch (_) { /* sin almacenamiento */ }
+  if (NET.uid) NET.db.doc('data/users/' + NET.uid + '/perfil').set({ nombre: n }).catch(() => {});
+  netLobbyPresence();
+  if (NET.on) netSendPresence();
+  toast(`Tu nombre ahora es <b>${escapeHtml(n)}</b>.`);
+  return true;
+}
+
+// Anota los nombres que van apareciendo en las presencias
+function netLearnNicks(peers) {
+  let changed = false;
+  for (const p of peers) {
+    const uid = p.by || (p.presence && p.presence.uid);
+    const n = p.presence && cleanNick(p.presence.n);
+    if (uid && n && uid !== NET.uid && NET.nicks[uid] !== n) { NET.nicks[uid] = n; changed = true; }
+  }
+  if (changed) { try { localStorage.setItem(NICKS_KEY, JSON.stringify(NET.nicks)); } catch (_) { /* sin almacenamiento */ } }
 }
 
 // Qué está haciendo alguien según su presencia en la sala general
@@ -664,6 +711,10 @@ function netRenderModal() {
   const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;
   const nm = (uid) => escapeHtml(netNameOf(uid));
   let h = '';
+
+  // Mi nombre
+  h += `<div class="net-nick"><label for="net-nick">Tu nombre de usuario</label><input id="net-nick" type="text" maxlength="16" autocomplete="off" placeholder="Elegí un nombre" value="${escapeHtml(NET.nick)}"><button type="button" class="small-btn" data-nick="1">Guardar</button></div>`;
+  if (!NET.nick) h += '<p class="bad small">Elegí un nombre: es el que ven los demás arriba de tu personaje.</p>';
 
   // Dónde estoy
   if (NET.on) {
@@ -704,7 +755,9 @@ function netRenderModal() {
     const uid = p.by || p.presence.uid;
     if (uid === NET.uid || seenU.has(uid)) continue;
     seenU.add(uid);
-    rows.push(`<li>${dot(uid)}<span class="grow">${nm(uid)} <span class="muted small">· ${netStatusOf(uid).text}</span></span><button type="button" class="small-btn" data-add="${escapeHtml(uid)}">+ Amigo</button><button type="button" class="small-btn primary" data-invite="${escapeHtml(uid)}">Invitar</button></li>`);
+    const st = netStatusOf(uid);
+    const here = NET.on && st.w === NET.wid;
+    rows.push(`<li>${dot(uid)}<span class="grow">${nm(uid)} <span class="muted small">· ${st.text}</span></span><button type="button" class="small-btn" data-add="${escapeHtml(uid)}">+ Amigo</button>${here ? '' : `<button type="button" class="small-btn primary" data-invite="${escapeHtml(uid)}">Invitar</button>`}</li>`);
   }
   if (rows.length) h += '<h3>🟢 Conectados ahora</h3><ul class="net-list">' + rows.join('') + '</ul>';
 
@@ -721,8 +774,10 @@ function netRenderModal() {
 
   h += '<p class="muted small">¿Alguien que todavía no tiene el juego? Invitalo por email desde el botón <b>Compartir</b> del artifact (necesita cuenta de Claude). Después ya aparece acá.</p>';
   const q = $('net-q') && $('net-q').value;
+  const typing = document.activeElement && document.activeElement.id === 'net-nick' ? $('net-nick').value : null;
   box.innerHTML = h;
   if (q) { $('net-q').value = q; }
+  if (typing !== null) { const i = $('net-nick'); i.value = typing; i.focus(); i.setSelectionRange(typing.length, typing.length); }
 }
 
 let netSearchTimer = 0;
@@ -770,8 +825,10 @@ async function netInit() {
   try { NET.uid = user ? await user.id() : null; } catch (_) { NET.uid = null; }
   try { NET.canWrite = user && user.can ? (await user.can('data.write')) !== false : true; } catch (_) { NET.canWrite = true; }
   netLoadFriends();
+  await netLoadNick();
   room.onPeers((ch) => {
     NET.lobby = ch.peers;
+    netLearnNicks(ch.peers);
     netResolveNames();
     netCheckInvites();
     // Avisar cuando se conecta un amigo
@@ -805,6 +862,7 @@ async function netInit() {
       netShareCurrent();
     }
     if (b.dataset.leave) netLeave();
+    if (b.dataset.nick && netSetNick($('net-nick').value)) netRenderModal();
     if (b.dataset.join) netJoin(b.dataset.join);
     if (b.dataset.invite) netInvite(b.dataset.invite);
     if (b.dataset.add) { netAddFriend(b.dataset.add); netRenderModal(); }
@@ -812,6 +870,10 @@ async function netInit() {
       if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Quitar?'; return; }
       netRemoveFriend(b.dataset.unfriend); netRenderModal();
     }
+  });
+  $('online-body').addEventListener('keydown', (ev) => {
+    if (ev.target.id === 'net-nick' && ev.key === 'Enter' && netSetNick(ev.target.value)) netRenderModal();
+    ev.stopPropagation();   // que escribir no mueva el personaje
   });
   $('online-body').addEventListener('input', (ev) => {
     if (ev.target.id !== 'net-q') return;

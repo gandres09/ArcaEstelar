@@ -908,6 +908,7 @@ function drawPlayer(g, lod) {
     g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * Math.min(1, p.mineT / (p.mine.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
   drawAvatar(g, p, x, y, '#ffb347', '#d9782a');
+  if (NET.on) drawNameTag(g, x, y, NET.nick || 'Vos', '#ffb347', NET.role === 'host');
 }
 
 // Un personaje visto de arriba (el propio en naranja; los demás con su color)
@@ -964,15 +965,22 @@ function drawRemotePlayers(g, lod) {
     if (lod) { g.fillStyle = col; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); continue; }
     drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
     const pr = a.by && NET.profiles[a.by];
-    const name = (pr && pr.name) || 'Jugador';
-    g.font = '600 11px Barlow, system-ui, sans-serif';
-    g.textAlign = 'center'; g.textBaseline = 'bottom';
-    const w = g.measureText(name).width + 10;
-    g.fillStyle = 'rgba(10,14,20,0.75)';
-    rrect(g, x - w / 2, y - 32, w, 15, 4); g.fill();
-    g.fillStyle = '#fff';
-    g.fillText(name, x, y - 19);
+    drawNameTag(g, x, y, a.nick || (pr && pr.name) || 'Jugador', col, a.host);
   }
+}
+
+// Cartelito con el nombre arriba de un personaje
+function drawNameTag(g, x, y, name, col, host) {
+  g.font = '600 11px Barlow, system-ui, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const label = host ? '★ ' + name : name;
+  const w = g.measureText(label).width + 14;
+  g.fillStyle = 'rgba(10,14,20,0.78)';
+  rrect(g, x - w / 2, y - 34, w, 16, 5); g.fill();
+  g.fillStyle = col;
+  g.fillRect(x - w / 2 + 3, y - 30, 2.5, 8);
+  g.fillStyle = '#fff';
+  g.fillText(label, x + 2, y - 25.5);
 }
 
 function shadeHex(hex, k) {

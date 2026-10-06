@@ -23,6 +23,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **En línea (cooperativo)**: abierto desde su link de Claude, varios jugadores comparten la misma fábrica en
   tiempo real, cada uno con su personaje y su mochila. Quien comparte la partida es el anfitrión: su navegador lleva
   la simulación y guarda el mundo cada pocos segundos; si se va, otro con permiso de edición toma la posta.
+  Cada jugador elige su **nombre de usuario**, que se ve arriba de su personaje (★ = anfitrión).
   Lista de **amigos** con quién está conectado y en qué mundo, invitación con un toque (al otro le aparece un aviso
   para unirse) y un mundo propio por jugador con permiso de edición. La primera vez se invita por email desde
   Compartir.

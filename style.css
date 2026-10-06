@@ -425,3 +425,6 @@ textarea {
   border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 26px rgba(0, 0, 0, 0.55);
 }
 #invite[hidden] { display: none !important; }
+.net-nick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.net-nick label { width: 100%; font-size: 12px; color: var(--muted); }
+.net-nick input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; user-select: text; -webkit-user-select: text; }
