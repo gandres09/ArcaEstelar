@@ -142,7 +142,9 @@ function renderChart() {
     `<span class="lg"><span class="sw" style="background:${chartColor[k]}"></span>${ITEMS[k].name}</span>`).join('') : '';
   if (n < 3 || !series.length) {
     g.fillStyle = '#9aa4b1'; g.font = '13px system-ui'; g.textAlign = 'center';
-    g.fillText(n < 3 ? 'Juntando datos: el gráfico aparece al minuto y medio de juego.' : 'Elegí objetos para ver su producción.', w / 2, h / 2);
+    const msg = n < 3 ? ['Juntando datos…', 'El gráfico aparece en un minuto y medio.'] : ['Elegí objetos para ver', 'su producción.'];
+    g.fillText(msg[0], w / 2, h / 2 - 9);
+    g.fillText(msg[1], w / 2, h / 2 + 9);
     return;
   }
   const tMin = prodHist[1].t, tMax = prodHist[n - 1].t;

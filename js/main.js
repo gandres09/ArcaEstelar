@@ -53,7 +53,7 @@ function startNewGame(seed, peaceful) {
   loadPollution(null);
   decodeFog(null);
   const cx = W >> 1, cy = H >> 1;
-  reveal(cx, cy, 44);
+  reveal(cx, cy, 52);
   const hub = makeEntity('hub', cx - 1, cy - 1);
   hub.id = S.nextId++;
   S.entities.push(hub);

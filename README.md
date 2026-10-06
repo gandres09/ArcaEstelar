@@ -75,3 +75,16 @@ lubricante), baterías, procesadores con silicio y titanio.
 - `js/ui.js`: paneles, inspector, investigación, menú y estadísticas.
 - `js/input.js`: mouse, táctil y teclado.
 - `js/main.js`: arranque, guardado, exportar/importar y bucle principal.
+
+## Herramientas de balance
+
+En `tools/` hay dos herramientas para ajustar el balance después de tocar `js/data.js`:
+
+- **Calculadora** (`node tools/calculadora.js`): suma todo lo que hace falta para investigar el árbol completo y
+  armar la nave. Muestra materias primas, segundos de máquina y segundos de laboratorio, en total y por etapa.
+- **Jugador automático** (`node tools/bot.mjs [semilla] [horas] [pacifico|enemigos]`): juega una partida entera
+  en un navegador sin ventana, con las reglas reales: arma líneas de taladros y hornos con cintas hasta el Núcleo,
+  centrales de vapor, bombas de petróleo y agua, explora la niebla y va investigando. Para la logística intermedia
+  (alimentar ensambladoras y laboratorios) simula un jugador eficiente que tiene todo bien conectado. Al final
+  muestra cuándo llegó a cada era, qué le faltó y cuándo despegó la nave. Necesita Playwright
+  (`npm i playwright` dentro de `tools/`).

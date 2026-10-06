@@ -179,7 +179,7 @@
   function findColumn(ore, n, width) {
     const cands = [];
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
-      if (oreAt(x, y) === ore && oreAmountAt(x, y) > 60) cands.push({ x, y, d: Math.hypot(x - HX, y - HY) });
+      if (oreAt(x, y) === ore && oreAmountAt(x, y) > 60 && tileExplored(x, y)) cands.push({ x, y, d: Math.hypot(x - HX, y - HY) });
     }
     cands.sort((a, b) => a.d - b.d);
     for (const c of cands.slice(0, 1500)) {
@@ -196,6 +196,35 @@
     return null;
   }
 
+  // Sin mineral a la vista: tender cinta hacia el yacimiento más cercano para descubrirlo
+  function explore(ore) {
+    let best = null, bd = Infinity;
+    for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+      if (oreAt(x, y) !== ore || tileExplored(x, y) || oreAmountAt(x, y) < 60) continue;
+      const d = Math.hypot(x - HX, y - HY);
+      if (d < bd) { bd = d; best = { x, y }; }
+    }
+    if (!best) return false;
+    // Desde la casilla explorada libre más cercana, avanzar en línea recta hacia el yacimiento
+    let from = null, fd = Infinity;
+    for (let y = best.y - 70; y <= best.y + 70; y += 2) for (let x = best.x - 70; x <= best.x + 70; x += 2) {
+      if (!free(x, y) || !tileExplored(x, y)) continue;
+      const d = Math.hypot(x - best.x, y - best.y);
+      if (d < fd) { fd = d; from = { x, y }; }
+    }
+    if (!from || !affordOrWant(costOf('belt', 12), true)) return false;
+    const dx = Math.sign(best.x - from.x), dy = Math.sign(best.y - from.y);
+    let x = from.x, y = from.y, n = 0;
+    while (n < 12 && (x !== best.x || y !== best.y)) {
+      const horiz = Math.abs(best.x - x) >= Math.abs(best.y - y);
+      const nx = horiz ? x + dx : x, ny = horiz ? y : y + dy;
+      if (!free(nx, ny) || !place('belt', nx, ny, horiz ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3), { silent: true })) break;
+      x = nx; y = ny; n++;
+    }
+    if (n) note(`explorando hacia ${ore}`);
+    return n > 0;
+  }
+
   // Línea: taladros → (hornos) → cinta vertical → camino al Núcleo
   function buildLine(ore, n, smelt) {
     const electric = isUnlocked('eminer') && (S.inv.circuit || 0) > 30;
@@ -203,7 +232,7 @@
     const furnT = smelt ? (isUnlocked('efurnace') && (S.inv.steel || 0) > 60 ? 'efurnace' : 'furnace') : null;
     const width = smelt ? 2 : 1;
     const col = findColumn(ore, n, width);
-    if (!col) { note(`no encontré lugar para una línea de ${ore}`); return false; }
+    if (!col) { explore(ore); return false; }
     const bx = col.x + col.s * width;
     const blocked = new Set();
     for (let k = -1; k <= n; k++) for (let w = -1; w <= width; w++) if (!(w === width && k === n)) blocked.add((col.x + col.s * w) + ',' + (col.y + k));

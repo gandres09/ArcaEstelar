@@ -73,6 +73,7 @@ function generateMap(seed) {
   patch(cx - 13, cy + 10, 4.5, 3, 380);
   patch(cx + 13, cy + 10, 4.5, 4, 320);
   patch(cx - 2, cy + 22, 3.5, 1, 380);
+  patch(cx + 26, cy + 6, 4, 2, 380);
 
   // Recursos en anillos: más lejos, más raros y más ricos
   const ring = (id, dmin, dmax, count, rmin, rmax, rich) => {
