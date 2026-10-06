@@ -734,6 +734,10 @@ function netStatusOf(uid) {
 function netRenderModal() {
   const box = $('online-body');
   if (!box) return;
+  if (!NET.available && typeof P2P !== 'undefined' && P2P.standalone) {
+    box.innerHTML = p2pPanelHtml();
+    return;
+  }
   if (!NET.available) {
     const dg = NET.diag || {};
     const ok = (v) => (v ? '✅' : v === false ? '❌' : '–');
@@ -754,7 +758,7 @@ function netRenderModal() {
   }
   const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;
   const nm = (uid) => escapeHtml(netNameOf(uid));
-  let h = '';
+  let h = NET.p2p ? p2pPanelHtml() : '';
 
   // Mi nombre
   h += `<div class="net-nick"><label for="net-nick">Tu nombre de usuario</label><input id="net-nick" type="text" maxlength="16" autocomplete="off" placeholder="Elegí un nombre" value="${escapeHtml(NET.nick)}"><button type="button" class="small-btn" data-nick="1">Guardar</button></div>`;
@@ -767,13 +771,16 @@ function netRenderModal() {
     h += '<ul class="net-list">';
     h += `<li>${dot(NET.uid, NET.cid)}Vos${NET.role === 'host' ? ' · anfitrión' : ''}</li>`;
     for (const a of NET.avatars.values()) h += `<li>${dot(a.by)}${nm(a.by)}${a.host ? ' · anfitrión' : ''}${a.by && !NET.friends.includes(a.by) && a.by !== NET.uid ? ` <button type="button" class="small-btn" data-add="${escapeHtml(a.by)}">+ Amigo</button>` : ''}</li>`;
-    h += `</ul><div class="actions"><button type="button" data-leave="1">${netInMyWorld() ? 'Cerrar mi mundo en línea' : 'Salir y volver a mi partida'}</button></div>`;
+    h += '</ul>';
+    if (!NET.p2p) h += `<div class="actions"><button type="button" data-leave="1">${netInMyWorld() ? 'Cerrar mi mundo en línea' : 'Salir y volver a mi partida'}</button></div>`;
   } else if (NET.canWrite) {
     h += '<p>Estás jugando tu partida. Podés convertirla en <b>tu mundo en línea</b> para que tus amigos entren.</p>';
     h += '<div class="actions"><button type="button" class="primary" data-share="1">Abrir mi partida en línea</button></div>';
     h += '<p class="muted small">Es siempre tu misma partida: lo que hagan juntos queda guardado en ella (en este navegador y en la nube), y cuando jugás solo seguís desde ahí.</p>';
   }
 
+  // Con código de sala no hay cuentas: alcanza con lo de arriba
+  if (!NET.p2p) {
   // Amigos
   h += '<h3>👥 Amigos</h3>';
   if (!NET.friends.length) h += '<p class="muted small">Todavía no agregaste amigos. Agregalos desde <b>Conectados ahora</b> o buscándolos acá abajo.</p>';
@@ -822,6 +829,7 @@ function netRenderModal() {
   }
 
   h += '<p class="muted small">¿Alguien que todavía no tiene el juego? Invitalo por email desde el botón <b>Compartir</b> del artifact (necesita cuenta de Claude). Después ya aparece acá.</p>';
+  }
   const q = $('net-q') && $('net-q').value;
   const typing = document.activeElement && document.activeElement.id === 'net-nick' ? $('net-nick').value : null;
   box.innerHTML = h;
