@@ -191,11 +191,21 @@ function processQueue() {
 }
 
 // Tocar un mineral: ir y extraerlo hasta que se mande otra cosa
+const CHOP_TIME = 1.2;
 function startMining(x, y) {
   const p = S.player;
-  p.mine = { x: wrapX(x), y: wrapY(y) };
+  p.mine = { x: wrapX(x), y: wrapY(y), tree: !oreAt(x, y) && treeAt(x, y) };
   p.mineT = 0;
   if (!inReach(x, y, MINE_REACH)) walkTo(x, y, MINE_REACH - 0.6);
+}
+
+function nearestTree(x, y, r) {
+  let best = null, bd = Infinity;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const tx = x + dx, ty = y + dy;
+    if (treeAt(tx, ty) && !at(tx, ty)) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = { x: tx, y: ty }; } }
+  }
+  return best;
 }
 
 function stopPlayerTasks() {
@@ -285,7 +295,22 @@ function updatePlayer(dt) {
 
   // Extracción a mano
   p.mining = false;
-  if (p.mine && !p.moving) {
+  if (p.mine && !p.moving && p.mine.tree) {
+    // Talar: da madera y sigue con el árbol más cercano
+    if (!treeAt(p.mine.x, p.mine.y)) p.mine = null;
+    else if (inReach(p.mine.x, p.mine.y, MINE_REACH)) {
+      p.mining = true;
+      p.ang = Math.atan2(wdy(p.mine.y + 0.5 - p.y), wdx(p.mine.x + 0.5 - p.x));
+      p.mineT += dt;
+      if (p.mineT >= CHOP_TIME) {
+        p.mineT = 0;
+        chopTree(p.mine.x, p.mine.y);
+        giveItem('wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove', p.mine.x, p.mine.y);
+        const next = nearestTree(p.mine.x, p.mine.y, 4);
+        if (next) startMining(next.x, next.y); else p.mine = null;
+      }
+    } else if (!p.path) walkTo(p.mine.x, p.mine.y, MINE_REACH - 0.6);
+  } else if (p.mine && !p.moving) {
     const o = oreAt(p.mine.x, p.mine.y);
     if (!o || o === 'water' || o === 'oil' || at(p.mine.x, p.mine.y)) p.mine = null;
     else if (inReach(p.mine.x, p.mine.y, MINE_REACH)) {

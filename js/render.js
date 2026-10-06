@@ -16,7 +16,7 @@ const TYPE_COLOR = {
   splitter: '#8a63c4', sorter: '#2fa59a', chest: '#8b5a2b', miner: '#c9a227', eminer: '#3e7cb1', pumpjack: '#8e7fa8',
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
-  purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
+  woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
   inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -54,6 +54,7 @@ function drawItem(g, item, x, y, s) {
       g.arc(x, y, s, 0, Math.PI * 2);
       break;
     case 'barrel': g.rect(x - s * 0.75, y - s, s * 1.5, s * 2); break;
+    case 'log': g.ellipse(x, y, s * 1.1, s * 0.6, -0.5, 0, Math.PI * 2); break;
     case 'battery': g.rect(x - s * 0.6, y - s * 0.9, s * 1.2, s * 1.9); break;
     case 'ammo': g.rect(x - s, y - s * 0.6, s * 2, s * 1.2); break;
     case 'module': g.rect(x - s, y - s * 0.8, s * 2, s * 1.6); break;
@@ -272,6 +273,14 @@ function drawBuilding(g, e, x0, y0, t) {
       g.fillRect(x0 + 4, y0 + 6, 1.5, TILE - 12); g.fillRect(x0 + TILE - 5.5, y0 + 6, 1.5, TILE - 12);
       if (e.total) drawProgress(g, x0, y0, e.total / 800, '#c9cfd6');
       drawArrow(g, cx, cy, e.dir, '#e6e9ee');
+      break;
+
+    case 'woodchest':
+      box(g, x0, y0, '#9a6a3a', '#5a3a1c', 5);
+      g.fillStyle = 'rgba(60,35,15,0.6)';
+      for (let k = 0; k < 3; k++) g.fillRect(x0 + 6, y0 + 9 + k * 6, TILE - 12, 1.2);
+      if (e.total) drawProgress(g, x0, y0, e.total / 100, '#d9a860');
+      drawArrow(g, cx, cy, e.dir, '#f3dcb5');
       break;
 
     case 'chest':
@@ -641,6 +650,20 @@ function drawBuilding(g, e, x0, y0, t) {
 
     case 'shipyard': case 'starport': drawShipyard(g, e, x0, y0, t); break;
 
+    case 'nursery': {
+      const s = TILE * 2;
+      box(g, x0, y0, '#5b4630', '#6fbf5a', 2, s);
+      // Canteros con brotes
+      for (let k = 0; k < 4; k++) {
+        const px = x0 + 14 + (k % 2) * 36, py = y0 + 14 + Math.floor(k / 2) * 36;
+        g.fillStyle = '#3b2a1a'; g.fillRect(px - 9, py - 9, 18, 18);
+        const grow = e.active ? Math.min(1, ((e.t || 0) / BUILDINGS.nursery.every + k * 0.25) % 1 + 0.2) : 0.5;
+        g.fillStyle = '#7ee07a';
+        g.beginPath(); g.ellipse(px - 3, py, 4 * grow + 1, 2 * grow + 1, -0.6, 0, Math.PI * 2); g.ellipse(px + 3, py - 1, 4 * grow + 1, 2 * grow + 1, 0.6, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    }
+
     case 'purifier': {
       const s = TILE * 2, mx = x0 + s / 2, my = y0 + s / 2;
       box(g, x0, y0, '#2f5d55', '#7fd1b5', 2, s);
@@ -882,7 +905,7 @@ function drawPlayer(g, lod) {
   if (p.mining && p.mine) {
     const mx = p.mine.x * TILE, my = p.mine.y * TILE;
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(mx + 3, my - 8, TILE - 6, 5);
-    g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * (p.mineT / HAND_MINE_TIME), 5);
+    g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * Math.min(1, p.mineT / (p.mine.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
   g.save();
   g.translate(x, y);
@@ -1447,7 +1470,7 @@ function drawOverlays(ctx) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(x * TILE + 3, y * TILE - 8, TILE - 6, 5);
     ctx.fillStyle = '#f0a742';
-    ctx.fillRect(x * TILE + 3, y * TILE - 8, (TILE - 6) * (prog / HAND_MINE_TIME), 5);
+    ctx.fillRect(x * TILE + 3, y * TILE - 8, (TILE - 6) * Math.min(1, prog / (handMining.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
 }
 

@@ -15,7 +15,7 @@ const saveReplacer = (k, v) => (k.startsWith('_') ? undefined : v);
 
 function serialize() {
   flushFluids();
-  return JSON.stringify({ ...S, pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre() }, saveReplacer);
+  return JSON.stringify({ ...S, pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre(), trees: encodeTrees() }, saveReplacer);
 }
 
 function save() {
@@ -25,12 +25,13 @@ function save() {
 function loadFrom(raw) {
   const data = JSON.parse(raw);
   if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.entities)) throw new Error('version');
-  const { view: v, ore, pollution: poll, fog, ...state } = data;
+  const { view: v, ore, pollution: poll, fog, trees, ...state } = data;
   setMapSize(state.mapW || 320, state.mapH || 240);
   S = { ...newState(state.seed, state.peaceful, !!state.character), ...state };
   if (S.character && !S.player) S.player = newPlayer(W / 2 + 0.5, H / 2 + 3.5);
   generateMap(S.seed);
   if (ore) decodeOre(ore);
+  decodeTrees(trees);
   loadPollution(poll);
   prodHist = [];
   decodeFog(fog);
@@ -223,7 +224,12 @@ function init() {
     handleKeysPan(dt);
     if (handMining) {
       handMining.prog += dt;
-      if (handMining.prog >= HAND_MINE_TIME) {
+      if (handMining.tree) {
+        if (handMining.prog >= CHOP_TIME) {
+          if (chopTree(handMining.x, handMining.y)) { add(S.inv, 'wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove'); }
+          handMining = null;
+        }
+      } else if (handMining.prog >= HAND_MINE_TIME) {
         handMining.prog = 0;
         const o = mineOre(handMining.x, handMining.y);
         if (o) { add(S.inv, o, 1); countProduced(o); } else handMining = null;

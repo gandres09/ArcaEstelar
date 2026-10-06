@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
   ['underground', 'inserter', 'fastinserter'],
-  ['splitter', 'sorter', 'chest', 'steelchest', 'receiver'],
+  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'efurnace'],
   ['assembler', 'assembler2', 'chem'],
@@ -318,7 +318,7 @@ function currentHint() {
       : 'Ya tenés piedra: elegí el <b>Horno de piedra</b> abajo y ponelo cerca tuyo.';
     if (pv('iron_plate') + (S.inv.iron_plate || 0) < 10) {
       if (pv('iron_ore') < 4 && !furnaces.some((f) => f.inType)) return `Extraé <b>mineral de hierro</b> (gris azulado) y <b>carbón</b> (negro) con la mano. Tenés ${pv('iron_ore')} de hierro y ${pv('coal')} de carbón.`;
-      if (!furnaces.some((f) => f.fuel || f.burn > 0) && pv('coal') < 1) return 'El horno necesita <b>carbón</b>: extraé un poco con la mano.';
+      if (!furnaces.some((f) => f.fuel || f.burn > 0) && pv('coal') < 1 && pv('wood') < 1) return 'El horno necesita combustible: extraé <b>carbón</b> o talá un <b>árbol</b> (la madera también sirve).';
       return 'Tocá el horno y usá <b>Cargar mineral</b> y <b>Cargar carbón</b>. Cuando funda, tocá <b>Recoger</b>. Necesitás 10 placas de hierro.';
     }
     return 'Con 10 placas de hierro y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha. ¡Ya no vas a tener que extraer a mano!';
@@ -531,7 +531,7 @@ function inspectorContent(e) {
       h += '</div>';
       break;
     }
-    case 'chest': case 'steelchest':
+    case 'chest': case 'steelchest': case 'woodchest':
       h += row('Guardado', `${e.total} / ${def.capacity}`) +
         Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
         '<div class="actions"><button type="button" data-act="empty">Vaciar al inventario</button></div>';
@@ -733,12 +733,12 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     }
     case 'tremove': removeTrain(e); closeInspector(); updateUI(); return;
     case 'fuel': {
-      const n = feedFrom(e, ['coal', 'solid_fuel'], 10);
-      if (!n) toast(e.fuel >= 10 ? 'El horno ya está lleno.' : 'No tenés carbón en el inventario.');
+      const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 10);
+      if (!n) toast(e.fuel >= 10 ? 'El horno ya está lleno.' : 'No tenés carbón ni madera en el inventario.');
       break;
     }
     case 'gfuel': {
-      const n = feedFrom(e, ['coal', 'solid_fuel'], 20);
+      const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 20);
       if (!n) toast('No tenés combustible en el inventario.');
       break;
     }
@@ -902,6 +902,7 @@ function updateTooltip() {
       else if (e) html = `<b>${e.type === 'hub' ? 'Núcleo' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
       else if (o === 'water') html = '<b>Agua</b><br><span class="muted">Poné una bomba de agua en la orilla</span>';
       else if (o) html = `<b>${ITEMS[o].name}</b> (${fmt(oreAmountAt(hover.x, hover.y))})` + (o === 'oil' ? '<br><span class="muted">Necesita una bomba de petróleo</span>' : '<br><span class="muted">Mantené clic para extraer</span>');
+      else if (treeAt(hover.x, hover.y)) html = `<b>Árbol</b><br><span class="muted">${playerOn() ? 'Clic para talar' : 'Mantené clic para talar'}: ${WOOD_PER_TREE} de madera. Absorbe polución.</span>`;
     } else if (BUILDINGS[tool] && !beltPlan) {
       const a = anchorFor(tool, hover);
       const res = canPlace(tool, a.x, a.y);

@@ -365,6 +365,7 @@ canvas.addEventListener('pointerdown', (ev) => {
     const e = at(t.x, t.y);
     const o = oreAt(t.x, t.y);
     if (!playerOn() && !e && o && o !== 'oil' && o !== 'water' && tileExplored(t.x, t.y)) handMining = { x: t.x, y: t.y, prog: 0 };
+    else if (!playerOn() && !e && !o && treeAt(t.x, t.y) && tileExplored(t.x, t.y)) handMining = { x: t.x, y: t.y, prog: 0, tree: true };
     return;
   }
   if (isTouch()) return; // en táctil se decide al soltar (toque) o se mueve la cámara
@@ -558,6 +559,7 @@ function handGround(t) {
   const o = oreAt(t.x, t.y);
   stopPlayerTasks();
   if (o && o !== 'water' && o !== 'oil' && tileExplored(t.x, t.y)) startMining(t.x, t.y);
+  else if (!o && !at(t.x, t.y) && treeAt(t.x, t.y) && tileExplored(t.x, t.y)) startMining(t.x, t.y);
   else if (walkable(t.x, t.y)) walkTo(t.x, t.y, 0.3);
   followCam = true;
 }

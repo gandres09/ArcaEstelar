@@ -20,6 +20,9 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Mapa enorme que da la vuelta** (640 × 480): saliendo por un borde se entra por el opuesto, sin costuras.
   Yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
 - **Investigación con laboratorios** y 5 packs de ciencia (roja, verde, azul, espacial y estelar), 41 tecnologías, 4 infinitas y 5 eras.
+- **Madera**: los árboles se talan con la mano (o construyendo encima) y dan madera, que sirve de combustible,
+  para el cofre de madera y para el vivero. Los bosques absorben polución: talarlos tiene su costo, y el vivero
+  vuelve a plantar.
 - **Electricidad**: generadores a carbón, energía a vapor, paneles solares, acumuladores, postes y torres de alta tensión.
 - **Agua infinita** en lagos: bombas de agua en la orilla para calderas y química. Los bichos no la cruzan
   (la rodean buscando camino) y se puede rellenar con piedra.

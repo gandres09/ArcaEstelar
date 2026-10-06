@@ -18,6 +18,7 @@ const ITEMS = {
   copper_ore:     { name: 'Mineral de cobre',   color: '#c8763f', shape: 'ore' },
   coal:           { name: 'Carbón',             color: '#2b2b2b', shape: 'ore' },
   stone:          { name: 'Piedra',             color: '#b5a68a', shape: 'ore' },
+  wood:           { name: 'Madera',             color: '#a8743a', shape: 'log' },
   quartz:         { name: 'Cuarzo',             color: '#e9e3f7', shape: 'ore' },
   titanium_ore:   { name: 'Mineral de titanio', color: '#4fb3a4', shape: 'ore' },
   oil:            { name: 'Petróleo crudo',     color: '#3b2a20', shape: 'barrel' },
@@ -84,10 +85,10 @@ const ORE_GROUND = {
 };
 
 // Combustibles
-const FUELS = { coal: 4000, solid_fuel: 12000 };   // kJ por unidad
+const FUELS = { coal: 4000, solid_fuel: 12000, wood: 2000 };   // kJ por unidad
 const GENERATOR_EFFICIENCY = 0.5;                  // el generador a carbón desperdicia la mitad
 const STEAM_ENERGY = 1000;                         // kJ por unidad de vapor
-const FURNACE_FUEL = { coal: 12, solid_fuel: 36 };  // fundiciones por unidad (horno de piedra)
+const FURNACE_FUEL = { coal: 12, solid_fuel: 36, wood: 6 };  // fundiciones por unidad (horno de piedra)
 
 // Horno: entra `n` del material y sale 1 producto
 const SMELT = {
@@ -165,6 +166,8 @@ const BUILDINGS = {
                  desc: 'El objeto elegido sigue derecho; el resto sale por los costados.' },
   receiver:    { name: 'Receptor',            cat: 'logística', hp: 200, cost: { steel: 10, circuit: 10, iron_plate: 10 }, tech: 'receivers',
                  desc: 'Manda al inventario del Núcleo todo lo que le llega, desde cualquier lugar.' },
+  woodchest:   { name: 'Cofre de madera',     cat: 'logística', capacity: 100, hp: 80, cost: { wood: 4 },
+                 desc: 'Guarda hasta 100 objetos y los va soltando por la flecha. Se hace con madera.' },
   chest:       { name: 'Cofre',               cat: 'logística', capacity: 200, hp: 150, cost: { iron_plate: 8 },
                  desc: 'Guarda hasta 200 objetos y los va soltando por la flecha.' },
   steelchest:  { name: 'Cofre de acero',      cat: 'logística', capacity: 800, hp: 350, cost: { steel: 8 }, tech: 'steel',
@@ -225,6 +228,8 @@ const BUILDINGS = {
                  desc: 'Acá se arma la nave. Recibe las piezas por cinta o desde el inventario.' },
   purifier:    { name: 'Purificador de aire', cat: 'planeta', size: 2, power: 300, absorb: 4, hp: 300, cost: { steel: 20, circuit: 15, plastic: 20 }, tech: 'air_purification',
                  desc: 'Limpia la polución de su zona (hasta 4 por segundo) gastando filtros de aire. Usa 300 kW.' },
+  nursery:     { name: 'Vivero',              cat: 'planeta', size: 2, power: 60, radius: 7, every: 15, hp: 200, cost: { wood: 20, steel: 5, circuit: 5 }, tech: 'air_purification',
+                 desc: 'Planta un árbol cada 15 s en el pasto libre de alrededor (7 casillas). Los bosques absorben polución. Usa 60 kW.' },
   uplink:      { name: 'Enlace orbital',      cat: 'planeta', size: 3, power: 1000, reload: 12, blast: 10, hp: 800, cost: { steel: 100, control_unit: 20, processor: 30 }, tech: 'orbital_strike',
                  desc: 'Desde la estación en órbita, borra el grupo de nidos más cercano de todo el planeta. Gasta 1 carga orbital por disparo. Usa 1 MW.' },
   fusion_plant:{ name: 'Planta de fusión',    cat: 'energía', size: 3, output: 8000, hp: 1000, cost: { fusion_core: 2, steel: 100, superconductor: 40 }, tech: 'fusion',
@@ -243,7 +248,7 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const UNDERGROUND_REACH = 5;
 
@@ -319,7 +324,7 @@ const TECHS = {
                        desc: 'Astillero, propulsores, navegación, soporte vital y combustible de cohete.' },
   // Etapa 2: limpiar el planeta (se desbloquea al llegar al espacio)
   air_purification:  { name: 'Purificación del aire', stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['chemical_science'],
-                       desc: 'Purificadores y filtros de aire para limpiar la polución.' },
+                       desc: 'Purificadores, filtros de aire y viveros que plantan árboles.' },
   orbital_strike:    { name: 'Ataque orbital',       stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 250, time: 25, req: ['rocketry'],
                        desc: 'Explosivos, cargas orbitales y el Enlace orbital que borra nidos en cualquier lugar del planeta.' },
   // Etapa 3: escapar del sistema solar (se desbloquea con el planeta limpio)

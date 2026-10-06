@@ -120,7 +120,8 @@ function makeEntity(type, x, y, dir = 0) {
     case 'splitter': e.item = null; e.rr = 0; e.prio = null; break;
     case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
     case 'sorter': e.item = null; e.rr = 0; e.filter = null; break;
-    case 'chest': case 'steelchest': e.store = {}; e.total = 0; break;
+    case 'chest': case 'steelchest': case 'woodchest': e.store = {}; e.total = 0; break;
+    case 'nursery': e.t = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
     case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
     case 'furnace': case 'efurnace':
@@ -306,6 +307,11 @@ function place(type, x, y, dir, opts = {}) {
   if (type === 'underground') e.mode = undergroundModeFor(x, y, dir);
   S.entities.push(e);
   occupy(e, e);
+  // Los árboles que estaban ahí se talan y dan madera
+  const sz = sizeOf(type);
+  let wood = 0;
+  for (let dy = 0; dy < sz; dy++) for (let dx = 0; dx < sz; dx++) if (chopTree(x + dx, y + dy)) wood += WOOD_PER_TREE;
+  if (wood) { giveItem('wood', wood); countProduced('wood', wood); }
   powerDirty = true;
   undergroundDirty = true;
   fluidDirty = true;
@@ -520,7 +526,7 @@ function accept(t, item, src, dry = false) {
     case 'station':
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
-    case 'chest': case 'steelchest':
+    case 'chest': case 'steelchest': case 'woodchest':
       if (t.total >= BUILDINGS[t.type].capacity) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
@@ -574,12 +580,12 @@ function accept(t, item, src, dry = false) {
 function wantedBy(dst) {
   switch (dst.type) {
     case 'assembler': case 'assembler2': case 'chem': return dst.recipe ? Object.keys(RECIPES[dst.recipe].in) : [];
-    case 'furnace': return [...Object.keys(SMELT), 'coal', 'solid_fuel'];
+    case 'furnace': return [...Object.keys(SMELT), 'coal', 'solid_fuel', 'wood'];
     case 'efurnace': return Object.keys(SMELT);
     case 'lab': return PACKS;
     case 'turret': return ['ammo'];
-    case 'boiler': return ['water', 'coal', 'solid_fuel'];
-    case 'generator': return ['coal', 'solid_fuel'];
+    case 'boiler': return ['water', 'coal', 'solid_fuel', 'wood'];
+    case 'generator': return ['coal', 'solid_fuel', 'wood'];
     case 'shipyard': case 'starport': return Object.keys(shipNeeds(dst));
     case 'purifier': return ['air_filter'];
     case 'uplink': return ['orbital_charge'];
@@ -594,7 +600,7 @@ function takeFrom(src, dst, ins) {
     case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter':
       if (want(src.item)) { const k = src.item; src.item = null; return k; }
       return null;
-    case 'chest': case 'steelchest': case 'station':
+    case 'chest': case 'steelchest': case 'woodchest': case 'station':
       for (const k in src.store) if (src.store[k] > 0 && want(k)) { if (--src.store[k] === 0) delete src.store[k]; src.total--; return k; }
       return null;
     case 'furnace': case 'efurnace':
@@ -764,7 +770,7 @@ function update(dt) {
       case 'station':
         if (e.mode === 'load' || e.total <= 0) break;
         // fallthrough: en modo descarga suelta lo que tiene como un cofre
-      case 'chest': case 'steelchest':
+      case 'chest': case 'steelchest': case 'woodchest':
         if (e.total > 0) {
           for (const k in e.store) {
             if (e.store[k] > 0 && pushTo(e, e.dir, k)) {
@@ -1004,6 +1010,23 @@ function update(dt) {
         e.left -= e.rate * dt;
         if (e.left <= 0 && e.filters > 0) { e.filters--; e.left += FILTER_LIFE; }
         e.active = e.rate > 0.05;
+        break;
+      }
+
+      case 'nursery': {
+        const sp = drawPower(e, def.power);
+        e.active = sp > 0.3;
+        if (!e.active) break;
+        e.t += dt * sp;
+        if (e.t < def.every) break;
+        e.t = 0;
+        // Busca un lugar libre al azar (hasta 12 intentos)
+        for (let k = 0; k < 12; k++) {
+          const a = Math.random() * Math.PI * 2, r = 2 + Math.random() * (def.radius - 1);
+          const tx = Math.floor(e.x + 1 + Math.cos(a) * r), ty = Math.floor(e.y + 1 + Math.sin(a) * r);
+          if (at(tx, ty) || oreAt(tx, ty)) continue;
+          if (plantTree(tx, ty)) { S.treesPlanted = (S.treesPlanted || 0) + 1; break; }
+        }
         break;
       }
 

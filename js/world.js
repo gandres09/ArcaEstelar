@@ -139,6 +139,7 @@ function generateMap(seed) {
   // Despejar la zona del Núcleo
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
   oreBase = oreAmt.slice();
+  chopped = new Set(); planted = new Map(); treeCache.clear();
   computeForest();
   resetMapGraphics();
 }
@@ -401,38 +402,105 @@ function treeDensity(x, y) {
   return vnoise(x, y, 17, 9) * 0.75 + vnoise(x, y, 5, 10) * 0.25;
 }
 
-// Cuánto bosque hay en cada celda de polución (los árboles absorben polución)
+// --------------------------- Árboles ---------------------------
+// Los árboles naturales salen de la semilla. Se pueden talar (dan madera) y plantar con viveros.
+// Cada árbol: [x, y, variante, escala, dx, dy]
+
+const WOOD_PER_TREE = 4;
+let chopped = new Set();        // casillas con árbol natural talado
+let planted = new Map();        // casilla -> árbol plantado
+let treeCount = new Uint16Array(0);
 let forestCell = new Float32Array(0);
-function computeForest() {
-  forestCell = new Float32Array(PW * PH);
-  for (let cy = 0; cy < PH; cy++) for (let cx = 0; cx < PW; cx++) {
-    let n = 0, k = 0;
-    for (let y = cy * POLL_CELL; y < (cy + 1) * POLL_CELL; y += 2) for (let x = cx * POLL_CELL; x < (cx + 1) * POLL_CELL; x += 2) {
-      k++;
-      if (oreType[tIdx(x, y)] === 0 && treeDensity(x, y) > 0.5) n++;
-    }
-    forestCell[cy * PW + cx] = n / k;
-  }
+const treeCache = new Map();
+
+// ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos del Núcleo)
+function naturalTreeAt(x, y) {
+  const i = y * W + x;
+  if (oreBase[i] !== 0) return null;
+  if (Math.abs(x - W / 2) < 9 && Math.abs(y - H / 2) < 9) return null;
+  const d = treeDensity(x, y);
+  const p = d > 0.5 ? (d - 0.5) * 2.6 : d > 0.36 ? 0.03 : 0;
+  if (!p || hash(x, y, 40) >= p) return null;
+  return makeTree(x, y);
 }
 
-// Árboles de cada chunk (solo decoración): [x, y, variante, escala, dx, dy]
-const treeCache = new Map();
+function makeTree(x, y) {
+  const pine = vnoise(x, y, 29, 11) > 0.55;
+  return [x, y, (pine ? 3 : 0) + Math.floor(hash(x, y, 41) * 3), 0.8 + hash(x, y, 42) * 0.45,
+    (hash(x, y, 43) - 0.5) * 10, (hash(x, y, 44) - 0.5) * 10];
+}
+
+function treeAt(x, y) {
+  x = wrapX(x); y = wrapY(y);
+  const i = y * W + x;
+  if (planted.has(i)) return true;
+  return !chopped.has(i) && !!naturalTreeAt(x, y);
+}
+
+const forestOf = (n) => Math.min(1, n / 24);
+function treeCellChange(x, y, k) {
+  const c = Math.floor(y / POLL_CELL) * PW + Math.floor(x / POLL_CELL);
+  treeCount[c] = Math.max(0, treeCount[c] + k);
+  forestCell[c] = forestOf(treeCount[c]);
+}
+
+// Tala el árbol de la casilla; devuelve true si había uno
+function chopTree(x, y) {
+  x = wrapX(x); y = wrapY(y);
+  const i = y * W + x;
+  if (planted.has(i)) { planted.delete(i); treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK)); }
+  else if (!chopped.has(i) && naturalTreeAt(x, y)) chopped.add(i);
+  else return false;
+  treeCellChange(x, y, -1);
+  return true;
+}
+
+// Planta un árbol (si era natural y estaba talado, vuelve a crecer el mismo)
+function plantTree(x, y) {
+  x = wrapX(x); y = wrapY(y);
+  const i = y * W + x;
+  if (treeAt(x, y) || oreType[i] !== 0) return false;
+  if (chopped.has(i)) chopped.delete(i);
+  else planted.set(i, makeTree(x, y));
+  treeCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
+  treeCellChange(x, y, 1);
+  return true;
+}
+
+// Cuántos árboles hay en cada celda de polución (los árboles absorben polución)
+function computeForest() {
+  treeCount = new Uint16Array(PW * PH);
+  forestCell = new Float32Array(PW * PH);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    if ((naturalTreeAt(x, y) && !chopped.has(i)) || planted.has(i)) treeCount[Math.floor(y / POLL_CELL) * PW + Math.floor(x / POLL_CELL)]++;
+  }
+  for (let c = 0; c < treeCount.length; c++) forestCell[c] = forestOf(treeCount[c]);
+}
+
+function encodeTrees() {
+  return { c: [...chopped], p: [...planted.keys()] };
+}
+function decodeTrees(t) {
+  chopped = new Set(t && Array.isArray(t.c) ? t.c : []);
+  planted = new Map();
+  if (t && Array.isArray(t.p)) for (const i of t.p) planted.set(i, makeTree(i % W, Math.floor(i / W)));
+  treeCache.clear();
+  computeForest();
+}
+
+// Árboles de cada chunk (naturales sin talar + plantados)
 function chunkTrees(cx, cy) {
   const key = cx + ',' + cy;
   let list = treeCache.get(key);
   if (list) return list;
   list = [];
-  const hx = W / 2, hy = H / 2;
   for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
     for (let x = cx * CHUNK; x < (cx + 1) * CHUNK; x++) {
-      if (!inBounds(x, y) || oreType[y * W + x] !== 0) continue;
-      if (Math.abs(x - hx) < 9 && Math.abs(y - hy) < 9) continue;
-      const d = treeDensity(x, y);
-      const p = d > 0.5 ? (d - 0.5) * 2.6 : d > 0.36 ? 0.03 : 0;
-      if (hash(x, y, 40) >= p) continue;
-      const pine = vnoise(x, y, 29, 11) > 0.55;
-      list.push([x, y, (pine ? 3 : 0) + Math.floor(hash(x, y, 41) * 3), 0.8 + hash(x, y, 42) * 0.45,
-        (hash(x, y, 43) - 0.5) * 10, (hash(x, y, 44) - 0.5) * 10]);
+      if (x >= W || y >= H) continue;
+      const i = y * W + x;
+      const t = planted.get(i) || (!chopped.has(i) && naturalTreeAt(x, y));
+      if (t) list.push(t);
     }
   }
   treeCache.set(key, list);
