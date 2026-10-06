@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -284,6 +284,23 @@ function drawBuilding(g, e, x0, y0, t) {
       g.fillRect(x0 + 5, cy - 4, TILE - 10, 1.5);
       if (!prov && e.req) { const k = Object.keys(e.req)[0]; if (k) drawItem(g, k, x0 + TILE - 9, y0 + 9, 3.5); }
       if (e.total) drawProgress(g, x0, y0, e.total / 400, prov ? '#e58a85' : '#8fbff0');
+      break;
+    }
+
+    case 'sensor': {
+      const col = SIGNAL_COLORS[e.ch || 0];
+      box(g, x0, y0, '#2b3036', col, 5);
+      drawArrow(g, cx, cy, e.dir, col, 14);
+      g.fillStyle = col;
+      g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.fill();
+      if (e.id) {
+        g.font = '700 9px "Chakra Petch", system-ui, sans-serif';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        const txt = (e.value || 0) > 9999 ? Math.round(e.value / 1000) + 'k' : String(e.value || 0);
+        const w = g.measureText(txt).width + 6;
+        g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillRect(cx - w / 2, y0 - 7, w, 11);
+        g.fillStyle = '#fff'; g.fillText(txt, cx, y0 - 1.5);
+      }
       break;
     }
 
@@ -736,6 +753,21 @@ function drawBuilding(g, e, x0, y0, t) {
       g.beginPath(); g.ellipse(mx, my, 30, 13, t * 0.6 + Math.PI / 2, 0, Math.PI * 2); g.stroke();
       break;
     }
+  }
+
+  // Red de señales: puntito del canal y, si está apagado por la condición, un ícono de pausa
+  if (e.cond) {
+    const sz = sizeOf(e.type) * TILE;
+    if (e.off) {
+      g.fillStyle = 'rgba(10,12,16,0.45)';
+      g.fillRect(x0 + 2, y0 + 2, sz - 4, sz - 4);
+      g.fillStyle = '#e6e9ee';
+      g.fillRect(x0 + sz / 2 - 5, y0 + sz / 2 - 6, 3.5, 12);
+      g.fillRect(x0 + sz / 2 + 1.5, y0 + sz / 2 - 6, 3.5, 12);
+    }
+    g.fillStyle = SIGNAL_COLORS[e.cond.ch] || '#fff';
+    g.beginPath(); g.arc(x0 + 6, y0 + 6, 3.2, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1; g.stroke();
   }
 
   // Aviso de falta de energía

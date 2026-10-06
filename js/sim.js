@@ -123,6 +123,7 @@ function makeEntity(type, x, y, dir = 0) {
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': e.store = {}; e.total = 0; break;
     case 'requesterchest': e.store = {}; e.total = 0; e.req = {}; break;
     case 'nursery': e.t = 0; break;
+    case 'sensor': e.ch = 0; e.item = '*'; e.value = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
     case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
     case 'furnace': case 'efurnace':
@@ -743,8 +744,14 @@ function update(dt) {
   const tech = S.research.current && TECHS[S.research.current];
   let researchDone = false;
 
+  readSignals();
   for (const e of S.entities) {
     const def = BUILDINGS[e.type];
+    // Red de señales: si la condición no se cumple, el edificio queda apagado
+    if (e.cond) {
+      e.off = !condOk(e.cond);
+      if (e.off) { e.active = false; if (e.type === 'lamp') e.lit = false; continue; }
+    }
     switch (e.type) {
       case 'belt': case 'fastbelt': case 'expressbelt':
         for (let k = 0; k < 2; k++) {
@@ -1043,7 +1050,8 @@ function update(dt) {
       }
 
       case 'lamp':
-        e.lit = darkness() > 0.15 && drawPower(e, def.power) > 0.5;
+        // Con condición, la lámpara sirve de indicador (prende aunque sea de día)
+        e.lit = (e.cond || darkness() > 0.15) && drawPower(e, def.power) > 0.5;
         break;
 
       case 'fusion_plant': {
@@ -1221,4 +1229,44 @@ function orbitalStrike(x, y, r) {
   if (typeof spawnStrike === 'function') spawnStrike(x, y);
   sfx('boom', x, y);
   S.strikes = (S.strikes || 0) + 1;
+}
+
+// --------------------------- Red de señales ---------------------------
+// 8 canales de colores. Cada sensor suma lo que lee a su canal.
+
+const SIGNAL_COLORS = ['#e5534b', '#5cc47a', '#3f86e0', '#f0c040', '#b45fe0', '#3cc4c4', '#f08a3a', '#e8e8e8'];
+const SIGNAL_NAMES = ['rojo', 'verde', 'azul', 'amarillo', 'violeta', 'celeste', 'naranja', 'blanco'];
+const CONDITIONABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
+  'furnace', 'efurnace', 'assembler', 'assembler2', 'chem', 'lab', 'lamp', 'generator', 'boiler', 'steam_engine', 'splitter', 'sorter', 'radar', 'purifier', 'nursery']);
+let signals = new Array(8).fill(0);
+
+function sensorValue(e) {
+  const [dx, dy] = DIRS[e.dir];
+  const t = at(e.x + dx, e.y + dy);
+  if (!t) return 0;
+  const it = e.item || '*';
+  const fromStore = (st) => (it === '*' ? Object.values(st).reduce((a, b) => a + b, 0) : st[it] || 0);
+  if (t.type === 'hub') return Math.floor(fromStore(S.inv));
+  if (t.store) return fromStore(t.store);
+  if (t.type === 'accumulator') return Math.round(100 * (t.stored || 0) / BUILDINGS.accumulator.capacity);
+  if (t.type === 'pipe' || t.type === 'tank') { const n = fnets[t._fnet]; return n && (it === '*' || n.fluid === it) ? Math.floor(n.amount) : 0; }
+  if (t.l) return t.l.filter((k) => k && (it === '*' || k === it)).length;
+  if (t.parts) return fromStore(t.parts);
+  if (t.outCount !== undefined) return it === '*' || t.outType === it ? t.outCount : 0;
+  if (t.type === 'turret') return t.ammo || 0;
+  return 0;
+}
+
+function readSignals() {
+  signals = new Array(8).fill(0);
+  for (const e of S.entities) {
+    if (e.type !== 'sensor') continue;
+    e.value = sensorValue(e);
+    signals[e.ch || 0] += e.value;
+  }
+}
+
+function condOk(c) {
+  const v = signals[c.ch || 0] || 0;
+  return c.op === '>' ? v > c.v : c.op === '=' ? v === c.v : v < c.v;
 }

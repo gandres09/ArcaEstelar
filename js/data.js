@@ -192,6 +192,8 @@ const BUILDINGS = {
   lab:         { name: 'Laboratorio',         cat: 'producción', speed: 1, hp: 150, cost: { iron_plate: 10, gear: 10, copper_plate: 10 },
                  desc: 'Investiga usando packs de ciencia. Más laboratorios, más rápido.' },
 
+  sensor:      { name: 'Sensor',              cat: 'energía', hp: 80, cost: { iron_plate: 2, circuit: 5, cable: 5 }, tech: 'signal_network',
+                 desc: 'Lee lo que hay en el edificio al que apunta (cofre, Núcleo, tanque, acumulador, cinta) y lo manda a un canal de la red de señales.' },
   pole:        { name: 'Poste eléctrico',     cat: 'energía', reach: 7, supply: 2, hp: 80, cost: { iron_plate: 2, copper_plate: 2 }, tech: 'electricity',
                  desc: 'Conecta con postes a 7 casillas y alimenta lo que esté a 2 casillas.' },
   bigpole:     { name: 'Torre de alta tensión', cat: 'energía', reach: 24, supply: 1, hp: 150, cost: { steel: 5, copper_plate: 5 }, tech: 'big_poles',
@@ -317,6 +319,8 @@ const TECHS = {
                        desc: '+50 % más de daño en torretas.' },
   laser_turrets:     { name: 'Torretas láser',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['batteries', 'defense'],
                        desc: 'Torretas que no necesitan munición.' },
+  signal_network:    { name: 'Red de señales',      packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['electricity'],
+                       desc: 'Sensores que mandan valores a 8 canales de colores, y condiciones para prender o apagar máquinas, brazos, cintas, bombas y lámparas.' },
   logistic_robots:   { name: 'Robots logísticos',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['construction_robots'],
                        desc: 'Cada puerto suma 5 robots que llevan objetos de cofres de provisión y del Núcleo a cofres de pedido.' },
   construction_robots: { name: 'Robots de construcción', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['electric_engines', 'batteries'],

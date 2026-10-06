@@ -688,6 +688,28 @@ function inspectorContent(e) {
       break;
     }
   }
+  if (e.type === 'sensor') {
+    const v = e.value || 0;
+    h += row('Lee', `${v}`) + row('Canal', `<span class="sig-dot" style="background:${SIGNAL_COLORS[e.ch || 0]}"></span>${SIGNAL_NAMES[e.ch || 0]} = ${signals[e.ch || 0]}`);
+    h += '<div class="pick-title">Canal</div><div class="picker">' + SIGNAL_COLORS.map((c, i) => `<button type="button" class="pick sig${(e.ch || 0) === i ? ' on' : ''}" data-act="sch" data-v="${i}" title="${SIGNAL_NAMES[i]}"><span class="sig-dot" style="background:${c}"></span></button>`).join('') + '</div>';
+    const [dx, dy] = DIRS[e.dir];
+    const t = at(e.x + dx, e.y + dy);
+    const opts = t ? sensorOptions(t) : [];
+    h += '<div class="pick-title">Qué lee</div><div class="picker">' +
+      `<button type="button" class="pick${(e.item || '*') === '*' ? ' on' : ''}" data-act="sitem" data-v="*" title="Todo">Σ</button>` +
+      opts.map((k) => `<button type="button" class="pick${e.item === k ? ' on' : ''}" data-act="sitem" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}</button>`).join('') + '</div>';
+    h += `<p class="muted small">${t ? `Apunta a: ${t.type === 'hub' ? 'Núcleo' : BUILDINGS[t.type].name}. Girá el sensor (R) para cambiar.` : 'No apunta a nada: girá el sensor (R) hacia un cofre, el Núcleo, un tanque o un acumulador.'}</p>`;
+  }
+  if (CONDITIONABLE.has(e.type) && hasTech('signal_network')) {
+    const c = e.cond;
+    h += '<div class="pick-title">Condición (red de señales)</div>';
+    h += `<div class="cond-row"><select data-cond="ch"><option value="-1"${c ? '' : ' selected'}>Siempre encendido</option>${SIGNAL_NAMES.map((n, i) => `<option value="${i}"${c && c.ch === i ? ' selected' : ''}>Canal ${n}</option>`).join('')}</select>`;
+    if (c) {
+      h += `<select data-cond="op">${['<', '>', '='].map((o) => `<option${c.op === o ? ' selected' : ''}>${o}</option>`).join('')}</select>` +
+        `<input type="number" data-cond="v" value="${c.v}" min="0" step="1"></div>` +
+        `<div class="muted small">Ahora: canal ${SIGNAL_NAMES[c.ch]} = ${signals[c.ch]} → ${e.off ? '<span class="bad">apagado</span>' : '<span class="ok">encendido</span>'}</div>`;
+    } else h += '</div>';
+  }
   if (MODULE_SLOTS[e.type] && hasTech('modules')) {
     const mods = e.modules || [];
     h += `<div class="pick-title">Módulos (${mods.length}/${MODULE_SLOTS[e.type]})</div><div class="picker">`;
@@ -734,6 +756,22 @@ function feedFrom(e, items, max) {
   }
   return n;
 }
+
+// Condición de la red de señales
+$('inspector').addEventListener('change', (ev) => {
+  const el = ev.target.closest('[data-cond]');
+  if (!el || !inspected || inspected.type === 'train') return;
+  const e = inspected;
+  if (el.dataset.cond === 'ch') {
+    const ch = +el.value;
+    e.cond = ch < 0 ? null : { ch, op: (e.cond && e.cond.op) || '<', v: (e.cond && e.cond.v) || 100 };
+    if (!e.cond) { e.off = false; delete e.cond; }
+  } else if (e.cond && el.dataset.cond === 'op') e.cond.op = ['<', '>', '='].includes(el.value) ? el.value : '<';
+  else if (e.cond && el.dataset.cond === 'v') e.cond.v = Math.max(0, Math.round(+el.value || 0));
+  netTouch(e);
+  el.blur();
+  updateInspector();
+});
 
 // Desplegables del horario de un tren
 $('inspector').addEventListener('change', (ev) => {
@@ -782,6 +820,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       break;
     }
     case 'tsdel': if (e.schedule) { e.schedule.splice(+v, 1); e.si = 0; e._path = null; e.state = 'idle'; netTrainSchedule(e); } break;
+    case 'sch': e.ch = Math.max(0, Math.min(7, +v | 0)); break;
+    case 'sitem': e.item = v === '*' || ITEMS[v] ? v : '*'; break;
     case 'reqadd': e.req = e.req || {}; if (v && ITEMS[v]) e.req[v] = 50; break;
     case 'reqinc': { const [k, d] = String(v).split('|'); if (e.req && e.req[k] !== undefined) e.req[k] = Math.max(1, Math.min(400, e.req[k] + +d)); break; }
     case 'reqdel': if (e.req) delete e.req[v]; break;
@@ -1031,4 +1071,14 @@ function updateUI() {
   updateConfirm();
   if (!$('stats').hidden) { renderStats(); renderChart(); }
   if (!$('research').hidden) renderResearch();
+}
+
+// Qué puede leer un sensor según el edificio al que apunta
+function sensorOptions(t) {
+  if (t.type === 'hub') return ITEM_ORDER.filter((k) => (S.inv[k] || 0) >= 1).slice(0, 40);
+  if (t.store) return Object.keys(t.store);
+  if (t.parts) return Object.keys(shipNeeds(t));
+  if (t.type === 'pipe' || t.type === 'tank') return [...FLUIDS];
+  if (t.l) return [...new Set(t.l.filter(Boolean))];
+  return [];
 }
