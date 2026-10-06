@@ -143,7 +143,13 @@ function copyArea(r) {
   const x1 = Math.max(...list.map((e) => ux(e) + sizeOf(e.type) - 1)), y1 = Math.max(...list.map((e) => uy(e) + sizeOf(e.type) - 1));
   clipboard = {
     w: x1 - x0 + 1, h: y1 - y0 + 1,
-    items: list.map((e) => ({ type: e.type, dx: ux(e) - x0, dy: uy(e) - y0, dir: e.dir, recipe: e.recipe || null, filter: e.filter || null })),
+    items: list.map((e) => {
+      const it = { type: e.type, dx: ux(e) - x0, dy: uy(e) - y0, dir: e.dir, recipe: e.recipe || null, filter: e.filter || null };
+      if (e.prio) it.prio = e.prio;
+      if (e.type === 'station') it.mode = e.mode;
+      if (e.req) it.req = { ...e.req };
+      return it;
+    }),
   };
   toast(`Copiaste ${list.length} edificio${list.length > 1 ? 's' : ''}. ${isTouch() ? 'Tocá dónde pegar.' : 'Clic para pegar, R para girar.'}`);
   selectTool('paste');
@@ -178,6 +184,10 @@ function pasteAt(t) {
       ok++;
       if (it.recipe && e.recipe !== undefined && RECIPES[it.recipe] && !e.recipe) e.recipe = it.recipe;
       if (it.filter && e.filter !== undefined) e.filter = it.filter;
+      if (it.prio) e.prio = it.prio;
+      if (it.mode && e.type === 'station') e.mode = it.mode;
+      if (it.req && e.type === 'requesterchest') e.req = { ...it.req };
+      netTouch(e);
     } else if (!e) fail++;
   }
   endBatch();
@@ -546,6 +556,8 @@ window.addEventListener('keydown', (ev) => {
     if (e && BUILDINGS[e.type]) { selectTool(e.type); toolDir = e.dir; } else selectTool('hand');
   } else if (k === 't') {
     openModal('research');
+  } else if (k === 'b') {
+    openModal('planos');
   } else if (k === 'p') {
     togglePollution();
   }

@@ -854,6 +854,7 @@ async function netInit() {
     if (!$('online').hidden) netRenderModal();
   }, () => {});
   netLobbyPresence();
+  watchSharedBlueprints();
 
   // Botones de la ventana (se redibuja seguido: un solo manejador)
   $('online-body').addEventListener('click', (ev) => {

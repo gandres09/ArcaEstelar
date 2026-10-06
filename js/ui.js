@@ -19,7 +19,7 @@ const KEY_GROUPS = [
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
-const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online'];
+const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos'];
 
 // --------------------------- Íconos ---------------------------
 
@@ -180,8 +180,9 @@ function updateConfirm() {
       text = pastePos ? `Tocá de nuevo para pegar ${clipboard.items.length} edificios.` : 'Tocá dónde pegar.';
       btns = pastePos ? ['rotate', 'ok', 'cancel'] : ['rotate', 'cancel'];
     } else { text = `Clic para pegar ${clipboard.items.length} edificios · R gira`; btns = ['cancel']; }
+    btns.unshift('save');
   }
-  const labels = { ok: '✔ Construir', cancel: '✕', flip: '↺ Esquina', rotate: '🔄 Girar' };
+  const labels = { ok: '✔ Construir', cancel: '✕', flip: '↺ Esquina', rotate: '🔄 Girar', save: '💾 Guardar plano' };
   if (area && area.mode === 'delete') labels.ok = '✔ Desarmar';
   if (tool === 'paste') labels.ok = '✔ Pegar';
   const html = text ? `<span class="confirm-text">${text}</span>` + btns.map((b) => `<button type="button" data-c="${b}" class="${b === 'ok' ? 'primary' : ''}">${labels[b]}</button>`).join('') : '';
@@ -198,6 +199,7 @@ $('confirm').addEventListener('click', (ev) => {
       clearPlans();
       break;
     case 'flip': if (beltPlan) beltPlan.flip = !beltPlan.flip; break;
+    case 'save': saveClipboardAsBlueprint(); break;
     case 'rotate': rotateAction(1); break;
     case 'ok':
       if (beltPlan && beltPlan.b) buildBeltPlan();
@@ -922,6 +924,7 @@ function openModal(id) {
   if (id === 'stats') { renderStats(); renderChartPicker(); renderChart(); }
   if (id === 'ach') renderAchievements();
   if (id === 'online') netRenderModal();
+  if (id === 'planos') renderBlueprints();
   if (id === 'menu') { $('import-box').hidden = true; $('export-text').hidden = true; }
 }
 

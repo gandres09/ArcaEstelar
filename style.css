@@ -433,3 +433,11 @@ textarea {
 .sched-row { display: flex; align-items: center; gap: 4px; margin: 3px 0; padding: 2px 4px; border-radius: 6px; }
 .sched-row.on { background: rgba(240, 167, 66, 0.15); }
 .sched-row select { flex: 1; min-width: 0; font: inherit; font-size: 12px; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px; }
+.bp-card { display: flex; gap: 10px; padding: 8px; margin: 6px 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; }
+.bp-card img { border-radius: 6px; flex-shrink: 0; image-rendering: pixelated; }
+.bp-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.bp-info input { font: inherit; font-weight: 600; color: var(--text); background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 2px 4px; user-select: text; -webkit-user-select: text; }
+.bp-info input:focus { border-color: var(--border); background: rgba(0,0,0,0.25); outline: none; }
+.bp-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.bp-import summary { cursor: pointer; margin: 10px 0 4px; color: var(--accent); }
+.bp-import textarea { width: 100%; font: 12px monospace; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px; user-select: text; -webkit-user-select: text; }

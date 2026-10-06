@@ -218,6 +218,8 @@ function init() {
   setInterval(checkAchievements, 2000);
   setInterval(() => renderMinimap(minimap), 500);
   $('btn-online').addEventListener('click', () => openModal('online'));
+  $('btn-bp').addEventListener('click', () => openModal('planos'));
+  initBlueprints();
   $('net-chip').addEventListener('click', () => openModal('online'));
   netInit();
 
