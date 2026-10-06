@@ -46,7 +46,8 @@ function generateMap(seed) {
   const outside = (x, y) => legacy && (x < 0 || y < 0 || x >= W || y >= H);
   // Generación 2 (partidas nuevas): yacimientos más chicos pero mucho más ricos,
   // así cada uno dura más y no hay que mudar la fábrica tan seguido
-  const gen2 = ((S && S.mapGen) || 1) >= 2;
+  const gen = (S && S.mapGen) || 1;
+  const gen2 = gen >= 2;
   const RAD = gen2 ? 0.68 : 1, RICH = gen2 ? 4 : 1, MORE = gen2 ? 1.3 : 1;
 
   const patch = (px, py, r0, id, rich0) => {
@@ -84,12 +85,24 @@ function generateMap(seed) {
   }
 
   // Yacimientos iniciales alrededor del Núcleo
-  patch(cx - 15, cy - 9, 5.5, 1, 420);
-  patch(cx + 15, cy - 9, 5.5, 2, 380);
-  patch(cx - 13, cy + 10, 4.5, 3, 380);
-  patch(cx + 13, cy + 10, 4.5, 4, 320);
-  patch(cx - 2, cy + 22, 3.5, 1, 380);
-  patch(cx + 26, cy + 6, 4, 2, 380);
+  if (gen >= 3) {
+    // Partidas nuevas: los mismos seis yacimientos, pero en otro orden y otro ángulo cada vez
+    const starts = [[1, 5.5, 420], [2, 5.5, 380], [3, 4.5, 380], [4, 4.5, 320], [1, 3.5, 380], [2, 4, 380]];
+    for (let i = starts.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [starts[i], starts[j]] = [starts[j], starts[i]]; }
+    const a0 = rnd() * Math.PI * 2;
+    starts.forEach(([id, rad, rich], i) => {
+      const a = a0 + i * (Math.PI * 2 / starts.length) + (rnd() - 0.5) * 0.5;
+      const d = 15 + rnd() * 9;
+      patch(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.8), rad, id, rich);
+    });
+  } else {
+    patch(cx - 15, cy - 9, 5.5, 1, 420);
+    patch(cx + 15, cy - 9, 5.5, 2, 380);
+    patch(cx - 13, cy + 10, 4.5, 3, 380);
+    patch(cx + 13, cy + 10, 4.5, 4, 320);
+    patch(cx - 2, cy + 22, 3.5, 1, 380);
+    patch(cx + 26, cy + 6, 4, 2, 380);
+  }
 
   // Recursos en anillos: más lejos, más raros y más ricos
   const ring = (id, dmin, dmax, count, rmin, rmax, rich) => {
@@ -139,7 +152,8 @@ function generateMap(seed) {
   }
 
   // Un lago chico cerca del Núcleo para la energía a vapor
-  lake(cx + 4, cy - 24, 4.5);
+  if (gen >= 3) { const a = rnd() * Math.PI * 2; lake(Math.round(cx + Math.cos(a) * 26), Math.round(cy + Math.sin(a) * 22), 4.5); }
+  else lake(cx + 4, cy - 24, 4.5);
 
   // Despejar la zona del Núcleo
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
