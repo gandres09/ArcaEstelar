@@ -26,7 +26,8 @@ function loadFrom(raw) {
   const data = JSON.parse(raw);
   if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.entities)) throw new Error('version');
   const { view: v, ore, pollution: poll, fog, ...state } = data;
-  S = { ...newState(state.seed, state.peaceful), ...state };
+  S = { ...newState(state.seed, state.peaceful, !!state.character), ...state };
+  if (S.character && !S.player) S.player = newPlayer(W / 2 + 0.5, H / 2 + 3.5);
   generateMap(S.seed);
   if (ore) decodeOre(ore);
   loadPollution(poll);
@@ -48,8 +49,8 @@ function load() {
   }
 }
 
-function startNewGame(seed, peaceful) {
-  S = newState(seed, peaceful);
+function startNewGame(seed, peaceful, character = true) {
+  S = newState(seed, peaceful, character);
   generateMap(seed);
   loadPollution(null);
   decodeFog(null);
@@ -59,10 +60,11 @@ function startNewGame(seed, peaceful) {
   hub.id = S.nextId++;
   S.entities.push(hub);
   rebuildGrid();
+  if (character) S.player = newPlayer(cx + 0.5, cy + 3.5);
   generateNests(seed);
   view.x = cx * TILE + TILE / 2;
   view.y = cy * TILE + TILE / 2;
-  view.zoom = window.innerWidth < 760 ? 0.55 : 0.9;
+  view.zoom = character ? (window.innerWidth < 760 ? 0.85 : 1.3) : (window.innerWidth < 760 ? 0.55 : 0.9);
   tool = 'hand';
   toolDir = 0;
   undoStack.length = 0;
@@ -141,6 +143,15 @@ function init() {
   updateUI();
 
   $('btn-research').addEventListener('click', () => openModal('research'));
+  $('pocket').addEventListener('click', (ev) => { const b = ev.target.closest('[data-item]'); if (b) transferItem(b.dataset.item, true); });
+  $('inventory').addEventListener('click', (ev) => { const b = ev.target.closest('[data-item]'); if (b && playerOn()) transferItem(b.dataset.item, false); });
+  $('craft').addEventListener('pointerdown', (ev) => {
+    const b = ev.target.closest('[data-craft]');
+    if (b && !b.disabled) { const n = craft(b.dataset.craft, ev.shiftKey ? 5 : 1); if (n) sfx('click'); updateCraftUI(); }
+    const c = ev.target.closest('[data-cancel]');
+    if (c) { cancelCraft(+c.dataset.cancel); updateCraftUI(); }
+  });
+  $('btn-center').addEventListener('click', () => { followCam = true; });
   $('research-chip').addEventListener('click', () => openModal('research'));
   $('btn-side').addEventListener('click', () => { toggleSide(); updateUI(); });
   $('side-close').addEventListener('click', () => toggleSide(false));
@@ -175,7 +186,7 @@ function init() {
   for (const id of ['vol-sfx', 'vol-music', 'mute']) $(id).addEventListener('input', onAudio);
   $('vol-sfx').addEventListener('change', () => sfx('place'));
   $('btn-new-go').addEventListener('click', () => {
-    startNewGame((Math.random() * 2 ** 31) | 0, $('opt-peaceful').checked);
+    startNewGame((Math.random() * 2 ** 31) | 0, $('opt-peaceful').checked, $('opt-character').checked);
     toolbarKey = '';
     updateUI();
     openModal('help');

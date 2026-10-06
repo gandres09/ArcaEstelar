@@ -12,7 +12,7 @@ let time = 0;
 const LOD_ZOOM = 0.45; // por debajo de este zoom se dibuja simplificado
 
 const TYPE_COLOR = {
-  hub: '#f0a742', belt: '#59616d', fastbelt: '#c9a640', expressbelt: '#4aa3df', underground: '#c98a2e',
+  hub: '#f0a742', belt: '#c9a23a', fastbelt: '#c8503f', expressbelt: '#4a96d4', underground: '#a8862e',
   splitter: '#8a63c4', sorter: '#2fa59a', chest: '#8b5a2b', miner: '#c9a227', eminer: '#3e7cb1', pumpjack: '#8e7fa8',
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
@@ -102,32 +102,64 @@ function drawArrow(g, cx, cy, dir, color, len = 15) {
   g.restore();
 }
 
+function rrect(g, x, y, w, h, r) {
+  g.beginPath();
+  if (g.roundRect) g.roundRect(x, y, w, h, r);
+  else g.rect(x, y, w, h);
+}
+
+// Cuerpo de un edificio: sombra, chapa con relieve, borde y remaches
 function box(g, x0, y0, fill, stroke, inset = 2, s = TILE) {
+  const x = x0 + inset, y = y0 + inset, w = s - inset * 2;
+  const r = Math.min(5, w / 6);
+  g.fillStyle = 'rgba(0,0,0,0.3)';
+  rrect(g, x + 2, y + 3, w, w, r); g.fill();
   g.fillStyle = fill;
-  g.fillRect(x0 + inset, y0 + inset, s - inset * 2, s - inset * 2);
+  rrect(g, x, y, w, w, r); g.fill();
+  // Luz de arriba y sombra abajo
+  g.fillStyle = 'rgba(255,255,255,0.16)';
+  g.fillRect(x + r, y + 1, w - r * 2, 2);
+  g.fillStyle = 'rgba(255,255,255,0.05)';
+  g.fillRect(x + 1, y + 3, w - 2, w / 2 - 3);
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.fillRect(x + r, y + w - 3, w - r * 2, 2.5);
   if (stroke) {
     g.strokeStyle = stroke; g.lineWidth = 1.5;
-    g.strokeRect(x0 + inset + 1.5, y0 + inset + 1.5, s - inset * 2 - 3, s - inset * 2 - 3);
+    rrect(g, x + 3, y + 3, w - 6, w - 6, Math.max(1, r - 2)); g.stroke();
+  }
+  if (w >= 22) {
+    g.fillStyle = 'rgba(0,0,0,0.4)';
+    const q = 2.2, a = x + 2.2, b = x + w - 2.2 - q;
+    g.fillRect(a, y + 2.2, q, q); g.fillRect(b, y + 2.2, q, q);
+    g.fillRect(a, y + w - 2.2 - q, q, q); g.fillRect(b, y + w - 2.2 - q, q, q);
   }
 }
 
-function drawBeltBase(g, e, cx, cy, t, speed, base, stripe) {
+// Cintas: goma oscura con nervios que avanzan y rieles del color de su nivel
+function drawBeltBase(g, e, cx, cy, t, speed, rail, stripe) {
   g.save();
   g.translate(cx, cy);
   g.rotate(e.dir * Math.PI / 2);
-  g.fillStyle = base;
-  g.fillRect(-15, -15, 30, 30);
-  g.fillStyle = 'rgba(255,255,255,0.05)';
-  g.fillRect(-15, -12, 30, 24);
-  g.strokeStyle = stripe;
+  g.fillStyle = '#1b1e22';
+  g.fillRect(-16, -12, 32, 24);
+  const off = (t * speed * TILE) % 8;
+  g.fillStyle = 'rgba(255,255,255,0.08)';
+  for (let p = -16 + off; p < 16; p += 8) g.fillRect(p, -11, 2, 22);
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  for (let p = -14 + off; p < 16; p += 8) g.fillRect(p, -11, 1.5, 22);
+  // Flechita del sentido
+  g.strokeStyle = stripe; g.globalAlpha *= 0.55;
   g.lineWidth = 2;
-  const off = (t * speed * TILE) % 32;
-  g.beginPath();
-  for (let i = 0; i < 2; i++) {
-    const p = -11 + ((i * 16 + off) % 32) * 22 / 32;
-    g.moveTo(p - 3, -6); g.lineTo(p + 2, 0); g.lineTo(p - 3, 6);
+  g.beginPath(); g.moveTo(-3, -5); g.lineTo(2, 0); g.lineTo(-3, 5); g.stroke();
+  g.globalAlpha /= 0.55;
+  // Rieles laterales
+  for (const sy of [-16, 12]) {
+    g.fillStyle = rail; g.fillRect(-16, sy, 32, 4);
+    g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(-16, sy, 32, 1);
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(-16, sy + 3, 32, 1);
   }
-  g.stroke();
+  g.fillStyle = 'rgba(0,0,0,0.45)';
+  for (const sx of [-12, 4]) { g.fillRect(sx, -15, 2, 2); g.fillRect(sx, 13, 2, 2); }
   g.restore();
 }
 
@@ -143,12 +175,12 @@ function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
   switch (e.type) {
-    case 'belt': drawBeltBase(g, e, cx, cy, t, 2, '#262a30', '#59616d'); break;
-    case 'fastbelt': drawBeltBase(g, e, cx, cy, t, 4, '#3a3524', '#c9a640'); break;
-    case 'expressbelt': drawBeltBase(g, e, cx, cy, t, 8, '#1d2c3a', '#4aa3df'); break;
+    case 'belt': drawBeltBase(g, e, cx, cy, t, 2, '#c9a23a', '#e8c867'); break;
+    case 'fastbelt': drawBeltBase(g, e, cx, cy, t, 4, '#b8463a', '#f08a7a'); break;
+    case 'expressbelt': drawBeltBase(g, e, cx, cy, t, 8, '#3a86c4', '#8fcaf5'); break;
 
     case 'underground': {
-      drawBeltBase(g, e, cx, cy, t, 4, '#2d2a24', '#7a6235');
+      drawBeltBase(g, e, cx, cy, t, 2, '#c9a23a', '#e8c867');
       g.save();
       g.translate(cx, cy);
       g.rotate(e.dir * Math.PI / 2);
@@ -581,17 +613,28 @@ function drawBuilding(g, e, x0, y0, t) {
 
     case 'hub': {
       const s = TILE * 3;
-      g.fillStyle = '#3d4552';
-      g.fillRect(x0 + 2, y0 + 2, s - 4, s - 4);
-      g.strokeStyle = '#f0a742'; g.lineWidth = 3;
-      g.strokeRect(x0 + 5, y0 + 5, s - 10, s - 10);
+      box(g, x0, y0, '#3a424e', null, 2, s);
+      // Plataforma con franjas de peligro
+      g.save();
+      rrect(g, x0 + 8, y0 + 8, s - 16, s - 16, 4); g.clip();
+      g.fillStyle = '#2a3039'; g.fillRect(x0, y0, s, s);
+      g.strokeStyle = 'rgba(240,167,66,0.55)'; g.lineWidth = 4;
+      g.beginPath();
+      for (let k = -s; k < s; k += 12) { g.moveTo(x0 + k, y0 + s); g.lineTo(x0 + k + s, y0); }
+      g.stroke();
+      g.fillStyle = '#2a3039'; rrect(g, x0 + 14, y0 + 14, s - 28, s - 28, 6); g.fill();
+      g.restore();
+      // Antena con luz que titila
+      g.fillStyle = '#9aa3ad'; g.fillRect(x0 + s - 20, y0 + 10, 3, 10);
+      g.fillStyle = Math.floor(t * 1.5) % 2 ? '#5cc47a' : '#2c5a3a';
+      g.beginPath(); g.arc(x0 + s - 18.5, y0 + 10, 2.5, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#f0a742';
-      g.font = 'bold 13px system-ui, sans-serif';
+      g.font = '700 13px "Chakra Petch", system-ui, sans-serif';
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText('NÚCLEO', x0 + s / 2, y0 + s / 2 - 8);
-      g.font = '11px system-ui, sans-serif';
+      g.fillText('NÚCLEO', x0 + s / 2, y0 + s / 2 - 5);
+      g.font = '500 10px Barlow, system-ui, sans-serif';
       g.fillStyle = '#c9d1db';
-      g.fillText('almacén', x0 + s / 2, y0 + s / 2 + 10);
+      g.fillText('almacén', x0 + s / 2, y0 + s / 2 + 9);
       break;
     }
 
@@ -745,7 +788,88 @@ function drawTrains(g, lod) {
   }
 }
 
+// El personaje, visto desde arriba: sombra, mochila, traje, casco y herramienta
+function drawPlayer(g, lod) {
+  const p = S.player;
+  const x = p.x * TILE, y = p.y * TILE;
+  if (lod) { g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); return; }
+  // Destino del camino
+  if (p.path && p.path.length) {
+    const d = p.path[p.path.length - 1];
+    g.strokeStyle = 'rgba(255,211,77,0.7)'; g.lineWidth = 2;
+    g.beginPath(); g.arc(d.x * TILE, d.y * TILE, 6 + Math.sin(time * 6) * 1.5, 0, Math.PI * 2); g.stroke();
+  }
+  // Barra de extracción
+  if (p.mining && p.mine) {
+    const mx = p.mine.x * TILE, my = p.mine.y * TILE;
+    g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(mx + 3, my - 8, TILE - 6, 5);
+    g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * (p.mineT / HAND_MINE_TIME), 5);
+  }
+  g.save();
+  g.translate(x, y);
+  g.fillStyle = 'rgba(0,0,0,0.3)';
+  g.beginPath(); g.ellipse(3, 5, 11, 8, 0, 0, Math.PI * 2); g.fill();
+  g.rotate(p.ang);
+  const swing = p.moving ? Math.sin(p.step) * 4 : 0;
+  // Piernas
+  g.fillStyle = '#3b4250';
+  g.beginPath(); g.ellipse(-2 + swing, -5, 4, 3, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(-2 - swing, 5, 4, 3, 0, 0, Math.PI * 2); g.fill();
+  // Mochila
+  g.fillStyle = '#6b5236';
+  g.beginPath(); g.roundRect(-11, -6, 6, 12, 2); g.fill();
+  // Cuerpo (traje naranja)
+  const body = g.createLinearGradient(-8, -9, 8, 9);
+  body.addColorStop(0, '#ffb347'); body.addColorStop(1, '#d9782a');
+  g.fillStyle = body;
+  g.beginPath(); g.ellipse(0, 0, 8, 10, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1; g.stroke();
+  // Brazos y herramienta
+  const arm = p.mining ? Math.sin(time * 14) * 0.9 : swing * 0.1;
+  g.save();
+  g.rotate(arm);
+  g.fillStyle = '#d9782a';
+  g.beginPath(); g.ellipse(4, 8, 4, 3, 0, 0, Math.PI * 2); g.fill();
+  if (p.mining) {
+    g.strokeStyle = '#8a6a44'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(5, 8); g.lineTo(15, 10); g.stroke();
+    g.strokeStyle = '#c9d1db'; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(14, 5); g.quadraticCurveTo(17, 10, 14, 15); g.stroke();
+  }
+  g.restore();
+  g.fillStyle = '#d9782a';
+  g.beginPath(); g.ellipse(4, -8, 4, 3, 0, 0, Math.PI * 2); g.fill();
+  // Casco con visor
+  g.fillStyle = '#f2f2ee';
+  g.beginPath(); g.arc(1, 0, 5.5, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#2f6fb0';
+  g.beginPath(); g.ellipse(4, 0, 2.2, 3.6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,0.6)';
+  g.beginPath(); g.arc(4.5, -1.2, 1, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
 function drawGhostsAndRobots(g, vx0, vy0, vx1, vy1) {
+  // Tareas pendientes del personaje
+  if (playerOn()) {
+    for (const q of S.player.queue) {
+      if (q.kind === 'place') {
+        const e = makeEntity(q.type, q.x, q.y, q.dir);
+        g.globalAlpha = 0.4;
+        drawBuilding(g, e, q.x * TILE, q.y * TILE, time);
+        g.globalAlpha = 1;
+        g.strokeStyle = '#ffd34d'; g.setLineDash([3, 3]); g.lineWidth = 1.5;
+        g.strokeRect(q.x * TILE + 1.5, q.y * TILE + 1.5, sizeOf(q.type) * TILE - 3, sizeOf(q.type) * TILE - 3);
+        g.setLineDash([]);
+      } else {
+        g.strokeStyle = '#e5534b'; g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(q.x * TILE + 8, q.y * TILE + 8); g.lineTo(q.x * TILE + TILE - 8, q.y * TILE + TILE - 8);
+        g.moveTo(q.x * TILE + TILE - 8, q.y * TILE + 8); g.lineTo(q.x * TILE + 8, q.y * TILE + TILE - 8);
+        g.stroke();
+      }
+    }
+  }
   for (const gh of S.ghosts) {
     const px = gh.x * TILE, py = gh.y * TILE, s = sizeOf(gh.type) * TILE;
     if (px + s < vx0 || px > vx1 || py + s < vy0 || py > vy1) continue;
@@ -780,6 +904,8 @@ function drawItemsOn(g, e) {
   if (isBelt(e.type) || (e.type === 'underground' && (e.mode === 'out' || e.prog < 0.5))) {
     const [dx, dy] = DIRS[e.dir];
     const k = (Math.min(e.prog, 1) - 0.5) * TILE;
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.beginPath(); g.ellipse(cx + dx * k + 1.5, cy + dy * k + 2.5, 5, 3.5, 0, 0, Math.PI * 2); g.fill();
     drawItem(g, e.item, cx + dx * k, cy + dy * k, 5);
   } else if (e.type === 'splitter' || e.type === 'sorter') {
     drawItem(g, e.item, cx + 7, cy - 7, 3.5);
@@ -904,6 +1030,97 @@ let showPollution = false;
 let activeOnScreen = 0;
 let lastRender = 0;
 
+// --------------------------- Árboles y humo ---------------------------
+
+// Sprites de árboles hechos una sola vez: 3 frondosos y 3 pinos
+const TREE_SPRITES = [];
+(function makeTreeSprites() {
+  const tones = [[52, 96, 46], [70, 112, 50], [44, 84, 52]];
+  for (let v = 0; v < 6; v++) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const tone = tones[v % 3];
+    const col = (k, a = 1) => `rgba(${tone[0] * k | 0},${tone[1] * k | 0},${tone[2] * k | 0},${a})`;
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.beginPath(); g.ellipse(37, 38, 15, 11, 0.3, 0, Math.PI * 2); g.fill();
+    if (v < 3) {
+      const rnd = mulberry32(v * 97 + 5);
+      const blobs = [];
+      for (let i = 0; i < 7; i++) {
+        const a = rnd() * Math.PI * 2, d = rnd() * 7;
+        blobs.push([32 + Math.cos(a) * d, 30 + Math.sin(a) * d, 6 + rnd() * 4]);
+      }
+      for (const [k, dx, dy, sr] of [[0.6, 1, 1.5, 1], [1, 0, 0, 0.9], [1.35, -1.5, -2, 0.55]]) {
+        g.fillStyle = col(k);
+        g.beginPath();
+        for (const [x, y, r] of blobs) { g.moveTo(x + dx + r * sr, y + dy); g.arc(x + dx, y + dy, r * sr, 0, Math.PI * 2); }
+        g.fill();
+      }
+    } else {
+      // Pino visto de arriba: capas con borde dentado suave
+      const rnd = mulberry32(v * 31 + 7);
+      for (const [k, r, off] of [[0.55, 14, 1.5], [0.8, 11, 0.6], [1.05, 7.5, -0.2], [1.35, 4, -0.8]]) {
+        g.fillStyle = col(k);
+        g.beginPath();
+        const n = 11, ph = rnd() * 6;
+        for (let i = 0; i < n * 2; i++) {
+          const a = (i / (n * 2)) * Math.PI * 2 + ph, rr = i % 2 ? r * 0.8 : r;
+          g.lineTo(32 + off + Math.cos(a) * rr, 30 + off + Math.sin(a) * rr);
+        }
+        g.closePath(); g.fill();
+      }
+    }
+    TREE_SPRITES.push(c);
+  }
+})();
+
+function drawTrees(g, vx0, vy0, vx1, vy1) {
+  const c0 = Math.max(0, Math.floor((vx0 - TILE) / (CHUNK * TILE))), c1 = Math.min(Math.ceil(W / CHUNK) - 1, Math.floor((vx1 + TILE) / (CHUNK * TILE)));
+  const r0 = Math.max(0, Math.floor((vy0 - TILE) / (CHUNK * TILE))), r1 = Math.min(Math.ceil(H / CHUNK) - 1, Math.floor((vy1 + TILE) / (CHUNK * TILE)));
+  for (let cy = r0; cy <= r1; cy++) for (let cx = c0; cx <= c1; cx++) {
+    for (const [x, y, v, sc, dx, dy] of chunkTrees(cx, cy)) {
+      if (at(x, y) || !tileExplored(x, y)) continue;
+      const s = 64 * sc;
+      g.drawImage(TREE_SPRITES[v], x * TILE + 16 + dx - s / 2, y * TILE + 16 + dy - s / 2, s, s);
+    }
+  }
+}
+
+// Grilla suave solo mientras se construye
+function drawGrid(g, vx0, vy0, vx1, vy1) {
+  g.strokeStyle = 'rgba(0,0,0,0.18)';
+  g.lineWidth = 1 / view.zoom;
+  g.beginPath();
+  const x0 = Math.max(0, Math.floor(vx0 / TILE)), x1 = Math.min(W, Math.ceil(vx1 / TILE));
+  const y0 = Math.max(0, Math.floor(vy0 / TILE)), y1 = Math.min(H, Math.ceil(vy1 / TILE));
+  for (let x = x0; x <= x1; x++) { g.moveTo(x * TILE, y0 * TILE); g.lineTo(x * TILE, y1 * TILE); }
+  for (let y = y0; y <= y1; y++) { g.moveTo(x0 * TILE, y * TILE); g.lineTo(x1 * TILE, y * TILE); }
+  g.stroke();
+}
+
+// Humo de las máquinas que queman combustible
+const smoke = [];
+const SMOKERS = { furnace: [0.55, 0.3, 6], boiler: [0.5, 0.25, 7], generator: [0.7, 0.2, 6], pumpjack: [0.3, 0.2, 5] };
+function updateSmoke(visible, dt) {
+  for (const e of visible) {
+    const sm = SMOKERS[e.type];
+    if (!sm || !e.active || Math.random() > sm[0] * dt * 6) continue;
+    const s = sizeOf(e.type);
+    smoke.push({ x: (e.x + s * 0.7) * TILE, y: (e.y + 0.2) * TILE, r: sm[2], life: 0, max: 2.2 + Math.random() * 1.5, a: sm[1], vx: 6 + Math.random() * 6, vy: -14 - Math.random() * 8 });
+  }
+  for (const p of smoke) { p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += dt * 7; }
+  for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i].life >= smoke[i].max) smoke.splice(i, 1);
+  if (smoke.length > 400) smoke.splice(0, smoke.length - 400);
+}
+function drawSmoke(g) {
+  for (const p of smoke) {
+    const k = p.life / p.max;
+    g.fillStyle = `rgba(70,70,74,${p.a * (1 - k) * Math.min(1, p.life * 4)})`;
+    g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill();
+  }
+}
+
 function render(ctx) {
   const now = performance.now();
   const rdt = Math.min(0.1, (now - (lastRender || now)) / 1000);
@@ -938,6 +1155,9 @@ function render(ctx) {
     }
   }
 
+  const building = BUILDINGS[tool] || tool === 'delete' || tool === 'copy' || tool === 'paste';
+  if (!lod && building) drawGrid(ctx, vx0, vy0, vx1, vy1);
+
   // Zonas de energía al elegir algo eléctrico
   const tdef = BUILDINGS[tool];
   if (tdef && (tdef.power || tdef.output || tdef.capacity || tdef.supply)) {
@@ -967,6 +1187,7 @@ function render(ctx) {
     ctx.fillStyle = '#ff5a3c';
     for (const b of S.biters) if (biterVisible(b)) ctx.fillRect(b.x * TILE - 6, b.y * TILE - 6, 12, 12);
   } else {
+    drawTrees(ctx, vx0, vy0, vx1, vy1);
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
     for (const b of S.biters) {
@@ -975,9 +1196,12 @@ function render(ctx) {
     }
   }
   drawTrains(ctx, lod);
+  if (playerOn()) drawPlayer(ctx, lod);
   if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);
   drawEffects(ctx, rdt);
   drawShots(ctx);
+  updateSmoke(lod ? [] : visible, rdt);
+  if (!lod) drawSmoke(ctx);
 
   // Cables de los postes
   ctx.lineWidth = lod ? 2 : 1.2;
@@ -1096,6 +1320,11 @@ function drawOverlays(ctx) {
     const s = (m.size || 1) * TILE;
     ctx.strokeRect(m.x * TILE + 1.5, m.y * TILE + 1.5, s - 3, s - 3);
   }
+  // Alcance del personaje al elegir algo para construir
+  if (playerOn() && (BUILDINGS[tool] || tool === 'delete' || tool === 'paste')) {
+    const p = S.player;
+    g_reach(ctx, p);
+  }
   if (handMining) {
     const { x, y, prog } = handMining;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
@@ -1103,6 +1332,14 @@ function drawOverlays(ctx) {
     ctx.fillStyle = '#f0a742';
     ctx.fillRect(x * TILE + 3, y * TILE - 8, (TILE - 6) * (prog / HAND_MINE_TIME), 5);
   }
+}
+
+function g_reach(g, p) {
+  g.strokeStyle = 'rgba(255,211,77,0.35)';
+  g.lineWidth = 2;
+  g.setLineDash([10, 8]);
+  g.beginPath(); g.arc(p.x * TILE, p.y * TILE, REACH * TILE, 0, Math.PI * 2); g.stroke();
+  g.setLineDash([]);
 }
 
 // --------------------------- Despegue ---------------------------
@@ -1181,6 +1418,7 @@ function renderMinimap(mc) {
     g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(e.x * sx, e.y * sy, Math.max(1.5, s * sx), Math.max(1.5, s * sy));
   }
+  if (playerOn()) { g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(S.player.x * sx, S.player.y * sy, 3, 0, Math.PI * 2); g.fill(); }
   g.fillStyle = '#ffffff';
   for (const t of S.trains) g.fillRect(t.x * sx - 1.5, t.y * sy - 1.5, 3, 3);
   g.fillStyle = '#ff7a5c';

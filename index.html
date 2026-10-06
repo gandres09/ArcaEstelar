@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Mini Fábrica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,6 +27,7 @@
     </div>
     <nav id="menu-buttons">
       <button id="btn-research" type="button" title="Investigación (T)">🔬<span class="lbl"> Investigación</span></button>
+      <button id="btn-center" type="button" class="player-only" title="Centrar en el personaje">🎯</button>
       <button id="btn-side" type="button" title="Mapa e inventario">📦<span class="lbl"> Inventario</span></button>
       <button id="btn-menu" type="button" title="Menú">☰<span class="lbl"> Menú</span></button>
     </nav>
@@ -40,9 +44,18 @@
       <h2>Siguiente paso</h2>
       <div id="hint"></div>
     </section>
+    <section class="player-only">
+      <h2>Mochila</h2>
+      <div id="pocket" class="inv-grid"></div>
+      <p id="storage-note" class="muted small"></p>
+    </section>
+    <section class="player-only">
+      <h2>Fabricar a mano <small>(tocá para hacer uno; mantené Shift para 5)</small></h2>
+      <div id="craft"></div>
+    </section>
     <section>
-      <h2>Inventario <small>(Núcleo)</small></h2>
-      <div id="inventory"></div>
+      <h2>Núcleo <small>(almacén de la fábrica)</small></h2>
+      <div id="inventory" class="inv-grid"></div>
     </section>
   </aside>
 
@@ -95,6 +108,11 @@
       </div>
       <p>Se genera un mapa nuevo. <b>Se pierde la fábrica actual.</b></p>
       <fieldset class="opts">
+        <legend>Modo</legend>
+        <label><input type="radio" name="mode" id="opt-character" value="character" checked> Con personaje: empezás sin nada y construís con tus manos</label>
+        <label><input type="radio" name="mode" id="opt-classic" value="classic"> Clásico: sin personaje, con materiales para arrancar</label>
+      </fieldset>
+      <fieldset class="opts">
         <legend>Enemigos</legend>
         <label><input type="radio" name="enemies" id="opt-normal" value="normal" checked> Normal: aparecen de a poco y atacan si la polución les llega</label>
         <label><input type="radio" name="enemies" id="opt-peaceful" value="peaceful"> Pacífico: sin enemigos</label>
@@ -115,12 +133,19 @@
       <p>Te estrellaste en un planeta desconocido. Para salir vas a tener que levantar una fábrica cada vez más grande, investigar y armar una <b>nave espacial</b>.</p>
       <h3>Cómo empezar</h3>
       <ol>
-        <li>Poné <b>Taladros</b> sobre el mineral de hierro (gris azulado). La flecha indica por dónde sale el mineral.</li>
-        <li>Llevalo con <b>Cintas</b> a un <b>Horno</b>. El horno quema carbón: cargáselo desde su panel o mandale carbón por cinta.</li>
-        <li>Llevá las placas al <b>Núcleo</b>: todo lo que entra va al inventario y sirve para construir.</li>
-        <li>Con una <b>Ensambladora</b> hacé engranajes y <b>Ciencia roja</b>, y llevala a un <b>Laboratorio</b> para investigar.</li>
-        <li>El panel <b>Siguiente paso</b> te va guiando.</li>
+        <li>Arrancás <b>sin nada</b>, con tu personaje junto al <b>Núcleo</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
+        <li>Sacá <b>piedra</b> y armá un <b>Horno</b>. Cargale <b>carbón</b> y <b>hierro</b> tocándolo, y sacá las placas.</li>
+        <li>Con placas y piedra poné <b>Taladros</b> sobre el mineral y llevá todo con <b>Cintas</b>. Lo que entra al <b>Núcleo</b> queda guardado para construir.</li>
+        <li>Con una <b>Ensambladora</b> hacé engranajes y <b>Ciencia roja</b>, y llevala a un <b>Laboratorio</b>. El panel <b>Siguiente paso</b> te guía.</li>
       </ol>
+      <h3>Tu personaje</h3>
+      <ul>
+        <li>Tocá el suelo para caminar (o <kbd>WASD</kbd>). 🎯 centra la cámara en él.</li>
+        <li>Construye solo lo que está a su alcance (el círculo amarillo). Si mandás algo lejos, camina hasta ahí y lo hace.</li>
+        <li>Lleva una <b>Mochila</b>. Cerca del Núcleo usa también lo guardado ahí, y podés pasar cosas de un lado al otro tocándolas.</li>
+        <li>En <b>Fabricar a mano</b> arma engranajes, cintas, taladros y más sin máquinas (más lento).</li>
+        <li>¿Preferís el modo de antes, sin personaje? Elegí <b>Clásico</b> en <b>Nuevo juego</b>.</li>
+      </ul>
       <h3>En el celular</h3>
       <ul>
         <li>Elegí un edificio abajo, <b>tocá</b> dónde va para ver cómo queda y <b>tocá de nuevo</b> para construirlo.</li>
@@ -213,6 +238,7 @@
   <script src="js/trains.js"></script>
   <script src="js/robots.js"></script>
   <script src="js/fluids.js"></script>
+  <script src="js/player.js"></script>
   <script src="js/render.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/ui.js"></script>

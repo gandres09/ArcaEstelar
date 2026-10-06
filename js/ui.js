@@ -51,7 +51,7 @@ function buildingIcon(type) {
 
 function costHtml(cost) {
   return Object.entries(cost).map(([k, n]) => {
-    const have = Math.floor(S.inv[k] || 0);
+    const have = Math.floor(avail(k));
     return `<span class="cost-item ${have < n ? 'bad' : ''}">${itemImg(k, 'ico-s')}${n}</span>`;
   }).join('');
 }
@@ -213,16 +213,64 @@ $('confirm').addEventListener('click', (ev) => {
 // --------------------------- Panel lateral ---------------------------
 
 function buildInventory() {
-  $('inventory').innerHTML = ITEM_ORDER.map((k) =>
-    `<div class="inv-item" data-item="${k}" title="${ITEMS[k].name}">${itemImg(k)}<span class="n">0</span></div>`).join('');
+  const grid = (id) => ITEM_ORDER.map((k) =>
+    `<button type="button" class="inv-item" data-item="${k}" title="${ITEMS[k].name}">${itemImg(k)}<span class="n">0</span></button>`).join('');
+  $('inventory').innerHTML = grid();
+  $('pocket').innerHTML = grid();
 }
 
 function updateInventory() {
-  for (const el of $('inventory').children) {
-    const n = S.inv[el.dataset.item] || 0;
-    el.querySelector('.n').textContent = fmt(n);
-    el.classList.toggle('zero', n < 1);
+  const fill = (box, store) => {
+    for (const el of box.children) {
+      const n = store[el.dataset.item] || 0;
+      el.querySelector('.n').textContent = fmt(n);
+      el.classList.toggle('zero', n < 1);
+    }
+  };
+  fill($('inventory'), S.inv);
+  const char = playerOn();
+  document.body.classList.toggle('has-player', char);
+  if (char) {
+    fill($('pocket'), S.pinv);
+    const near = nearStorage();
+    $('storage-note').textContent = near ? 'Estás cerca del Núcleo: tocá un objeto para pasarlo de un lado al otro. Construís usando las dos cosas.' : 'Lejos del Núcleo: construís solo con lo que llevás en la mochila.';
+    $('storage-note').classList.toggle('ok', near);
+    updateCraftUI();
   }
+}
+
+// Pasar objetos entre la mochila y el Núcleo (solo cerca del Núcleo)
+function transferItem(k, toHub) {
+  if (!nearStorage()) { toast('Acercate al Núcleo para pasar objetos.'); return; }
+  const from = toHub ? S.pinv : S.inv, to = toHub ? S.inv : S.pinv;
+  const n = Math.floor(from[k] || 0);
+  if (!n) return;
+  const move = toHub ? n : Math.min(n, 50);
+  from[k] -= move; if (from[k] <= 0) delete from[k];
+  add(to, k, move);
+  sfx('click');
+  updateInventory();
+}
+
+// --------------------------- Fabricación a mano ---------------------------
+
+let craftHtml = '';
+function updateCraftUI() {
+  const p = S.player;
+  let h = '<div class="picker">';
+  for (const id of handRecipes()) {
+    const r = RECIPES[id];
+    const ok = canCraft(id);
+    const ins = Object.entries(r.in).map(([k, n]) => `${n} ${ITEMS[k].name}`).join(' + ');
+    h += `<button type="button" class="pick craft-btn" data-craft="${id}" ${ok ? '' : 'disabled'} title="${ITEMS[r.out].name}${r.n > 1 ? ' ×' + r.n : ''}: ${ins} (${r.time} s)">${itemImg(r.out)}</button>`;
+  }
+  h += '</div>';
+  if (p.craft.length) {
+    const c = p.craft[0];
+    h += `<div class="craft-queue">${p.craft.slice(0, 8).map((q, i) => `<button type="button" class="pick" data-cancel="${i}" title="Cancelar">${itemImg(RECIPES[q.id].out, 'ico-s')}</button>`).join('')}${p.craft.length > 8 ? `<span class="muted small">+${p.craft.length - 8}</span>` : ''}</div>` +
+      bar(1 - c.t / RECIPES[c.id].time);
+  }
+  if (h !== craftHtml) { craftHtml = h; $('craft').innerHTML = h; }
 }
 
 function countType(type) {
@@ -239,6 +287,20 @@ function currentHint() {
   const d = S.delivered;
   const hasMinerOn = (ore) => S.entities.some((e) => (e.type === 'miner' || e.type === 'eminer') && oreAt(e.x, e.y) === ore);
   if (S.launched) return '🎉 ¡Escapaste del planeta! Seguí expandiendo la fábrica o armá otra nave.';
+  // Arranque con personaje: todo empieza a mano
+  if (playerOn() && !S.entities.some((e) => e.type === 'miner' || e.type === 'eminer')) {
+    const pv = (k) => S.pinv[k] || 0;
+    const furnaces = S.entities.filter((e) => e.type === 'furnace');
+    if (!furnaces.length) return pv('stone') < 5
+      ? `Con la ✋ <b>Mano</b>, tocá la <b>piedra</b> (marrón clara) para que tu personaje la extraiga. Necesitás 5 (tenés ${pv('stone')}).`
+      : 'Ya tenés piedra: elegí el <b>Horno de piedra</b> abajo y ponelo cerca tuyo.';
+    if (pv('iron_plate') + (S.inv.iron_plate || 0) < 10) {
+      if (pv('iron_ore') < 4 && !furnaces.some((f) => f.inType)) return `Extraé <b>mineral de hierro</b> (gris azulado) y <b>carbón</b> (negro) con la mano. Tenés ${pv('iron_ore')} de hierro y ${pv('coal')} de carbón.`;
+      if (!furnaces.some((f) => f.fuel || f.burn > 0) && pv('coal') < 1) return 'El horno necesita <b>carbón</b>: extraé un poco con la mano.';
+      return 'Tocá el horno y usá <b>Cargar mineral</b> y <b>Cargar carbón</b>. Cuando funda, tocá <b>Recoger</b>. Necesitás 10 placas de hierro.';
+    }
+    return 'Con 10 placas de hierro y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha. ¡Ya no vas a tener que extraer a mano!';
+  }
   if (!hasMinerOn('iron_ore')) return 'Elegí el <b>Taladro</b> y ponelo sobre el mineral de hierro (gris azulado). Girá la flecha para que apunte a donde va el mineral.';
   if (!countType('furnace') && !countType('efurnace')) return 'Poné un <b>Horno</b> justo delante de la flecha del taladro.';
   if ((d.iron_plate || 0) < 5) return 'Llevá las placas del horno al <b>Núcleo</b> con <b>Cintas</b>. Acordate de cargarle carbón al horno (tocalo con la mano).';
@@ -547,7 +609,7 @@ function inspectorContent(e) {
     mods.forEach((m, i) => { h += `<button type="button" class="pick on" data-act="unmod" data-v="${i}" title="Sacar ${ITEMS[m].name}">${itemImg(m)}</button>`; });
     if (mods.length < MODULE_SLOTS[e.type]) {
       for (const m of Object.keys(MODULES)) {
-        const n = Math.floor(S.inv[m] || 0);
+        const n = Math.floor(avail(m));
         h += `<button type="button" class="pick" data-act="mod" data-v="${m}" ${n ? '' : 'disabled'} title="Poner ${ITEMS[m].name} (tenés ${n})">+${itemImg(m)}</button>`;
       }
     }
@@ -574,13 +636,13 @@ function updateInspector() {
   }
 }
 
-function moveToInv(item, n) { if (item && n > 0) add(S.inv, item, n); }
+function moveToInv(item, n) { giveItem(item, n); }
 
 // Pasa objetos del inventario a un edificio usando su propia lógica de entrada
 function feedFrom(e, items, max) {
   let n = 0;
   for (const k of items) {
-    while (n < max && (S.inv[k] || 0) >= 1 && accept(e, k, null)) { S.inv[k]--; n++; }
+    while (n < max && avail(k) >= 1 && accept(e, k, null)) { takeItem(k, 1); n++; }
   }
   return n;
 }
@@ -592,6 +654,14 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   if (!b || !inspected) return;
   const e = inspected;
   const v = b.dataset.v;
+  // Mover objetos o desarmar exige estar cerca
+  const NEEDS_REACH = ['remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
+  if (NEEDS_REACH.includes(b.dataset.act) && !inReach(Math.floor(e.x), Math.floor(e.y))) {
+    toast('Está lejos: el personaje va para allá.');
+    stopPlayerTasks();
+    walkTo(Math.floor(e.x), Math.floor(e.y), REACH - 2);
+    return;
+  }
   switch (b.dataset.act) {
     case 'close': closeInspector(); return;
     case 'rotate': rotateEntity(e, 1); break;
@@ -608,15 +678,15 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'prio': e.prio = v || null; break;
     case 'drain': emptyFluidNet(e); break;
     case 'mod':
-      if ((S.inv[v] || 0) >= 1 && (e.modules || []).length < MODULE_SLOTS[e.type]) { S.inv[v]--; (e.modules = e.modules || []).push(v); }
+      if (avail(v) >= 1 && (e.modules || []).length < MODULE_SLOTS[e.type]) { takeItem(v, 1); (e.modules = e.modules || []).push(v); }
       break;
     case 'unmod':
-      if (e.modules && e.modules[+v]) { add(S.inv, e.modules[+v], 1); e.modules.splice(+v, 1); }
+      if (e.modules && e.modules[+v]) { giveItem(e.modules[+v], 1); e.modules.splice(+v, 1); }
       break;
     case 'tfuel': {
-      const k = e.fuelType || ((S.inv.solid_fuel || 0) >= 1 && !(S.inv.coal >= 1) ? 'solid_fuel' : 'coal');
-      const n = Math.min(Math.floor(S.inv[k] || 0), 10 - e.fuel);
-      if (n > 0) { S.inv[k] -= n; e.fuel += n; e.fuelType = k; } else toast('No tenés carbón en el inventario.');
+      const k = e.fuelType || (avail('solid_fuel') >= 1 && avail('coal') < 1 ? 'solid_fuel' : 'coal');
+      const n = Math.min(Math.floor(avail(k)), 10 - e.fuel);
+      if (n > 0) { takeItem(k, n); e.fuel += n; e.fuelType = k; } else toast('No tenés carbón.');
       break;
     }
     case 'tremove': removeTrain(e); closeInspector(); updateUI(); return;
@@ -658,8 +728,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'transfer': {
       let moved = 0;
       for (const k in SHIP) {
-        const n = Math.min(Math.floor(S.inv[k] || 0), SHIP[k] - (e.parts[k] || 0));
-        if (n > 0) { S.inv[k] -= n; add(e.parts, k, n); moved += n; }
+        const n = Math.min(Math.floor(avail(k)), SHIP[k] - (e.parts[k] || 0));
+        if (n > 0) { takeItem(k, n); add(e.parts, k, n); moved += n; }
       }
       toast(moved ? `Transferiste ${moved} piezas al astillero.` : 'No tenés piezas de la nave en el inventario.');
       break;

@@ -10,12 +10,16 @@ let wires = [];         // cables entre postes [x1, y1, x2, y2]
 let powerDirty = true;
 let undergroundDirty = true;
 
-function newState(seed, peaceful) {
+function newState(seed, peaceful, character = false) {
   return {
     v: SAVE_VERSION,
     seed,
     peaceful: !!peaceful,
-    inv: { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40 },
+    character: !!character,
+    // Con personaje se empieza sin nada; en modo clásico, con materiales en el Núcleo
+    inv: character ? {} : { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40 },
+    pinv: {},
+    player: null,
     delivered: {},
     produced: {},
     techs: {},
@@ -46,12 +50,13 @@ const isUnlocked = (type) => hasTech(BUILDINGS[type].tech);
 const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : BUILDINGS[e.type]?.hp || 100);
 const isPlayer = (e) => e && e.type !== 'nest';
 
+// Con personaje, los costos salen de la mochila (y del Núcleo si está cerca); ver player.js
 function canAfford(cost) {
-  for (const k in cost) if ((S.inv[k] || 0) < cost[k]) return false;
+  for (const k in cost) if (avail(k) < cost[k]) return false;
   return true;
 }
-function pay(cost) { for (const k in cost) S.inv[k] -= cost[k]; }
-function refund(cost) { for (const k in cost) add(S.inv, k, cost[k]); }
+function pay(cost) { for (const k in cost) takeItem(k, cost[k]); }
+function refund(cost) { for (const k in cost) giveItem(k, cost[k]); }
 
 // --------------------------- Estadísticas ---------------------------
 
@@ -975,6 +980,7 @@ function update(dt) {
 
   if (researchDone) finishResearch();
   updateFluids();
+  updatePlayer(dt);
   updateTrains(dt);
   updateRobots(dt);
   updateEnemies(dt);

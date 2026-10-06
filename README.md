@@ -9,6 +9,11 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 
 ## Qué tiene
 
+- **Personaje**: arrancás con cero ítems. Extraés a mano, fabricás a mano y construís dentro de tu alcance; si
+  mandás a construir lejos, camina hasta ahí. Lleva una mochila y cerca del Núcleo usa también lo guardado ahí.
+  El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
+- **Gráficos** con terreno orgánico (pasto, tierra, arena, agua con profundidad y espuma), bosques, yacimientos con
+  rocas y cristales, edificios con relieve, cintas por nivel (amarilla, roja y azul), humo y luces de noche.
 - **Mapa grande** (320 × 240) con yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
 - **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 33 tecnologías, 4 infinitas y 4 eras.
 - **Electricidad**: generadores a carbón, energía a vapor, paneles solares, acumuladores, postes y torres de alta tensión.
@@ -61,7 +66,10 @@ lubricante), baterías, procesadores con silicio y titanio.
 | Deshacer | botón ↶ | `Ctrl`+`Z` |
 | Copiar y pegar zona | 📋 y tocar dos esquinas, después 📌 | `C` arrastrar, `V` pegar |
 | Ver detalles de una máquina | tocarla con la mano | clic con la mano (`Esc`) |
-| Mover y zoom | arrastrar y pellizcar | `WASD` o arrastrar, rueda |
+| Caminar (modo personaje) | tocar el suelo | `WASD` o clic en el suelo |
+| Extraer a mano | tocar el mineral con la mano | clic en el mineral |
+| Centrar en el personaje | 🎯 | 🎯 |
+| Mover y zoom | arrastrar y pellizcar | arrastrar, rueda (`WASD` en modo clásico) |
 | Investigación / polución | botones de arriba | `T` / `P` |
 
 ## Archivos
@@ -74,6 +82,7 @@ lubricante), baterías, procesadores con silicio y titanio.
 - `js/enemies.js`: polución, nidos, bichos y torretas.
 - `js/trains.js`: vías, estaciones y trenes.
 - `js/robots.js`: planos y robots de construcción.
+- `js/player.js`: el personaje (caminar, alcance, mochila, extraer y fabricar a mano).
 - `js/audio.js`: efectos de sonido y música.
 - `js/progress.js`: logros e historial de producción con su gráfico.
 - `js/render.js`: dibujo de todo lo que se ve, la noche y el despegue.

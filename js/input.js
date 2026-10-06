@@ -121,7 +121,7 @@ function deleteArea(r) {
   if (ghosts) toast(`Cancelaste ${ghosts} plano${ghosts > 1 ? 's' : ''}.`);
   const list = entitiesIn(r);
   beginBatch();
-  for (const e of list) removeEntity(e);
+  for (const e of list) userRemove(e);
   endBatch();
   if (list.length) sfx('remove');
   if (list.length) toast(`Desarmaste ${list.length} edificio${list.length > 1 ? 's' : ''}. Podés deshacerlo.`);
@@ -215,9 +215,9 @@ function tryPlaceSingle(t) {
     return null;
   }
   if (!res.ok) { sfx('error'); toast(res.why === 'Faltan materiales' ? `Faltan materiales: ${costText(BUILDINGS[tool].cost)}` : res.why); return null; }
-  const e = place(tool, a.x, a.y, toolDir);
-  if (e) sfx('place');
-  return e;
+  const e = userPlace(tool, a.x, a.y, toolDir);
+  if (e && !e.queued) sfx('place');
+  return e && !e.queued ? e : null;
 }
 
 // Un toque en la pantalla táctil
@@ -226,7 +226,8 @@ function handleTap(t) {
     const tr = trainNear(t.x, t.y);
     const e = at(t.x, t.y);
     if (tr) openInspector(tr);
-    else if (e && e.type !== 'nest') openInspector(e); else closeInspector();
+    else if (e && e.type !== 'nest') openInspector(e);
+    else { closeInspector(); if (playerOn()) handGround(t); }
     return;
   }
   if (tool === 'delete') {
@@ -236,7 +237,7 @@ function handleTap(t) {
         const e = at(t.x, t.y);
         const gh = ghostAt(t.x, t.y);
         if (gh) { S.ghosts.splice(S.ghosts.indexOf(gh), 1); toast('Plano cancelado.'); }
-        else if (e && removeEntity(e)) toast('Desarmado. Podés deshacerlo.');
+        else if (e && userRemove(e)) toast('Desarmado. Podés deshacerlo.');
         area = null;
       } else area.b = t;
     } else {
@@ -346,7 +347,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (ev.button === 2) {
     deleting = true;
     beginBatch();
-    removeEntity(at(t.x, t.y));
+    userRemove(at(t.x, t.y));
     return;
   }
   if (ev.button !== 0) return;
@@ -354,7 +355,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (tool === 'hand') {
     const e = at(t.x, t.y);
     const o = oreAt(t.x, t.y);
-    if (!e && o && o !== 'oil' && o !== 'water' && tileExplored(t.x, t.y)) handMining = { x: t.x, y: t.y, prog: 0 };
+    if (!playerOn() && !e && o && o !== 'oil' && o !== 'water' && tileExplored(t.x, t.y)) handMining = { x: t.x, y: t.y, prog: 0 };
     return;
   }
   if (isTouch()) return; // en táctil se decide al soltar (toque) o se mueve la cámara
@@ -396,6 +397,7 @@ canvas.addEventListener('pointermove', (ev) => {
     }
   }
   if (panning) {
+    followCam = false;
     view.x -= (ev.clientX - panning.x) / view.zoom;
     view.y -= (ev.clientY - panning.y) / view.zoom;
     panning.x = ev.clientX; panning.y = ev.clientY;
@@ -407,7 +409,7 @@ canvas.addEventListener('pointermove', (ev) => {
   hover = t;
   if (changed && !panning) {
     if (dragging) dragTo(t);
-    if (deleting) removeEntity(at(t.x, t.y));
+    if (deleting) userRemove(at(t.x, t.y));
   }
   updateTooltip();
 });
@@ -428,7 +430,8 @@ function dragTo(target) {
       }
     }
     const a = anchorFor(tool, next);
-    dragging.placed = tool === 'underground' ? null : place(tool, a.x, a.y, toolDir);
+    dragging.placed = tool === 'underground' ? null : userPlace(tool, a.x, a.y, toolDir);
+    if (dragging.placed && dragging.placed.queued) dragging.placed = null;
     dragging.x = next.x; dragging.y = next.y;
   }
 }
@@ -445,12 +448,13 @@ function endPointer(ev) {
         const tr = trainNear(d.tile.x, d.tile.y);
         const e = at(d.tile.x, d.tile.y);
         if (tr) openInspector(tr);
-        else if (e && e.type !== 'nest') openInspector(e); else if (!handMining) closeInspector();
+        else if (e && e.type !== 'nest') openInspector(e);
+        else { if (!handMining) closeInspector(); if (playerOn()) handGround(d.tile); }
       } else if (tool === 'delete') {
         const e = at(d.tile.x, d.tile.y);
         const gh = ghostAt(d.tile.x, d.tile.y);
         if (gh) S.ghosts.splice(S.ghosts.indexOf(gh), 1);
-        else if (e) removeEntity(e);
+        else if (e) userRemove(e);
         area = null;
       } else if (tool === 'copy') {
         area = null;
@@ -539,8 +543,31 @@ window.addEventListener('keydown', (ev) => {
 window.addEventListener('keyup', (ev) => keys.delete(ev.key.toLowerCase()));
 window.addEventListener('blur', () => keys.clear());
 
+// Con la mano en el suelo: caminar hasta ahí, o extraer si es mineral
+function handGround(t) {
+  const o = oreAt(t.x, t.y);
+  stopPlayerTasks();
+  if (o && o !== 'water' && o !== 'oil' && tileExplored(t.x, t.y)) startMining(t.x, t.y);
+  else if (walkable(t.x, t.y)) walkTo(t.x, t.y, 0.3);
+  followCam = true;
+}
+
+let followCam = true;     // la cámara sigue al personaje (se suelta al arrastrar)
 function handleKeysPan(dt) {
   if (launchAnim) return;
+  if (playerOn()) {
+    const ix = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+    const iy = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+    S.player.input = { x: ix, y: iy };
+    if (ix || iy) { followCam = true; S.player.queue.length = 0; }
+    if (followCam && !panning) {
+      const k = Math.min(1, dt * 8);
+      view.x += ((S.player.x * TILE) - view.x) * k;
+      view.y += ((S.player.y * TILE) - view.y) * k;
+    }
+    if (!isTouch()) hover = screenToTile(mouse.x, mouse.y);
+    return;
+  }
   const sp = 800 * dt / view.zoom;
   let moved = false;
   if (keys.has('w') || keys.has('arrowup')) { view.y -= sp; moved = true; }

@@ -142,25 +142,63 @@ function mineOre(x, y) {
 
 // --------------------------- Dibujo del mapa ---------------------------
 
-function groundColor(x, y) {
-  const s = Math.floor(hash(x, y, 1) * 8);
-  return [38 + s, 52 + s, 36 + s];
+// Ruido suave (interpolado) para que el pasto varíe sin que se note la grilla
+function vnoise(x, y, scale, k) {
+  const fx = x / scale, fy = y / scale;
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const tx = fx - x0, ty = fy - y0;
+  const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+  const a = hash(x0, y0, k), b = hash(x0 + 1, y0, k), c = hash(x0, y0 + 1, k), d = hash(x0 + 1, y0 + 1, k);
+  return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
+
+const lerp = (a, b, t) => a + (b - a) * t;
+const mixRgb = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const rgbStr = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 function hexToRgb(h) {
   const n = parseInt(h.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+const GRASS_DARK = [36, 58, 33], GRASS_LIGHT = [72, 102, 50], GRASS_DRY = [104, 104, 60], DIRT = [92, 74, 52];
+const SAND = [190, 172, 122];
+const WATER_SHALLOW = [58, 128, 164], WATER_MID = [38, 98, 150], WATER_DEEP = [24, 66, 120];
+
+// Color del suelo en un punto (en casillas, con decimales)
+function terrainAt(x, y) {
+  const n = vnoise(x, y, 7, 3) * 0.6 + vnoise(x, y, 23, 4) * 0.4;
+  let c = mixRgb(GRASS_DARK, GRASS_LIGHT, n);
+  const dry = vnoise(x, y, 41, 5);
+  if (dry > 0.6) c = mixRgb(c, GRASS_DRY, Math.min(1, (dry - 0.6) * 2.2));
+  const dirt = vnoise(x, y, 11, 6);
+  if (dirt > 0.78) c = mixRgb(c, DIRT, Math.min(0.7, (dirt - 0.78) * 4));
+  return c;
+}
+
+const isWaterT = (x, y) => inBounds(x, y) && oreType[y * W + x] === 8;
+
+// Distancia (0, 1 o 2+) del agua a la tierra más cercana: define lo profundo
+function waterDepth(x, y) {
+  for (let r = 1; r <= 2; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) === r && inBounds(x + dx, y + dy) && !isWaterT(x + dx, y + dy)) return r - 1;
+    }
+  }
+  return 2;
+}
+
 function tilePixel(x, y) {
   const o = oreAt(x, y);
-  if (!o) return groundColor(x, y);
-  const a = hexToRgb(ORE_GROUND[o]), b = hexToRgb(ITEMS[o].color);
-  return [(a[0] + b[0]) >> 1, (a[1] + b[1]) >> 1, (a[2] + b[2]) >> 1];
+  if (o === 'water') return [WATER_SHALLOW, WATER_MID, WATER_DEEP][waterDepth(x, y)];
+  const base = terrainAt(x + 0.5, y + 0.5);
+  if (!o) return treeDensity(x, y) > 0.45 ? mixRgb(base, [24, 46, 24], 0.55) : base;
+  return mixRgb(base, hexToRgb(ITEMS[o].color), o === 'oil' ? 0.7 : 0.55);
 }
 
 function resetMapGraphics() {
   chunkCache.clear();
+  treeCache.clear();
   pixelMap = document.createElement('canvas');
   pixelMap.width = W; pixelMap.height = H;
   const g = pixelMap.getContext('2d');
@@ -175,50 +213,195 @@ function resetMapGraphics() {
 }
 
 function invalidateTile(x, y) {
-  chunkCache.delete(Math.floor(x / CHUNK) + ',' + Math.floor(y / CHUNK));
+  // El relleno cambia la orilla: se redibujan también los bloques vecinos
+  for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    chunkCache.delete(Math.floor((x + dx) / CHUNK) + ',' + Math.floor((y + dy) / CHUNK));
+  }
   const g = pixelMap.getContext('2d');
-  const [r, gg, b] = tilePixel(x, y);
-  g.fillStyle = `rgb(${r},${gg},${b})`;
+  g.fillStyle = rgbStr(tilePixel(x, y));
   g.fillRect(x, y, 1, 1);
 }
 
+// Una roca con luz desde arriba a la izquierda
+function rock(g, x, y, r, color, gloss = 0.35) {
+  const c = hexToRgb(color);
+  const grd = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  grd.addColorStop(0, rgbStr(mixRgb(c, [255, 255, 255], gloss)));
+  grd.addColorStop(0.55, rgbStr(c));
+  grd.addColorStop(1, rgbStr(mixRgb(c, [0, 0, 0], 0.45)));
+  g.fillStyle = 'rgba(0,0,0,0.28)';
+  g.beginPath(); g.ellipse(x + r * 0.25, y + r * 0.35, r, r * 0.75, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = grd;
+  g.beginPath(); g.ellipse(x, y, r, r * 0.85, 0, 0, Math.PI * 2); g.fill();
+}
+
+// Un cristal (cuarzo y titanio)
+function crystal(g, x, y, h, color) {
+  const c = hexToRgb(color);
+  g.fillStyle = 'rgba(0,0,0,0.25)';
+  g.beginPath(); g.ellipse(x + 2, y + 2, h * 0.45, h * 0.2, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = rgbStr(mixRgb(c, [0, 0, 0], 0.25));
+  g.beginPath(); g.moveTo(x - h * 0.3, y); g.lineTo(x, y - h); g.lineTo(x + h * 0.3, y); g.lineTo(x, y + h * 0.15); g.closePath(); g.fill();
+  g.fillStyle = rgbStr(mixRgb(c, [255, 255, 255], 0.35));
+  g.beginPath(); g.moveTo(x - h * 0.3, y); g.lineTo(x, y - h); g.lineTo(x, y + h * 0.15); g.closePath(); g.fill();
+}
+
+// Tinte suave del suelo alrededor de los yacimientos (interpolado entre casillas)
+function oreGroundAt(fx, fy) {
+  const x0 = Math.floor(fx - 0.5), y0 = Math.floor(fy - 0.5);
+  const tx = fx - 0.5 - x0, ty = fy - 0.5 - y0;
+  let w = 0, r = 0, gg = 0, b = 0;
+  for (let k = 0; k < 4; k++) {
+    const x = x0 + (k & 1), y = y0 + (k >> 1);
+    const o = inBounds(x, y) ? oreAt(x, y) : null;
+    if (!o || o === 'water' || o === 'oil') continue;
+    const kw = ((k & 1) ? tx : 1 - tx) * ((k >> 1) ? ty : 1 - ty);
+    const c = hexToRgb(ORE_GROUND[o]);
+    w += kw; r += c[0] * kw; gg += c[1] * kw; b += c[2] * kw;
+  }
+  if (w < 0.01) return null;
+  const n = 0.75 + vnoise(fx * 3, fy * 3, 2, 12) * 0.5;
+  return [[r / w, gg / w, b / w], Math.min(0.62, w * 0.55 * n)];
+}
+
 function drawTile(g, x, y, px, py) {
-  const [r, gg, b] = groundColor(x, y);
-  g.fillStyle = `rgb(${r},${gg},${b})`;
-  g.fillRect(px, py, TILE, TILE);
   const o = oreAt(x, y);
-  if (!o) return;
-  g.fillStyle = ORE_GROUND[o];
-  g.fillRect(px, py, TILE, TILE);
-  if (o === 'water') {
-    g.fillStyle = '#1d4f86';
-    g.fillRect(px, py, TILE, TILE);
-    g.strokeStyle = 'rgba(160,210,255,0.25)';
-    g.lineWidth = 1.5;
-    g.beginPath();
-    for (let k = 0; k < 2; k++) {
-      const wy = py + 9 + k * 13 + hash(x, y, 40 + k) * 4, wx = px + 4 + hash(x, y, 50 + k) * 10;
-      g.moveTo(wx, wy); g.quadraticCurveTo(wx + 4, wy - 3, wx + 8, wy); g.quadraticCurveTo(wx + 12, wy + 3, wx + 16, wy);
+  // Suelo: bloques de 4 px con el color suave del terreno
+  if (o !== 'water') {
+    for (let by = 0; by < TILE; by += 4) {
+      for (let bx = 0; bx < TILE; bx += 4) {
+        const fx = x + (bx + 2) / TILE, fy = y + (by + 2) / TILE;
+        let c = terrainAt(fx, fy);
+        const og = oreGroundAt(fx, fy);
+        if (og) c = mixRgb(c, og[0], og[1]);
+        const j = (hash(x * 8 + bx, y * 8 + by, 2) - 0.5) * 6;
+        g.fillStyle = rgbStr([c[0] + j, c[1] + j, c[2] + j]);
+        g.fillRect(px + bx, py + by, 4, 4);
+      }
     }
-    g.stroke();
+    // Arena en la orilla
+    DIRS.forEach(([dx, dy], d) => {
+      if (!isWaterT(x + dx, y + dy)) return;
+      const grd = d === 0 ? g.createLinearGradient(px + TILE, 0, px + TILE - 14, 0) : d === 2 ? g.createLinearGradient(px, 0, px + 14, 0)
+        : d === 1 ? g.createLinearGradient(0, py + TILE, 0, py + TILE - 14) : g.createLinearGradient(0, py, 0, py + 14);
+      grd.addColorStop(0, rgbStr(SAND, 0.95)); grd.addColorStop(1, rgbStr(SAND, 0));
+      g.fillStyle = grd;
+      g.fillRect(px, py, TILE, TILE);
+    });
+  }
+
+  if (o === 'water') {
+    // Profundidad interpolada entre casillas para que no se vean escalones
+    const dAt = (tx, ty) => isWaterT(tx, ty) ? waterDepth(tx, ty) : (inBounds(tx, ty) ? -0.5 : 2);
+    const d00 = dAt(x - 1, y - 1), d10 = dAt(x, y - 1), d20 = dAt(x + 1, y - 1);
+    const d01 = dAt(x - 1, y), d11 = dAt(x, y), d21 = dAt(x + 1, y);
+    const d02 = dAt(x - 1, y + 1), d12 = dAt(x, y + 1), d22 = dAt(x + 1, y + 1);
+    for (let by = 0; by < TILE; by += 4) {
+      for (let bx = 0; bx < TILE; bx += 4) {
+        const fx = (bx + 2) / TILE - 0.5, fy = (by + 2) / TILE - 0.5;
+        const ax = Math.abs(fx), ay = Math.abs(fy);
+        const hx = fx < 0 ? d01 : d21, vy = fy < 0 ? d10 : d12, cn = fx < 0 ? (fy < 0 ? d00 : d02) : (fy < 0 ? d20 : d22);
+        const top = d11 + (hx - d11) * ax, bot = vy + (cn - vy) * ax;
+        const dd = Math.max(0, Math.min(2, top + (bot - top) * ay));
+        let c = dd < 1 ? mixRgb(WATER_SHALLOW, WATER_MID, dd) : mixRgb(WATER_MID, WATER_DEEP, dd - 1);
+        const n = (vnoise(x + fx, y + fy, 3, 13) - 0.5) * 10;
+        g.fillStyle = rgbStr([c[0] + n, c[1] + n, c[2] + n]);
+        g.fillRect(px + bx, py + by, 4, 4);
+      }
+    }
+    // Espuma contra la orilla
+    g.strokeStyle = 'rgba(230,245,255,0.55)';
+    g.lineWidth = 2;
+    DIRS.forEach(([dx, dy], d) => {
+      if (isWaterT(x + dx, y + dy) || !inBounds(x + dx, y + dy)) return;
+      g.beginPath();
+      for (let k = 0; k <= 8; k++) {
+        const t = k / 8, w = Math.sin((x + y) * 3 + k * 1.7) * 1.5 + 3;
+        const ex = d === 0 ? px + TILE - w : d === 2 ? px + w : px + t * TILE;
+        const ey = d === 1 ? py + TILE - w : d === 3 ? py + w : py + t * TILE;
+        if (k) g.lineTo(ex, ey); else g.moveTo(ex, ey);
+      }
+      g.stroke();
+    });
+    // Brillitos
+    g.strokeStyle = 'rgba(200,230,255,0.18)';
+    g.lineWidth = 1.2;
+    for (let k = 0; k < 2; k++) {
+      const wy = py + 8 + k * 14 + hash(x, y, 40 + k) * 4, wx = px + 4 + hash(x, y, 50 + k) * 12;
+      g.beginPath(); g.moveTo(wx, wy); g.quadraticCurveTo(wx + 4, wy - 2, wx + 8, wy); g.stroke();
+    }
     return;
   }
+
+  if (!o) {
+    // Pasto: matas, flores y piedritas
+    g.lineWidth = 1;
+    for (let k = 0; k < 4; k++) {
+      const bx = px + 3 + hash(x, y, 60 + k) * 26, by = py + 6 + hash(x, y, 70 + k) * 24;
+      g.strokeStyle = hash(x, y, 80 + k) > 0.5 ? 'rgba(120,160,70,0.5)' : 'rgba(20,40,18,0.45)';
+      g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - 1.5, by - 4); g.moveTo(bx, by); g.lineTo(bx + 1.5, by - 4.5); g.stroke();
+    }
+    const f = hash(x, y, 90);
+    if (f < 0.05) {
+      const colors = ['#f2efe6', '#f0d44d', '#c58ae0', '#e86a6a'];
+      g.fillStyle = colors[Math.floor(hash(x, y, 91) * colors.length)];
+      for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(px + 6 + hash(x, y, 92 + k) * 20, py + 6 + hash(x, y, 95 + k) * 20, 1.6, 0, Math.PI * 2); g.fill(); }
+    } else if (f > 0.95) {
+      rock(g, px + 10 + hash(x, y, 98) * 12, py + 12 + hash(x, y, 99) * 10, 2.5 + hash(x, y, 97) * 2, '#8d8a80', 0.3);
+    }
+    return;
+  }
+
   if (o === 'oil') {
-    g.fillStyle = '#050405';
-    g.beginPath(); g.ellipse(px + 16, py + 17, 11, 8, 0.3, 0, Math.PI * 2); g.fill();
-    g.fillStyle = 'rgba(120,90,200,0.35)';
-    g.beginPath(); g.ellipse(px + 13, py + 14, 4, 2, 0.3, 0, Math.PI * 2); g.fill();
+    const grd = g.createRadialGradient(px + 16, py + 17, 2, px + 16, py + 17, 13);
+    grd.addColorStop(0, '#000'); grd.addColorStop(0.8, '#120d10'); grd.addColorStop(1, 'rgba(18,13,16,0)');
+    g.fillStyle = grd;
+    g.beginPath(); g.ellipse(px + 16, py + 17, 13, 10, 0.3, 0, Math.PI * 2); g.fill();
+    const sheen = g.createLinearGradient(px + 8, py + 10, px + 22, py + 18);
+    sheen.addColorStop(0, 'rgba(120,80,220,0.45)'); sheen.addColorStop(0.5, 'rgba(60,200,180,0.35)'); sheen.addColorStop(1, 'rgba(230,180,60,0.3)');
+    g.fillStyle = sheen;
+    g.beginPath(); g.ellipse(px + 14, py + 14, 6, 2.5, 0.3, 0, Math.PI * 2); g.fill();
     return;
   }
-  g.fillStyle = ITEMS[o].color;
+
+  // Minerales: rocas con volumen (la tierra ya se tiñó en bloques suaves)
   const amt = oreAmt[y * W + x];
-  const dots = amt > 600 ? 5 : amt > 250 ? 4 : amt > 80 ? 3 : 2;
-  for (let k = 0; k < dots; k++) {
-    const ox = 5 + hash(x, y, 10 + k) * 22, oy = 5 + hash(x, y, 20 + k) * 22;
-    g.beginPath();
-    g.arc(px + ox, py + oy, 2.5 + hash(x, y, 30 + k) * 2.5, 0, Math.PI * 2);
-    g.fill();
+  const count = amt > 500 ? 5 : amt > 200 ? 4 : amt > 60 ? 3 : 2;
+  for (let k = 0; k < count; k++) {
+    const ox = px + 6 + hash(x, y, 10 + k) * 20, oy = py + 7 + hash(x, y, 20 + k) * 19;
+    const r = 3 + hash(x, y, 30 + k) * 3.5;
+    if (o === 'quartz' || o === 'titanium_ore') crystal(g, ox, oy + r, r * 2.2, ITEMS[o].color);
+    else rock(g, ox, oy, r, ITEMS[o].color, o === 'coal' ? 0.25 : 0.35);
   }
+}
+
+// Densidad de bosque (los árboles se dibujan aparte, ver render.js)
+function treeDensity(x, y) {
+  return vnoise(x, y, 17, 9) * 0.75 + vnoise(x, y, 5, 10) * 0.25;
+}
+
+// Árboles de cada chunk (solo decoración): [x, y, variante, escala, dx, dy]
+const treeCache = new Map();
+function chunkTrees(cx, cy) {
+  const key = cx + ',' + cy;
+  let list = treeCache.get(key);
+  if (list) return list;
+  list = [];
+  const hx = W / 2, hy = H / 2;
+  for (let y = cy * CHUNK; y < (cy + 1) * CHUNK; y++) {
+    for (let x = cx * CHUNK; x < (cx + 1) * CHUNK; x++) {
+      if (!inBounds(x, y) || oreType[y * W + x] !== 0) continue;
+      if (Math.abs(x - hx) < 9 && Math.abs(y - hy) < 9) continue;
+      const d = treeDensity(x, y);
+      const p = d > 0.5 ? (d - 0.5) * 2.6 : d > 0.36 ? 0.03 : 0;
+      if (hash(x, y, 40) >= p) continue;
+      const pine = vnoise(x, y, 29, 11) > 0.55;
+      list.push([x, y, (pine ? 3 : 0) + Math.floor(hash(x, y, 41) * 3), 0.8 + hash(x, y, 42) * 0.45,
+        (hash(x, y, 43) - 0.5) * 10, (hash(x, y, 44) - 0.5) * 10]);
+    }
+  }
+  treeCache.set(key, list);
+  return list;
 }
 
 function getChunk(cx, cy) {
@@ -237,14 +420,6 @@ function getChunk(cx, cy) {
       if (inBounds(tx, ty)) drawTile(g, tx, ty, x * TILE, y * TILE);
     }
   }
-  g.strokeStyle = 'rgba(0,0,0,0.13)';
-  g.lineWidth = 1;
-  g.beginPath();
-  for (let i = 0; i <= CHUNK; i++) {
-    g.moveTo(i * TILE + 0.5, 0); g.lineTo(i * TILE + 0.5, CHUNK * TILE);
-    g.moveTo(0, i * TILE + 0.5); g.lineTo(CHUNK * TILE, i * TILE + 0.5);
-  }
-  g.stroke();
   chunkCache.set(key, c);
   if (chunkCache.size > MAX_CHUNKS) chunkCache.delete(chunkCache.keys().next().value);
   return c;

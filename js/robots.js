@@ -30,7 +30,9 @@ function addGhost(type, x, y, dir, extra = {}) {
 
 // Construye, y si faltan materiales (con robots investigados) deja un fantasma
 function placeOrGhost(type, x, y, dir, extra = {}) {
-  const e = place(type, x, y, dir);
+  // Con robots y lejos del personaje, queda como plano para los robots
+  if (playerOn() && robotsOn() && !inReach(x, y) && S.entities.some((p) => p.type === 'roboport')) return addGhost(type, x, y, dir, extra);
+  const e = userPlace(type, x, y, dir, extra);
   if (e) return e;
   if (robotsOn() && canPlace(type, x, y).why === 'Faltan materiales') return addGhost(type, x, y, dir, extra);
   return null;
@@ -85,8 +87,9 @@ function updateRobots(dt) {
     if (!port) continue;
     // Los materiales salen del inventario al despegar
     if (job.ghost) {
-      if (!canAfford(BUILDINGS[job.ghost.type].cost)) continue;
-      pay(BUILDINGS[job.ghost.type].cost);
+      // Los robots sacan los materiales del Núcleo
+      if (!withNucleo(() => canAfford(BUILDINGS[job.ghost.type].cost))) continue;
+      withNucleo(() => pay(BUILDINGS[job.ghost.type].cost));
     } else if ((S.inv.iron_plate || 0) >= 1) S.inv.iron_plate -= 1;
     else continue;
     port.busy++;
@@ -98,11 +101,10 @@ function finishJob(f) {
   if (f.job[0] === 'g') {
     const id = +f.job.slice(1);
     const g = S.ghosts.find((x) => x.id === id);
-    if (!g) { refund(BUILDINGS[f.gtype].cost); return; }   // el fantasma se canceló en el camino
+    if (!g) { withNucleo(() => refund(BUILDINGS[f.gtype].cost)); return; }   // el fantasma se canceló en el camino
     S.ghosts.splice(S.ghosts.indexOf(g), 1);
     // Ya están pagados: se construye con materiales prestados
-    refund(BUILDINGS[g.type].cost);
-    const e = place(g.type, g.x, g.y, g.dir, { silent: true });
+    const e = withNucleo(() => { refund(BUILDINGS[g.type].cost); return place(g.type, g.x, g.y, g.dir, { silent: true }); });
     if (!e) { return; }
     if (g.recipe && e.recipe !== undefined) e.recipe = g.recipe;
     if (g.filter && e.filter !== undefined) e.filter = g.filter;
