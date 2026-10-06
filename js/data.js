@@ -139,8 +139,10 @@ const BUILDINGS = {
                  desc: 'El objeto elegido sigue derecho; el resto sale por los costados.' },
   receiver:    { name: 'Receptor',            cat: 'logística', hp: 200, cost: { steel: 10, circuit: 10, iron_plate: 10 }, tech: 'receivers',
                  desc: 'Manda al inventario del Núcleo todo lo que le llega, desde cualquier lugar.' },
-  chest:       { name: 'Cofre',               cat: 'logística', hp: 150, cost: { iron_plate: 8 },
+  chest:       { name: 'Cofre',               cat: 'logística', capacity: 200, hp: 150, cost: { iron_plate: 8 },
                  desc: 'Guarda hasta 200 objetos y los va soltando por la flecha.' },
+  steelchest:  { name: 'Cofre de acero',      cat: 'logística', capacity: 800, hp: 350, cost: { steel: 8 }, tech: 'steel',
+                 desc: 'Guarda hasta 800 objetos y los va soltando por la flecha.' },
 
   miner:       { name: 'Taladro',             cat: 'producción', time: 2, area: 1, hp: 150, poll: 12, cost: { iron_plate: 10, stone: 5 },
                  desc: 'Va sobre mineral y extrae del área de 3×3 a su alrededor: 1 cada 2 s.' },
@@ -165,6 +167,10 @@ const BUILDINGS = {
                  desc: 'Conecta con postes a 7 casillas y alimenta lo que esté a 2 casillas.' },
   bigpole:     { name: 'Torre de alta tensión', cat: 'energía', reach: 24, supply: 1, hp: 150, cost: { steel: 5, copper_plate: 5 }, tech: 'big_poles',
                  desc: 'Lleva energía lejos: conecta a 24 casillas.' },
+  pipe:        { name: 'Cañería',             cat: 'energía', capacity: 100, hp: 100, cost: { iron_plate: 1 }, tech: 'fluid_handling',
+                 desc: 'Lleva líquidos (agua, petróleo, vapor, lubricante). Se conecta sola y entrega a las máquinas que la tocan.' },
+  tank:        { name: 'Tanque',              cat: 'energía', size: 2, capacity: 2500, hp: 400, cost: { steel: 20, iron_plate: 10 }, tech: 'fluid_handling',
+                 desc: 'Guarda 2.500 de un líquido como parte de la red de cañerías.' },
   generator:   { name: 'Generador a carbón',  cat: 'energía', output: 900, hp: 300, poll: 25, cost: { iron_plate: 20, brick: 10, gear: 5 }, tech: 'electricity',
                  desc: 'Quema carbón o combustible sólido y genera hasta 900 kW. Simple, pero desperdicia la mitad del combustible.' },
   offshore:    { name: 'Bomba de agua',       cat: 'energía', time: 0.5, hp: 150, cost: { iron_plate: 5, gear: 2, circuit: 2 }, tech: 'steam_power',
@@ -203,7 +209,7 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const UNDERGROUND_REACH = 5;
 
@@ -225,6 +231,8 @@ const TECHS = {
                        desc: 'Generador, postes, taladro eléctrico, lámparas y combustible sólido.' },
   steam_power:       { name: 'Energía a vapor',      packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['electricity'],
                        desc: 'Bomba de agua, caldera y máquina de vapor: el doble de energía por cada carbón.' },
+  fluid_handling:    { name: 'Manejo de fluidos',    packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['steam_power'],
+                       desc: 'Cañerías y tanques para llevar líquidos sin cintas.' },
   landfill:          { name: 'Relleno',              packs: ['sci_red', 'sci_green'], units: 30, time: 12, req: ['steam_power'],
                        desc: 'Rellenar agua con piedra para ganar terreno.' },
   receivers:         { name: 'Receptores',           packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],

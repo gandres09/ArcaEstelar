@@ -226,10 +226,16 @@
   }
 
   // Línea: taladros → (hornos) → cinta vertical → camino al Núcleo
+  let forceBasic = false;
+  function buildLineBasic(ore, n, smelt) {
+    forceBasic = true;
+    try { return buildLine(ore, n, smelt); } finally { forceBasic = false; }
+  }
+
   function buildLine(ore, n, smelt) {
-    const electric = isUnlocked('eminer') && (S.inv.circuit || 0) > 30;
+    const electric = !forceBasic && isUnlocked('eminer') && (S.inv.circuit || 0) > 30;
     const minerT = electric ? 'eminer' : 'miner';
-    const furnT = smelt ? (isUnlocked('efurnace') && (S.inv.steel || 0) > 60 ? 'efurnace' : 'furnace') : null;
+    const furnT = smelt ? (!forceBasic && isUnlocked('efurnace') && (S.inv.steel || 0) > 60 ? 'efurnace' : 'furnace') : null;
     const width = smelt ? 2 : 1;
     const col = findColumn(ore, n, width);
     if (!col) { explore(ore); return false; }
@@ -238,10 +244,13 @@
     for (let k = -1; k <= n; k++) for (let w = -1; w <= width; w++) if (!(w === width && k === n)) blocked.add((col.x + col.s * w) + ',' + (col.y + k));
     let path = route(bx, col.y + n, blocked);
     // Lejos del Núcleo (o sin camino): entrega a un receptor al final de la columna
-    if ((!path || path.length > 25) && isUnlocked('receiver')) path = [{ x: bx, y: col.y + n, dir: 1, receiver: true }];
+    // Con receptores, cada línea entrega en su lugar (las troncales compartidas se saturan a 2 objetos/s)
+    if (isUnlocked('receiver')) path = [{ x: bx, y: col.y + n, dir: 1, receiver: true }];
     if (!path) { BOT.noPath = (BOT.noPath || 0) + 1; if (BOT.noPath % 50 === 1) note(`no encontré camino al Núcleo para ${ore}`); return false; }
     if (path[0].receiver && !free(bx, col.y + n)) return false;
-    const cost = sumCost(costOf(minerT, n), furnT ? costOf(furnT, n) : {}, costOf('belt', n + (path[0].receiver ? 0 : path.length)), path[0].receiver ? costOf('receiver') : {});
+    let cost = sumCost(costOf(minerT, n), furnT ? costOf(furnT, n) : {}, costOf('belt', n + (path[0].receiver ? 0 : path.length)), path[0].receiver ? costOf('receiver') : {});
+    // Si no alcanza para la versión eléctrica, usar taladros y hornos simples
+    if (!canAfford(cost) && (minerT === 'eminer' || furnT === 'efurnace')) return buildLineBasic(ore, n, smelt);
     if (!affordOrWant(cost, true)) return false;
     if (path[0].receiver) {
       if (!place('receiver', bx, col.y + n, 0, { silent: true })) return false;
@@ -592,7 +601,7 @@
       const lf = lineFor[key];
       if (!lf) continue;
       if ((key === 'silicon' && !hasTech('silicon')) || (key === 'titanium_plate' && !hasTech('titanium'))) continue;
-      if (count(lf[0], lf[1]) >= 14) continue;
+      if (count(lf[0], lf[1]) >= 30) continue;
       if (buildLine(lf[0], 5, lf[1])) { BOT.starved[item] = 0; return; }
     }
     if (hasTech('silicon') && count('quartz', true) < 1) { buildLine('quartz', 4, true); return; }

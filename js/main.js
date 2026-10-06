@@ -14,6 +14,7 @@ function resize() {
 const saveReplacer = (k, v) => (k.startsWith('_') ? undefined : v);
 
 function serialize() {
+  flushFluids();
   return JSON.stringify({ ...S, pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre() }, saveReplacer);
 }
 

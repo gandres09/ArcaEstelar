@@ -22,6 +22,11 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Logística**: cintas en 3 velocidades, subterráneas, divisores, filtros, cofres, **brazos insertadores** (normales,
   rápidos y con filtro) y **receptores** que entregan al Núcleo desde cualquier lugar. Con la Red logística, los
   brazos también sacan del inventario a través de los receptores.
+- **Líquidos**: cañerías que se conectan solas y tanques de 2.500 forman redes de un solo líquido (agua, petróleo,
+  vapor o lubricante). Las máquinas que producen líquido lo vuelcan apuntando a una cañería y las que lo usan lo
+  toman solas si la tocan. También se pueden llevar líquidos por cinta.
+- **Almacenamiento**: cofre (200), cofre de acero (800), estaciones de tren (800) y el Núcleo, sin límite.
+  El divisor puede repartir por turnos o darle prioridad a una salida.
 - **Trenes**: vías que se conectan solas, estaciones de carga y descarga, y trenes que las recorren quemando carbón.
 - **Robots de construcción**: lo que construís o pegás sin materiales queda como plano y los robots lo arman cuando
   llegan; también reconstruyen lo que destruyen los bichos y reparan.

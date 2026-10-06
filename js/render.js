@@ -17,7 +17,7 @@ const TYPE_COLOR = {
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -170,7 +170,10 @@ function drawBuilding(g, e, x0, y0, t) {
 
     case 'splitter':
       box(g, x0, y0, '#5b4180', '#8a63c4');
-      for (const d of [0, 3, 1]) drawArrow(g, cx, cy, (e.dir + d) % 4, d === 0 ? '#ead9ff' : '#b79be0');
+      for (const d of [0, 3, 1]) {
+        const prio = e.prio && ((e.prio === 'front' && d === 0) || (e.prio === 'left' && d === 3) || (e.prio === 'right' && d === 1));
+        drawArrow(g, cx, cy, (e.dir + d) % 4, prio ? '#f0a742' : d === 0 ? '#ead9ff' : '#b79be0');
+      }
       g.fillStyle = '#ead9ff';
       g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.fill();
       break;
@@ -185,6 +188,57 @@ function drawBuilding(g, e, x0, y0, t) {
         g.fillStyle = '#c8fff6'; g.font = 'bold 12px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText('?', cx, cy + 1);
       }
+      break;
+
+    case 'pipe': case 'tank': {
+      const net = e.id ? fnets[e._fnet] : null;
+      const fc = net && net.amount >= 1 ? ITEMS[net.fluid].color : null;
+      if (e.type === 'tank') {
+        const s = TILE * 2;
+        g.fillStyle = '#4a525c';
+        g.beginPath(); g.arc(x0 + s / 2, y0 + s / 2, s / 2 - 3, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#9aa3ad'; g.lineWidth = 2; g.stroke();
+        if (fc) {
+          const f = Math.min(1, net.amount / net.cap);
+          g.save();
+          g.beginPath(); g.arc(x0 + s / 2, y0 + s / 2, s / 2 - 6, 0, Math.PI * 2); g.clip();
+          g.fillStyle = fc;
+          g.fillRect(x0, y0 + s - 6 - (s - 12) * f, s, s);
+          g.restore();
+        }
+        break;
+      }
+      // Tramos hacia los vecinos conectados
+      const links = DIRS.map(([dx, dy]) => {
+        const n = e.id ? at(e.x + dx, e.y + dy) : null;
+        return n && (isPipe(n) || FLUID_USERS.has(n.type) || n.type === 'offshore' || n.type === 'pumpjack');
+      });
+      if (!links.some(Boolean)) { links[0] = links[2] = true; }
+      g.save();
+      g.translate(cx, cy);
+      for (let d = 0; d < 4; d++) {
+        if (!links[d]) continue;
+        g.save(); g.rotate(d * Math.PI / 2);
+        g.fillStyle = '#6c757f'; g.fillRect(0, -6, 16, 12);
+        g.fillStyle = '#9aa3ad'; g.fillRect(0, -6, 16, 3);
+        g.restore();
+      }
+      g.fillStyle = '#7d868f';
+      g.beginPath(); g.arc(0, 0, 8, 0, Math.PI * 2); g.fill();
+      if (fc) { g.fillStyle = fc; g.beginPath(); g.arc(0, 0, 4, 0, Math.PI * 2); g.fill(); }
+      g.restore();
+      break;
+    }
+
+    case 'steelchest':
+      box(g, x0, y0, '#5d6670', '#2b3036', 3);
+      g.fillStyle = '#c9cfd6';
+      g.fillRect(cx - 3, cy - 3, 6, 5);
+      g.fillStyle = '#2b3036';
+      g.fillRect(x0 + 4, cy - 4, TILE - 8, 1.5);
+      g.fillRect(x0 + 4, y0 + 6, 1.5, TILE - 12); g.fillRect(x0 + TILE - 5.5, y0 + 6, 1.5, TILE - 12);
+      if (e.total) drawProgress(g, x0, y0, e.total / 800, '#c9cfd6');
+      drawArrow(g, cx, cy, e.dir, '#e6e9ee');
       break;
 
     case 'chest':

@@ -111,10 +111,10 @@ function makeEntity(type, x, y, dir = 0) {
   switch (type) {
     case 'belt': case 'fastbelt': case 'expressbelt': e.item = null; e.prog = 0; break;
     case 'underground': e.item = null; e.prog = 0; e.mode = 'in'; break;
-    case 'splitter': e.item = null; e.rr = 0; break;
+    case 'splitter': e.item = null; e.rr = 0; e.prio = null; break;
     case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
     case 'sorter': e.item = null; e.rr = 0; e.filter = null; break;
-    case 'chest': e.store = {}; e.total = 0; break;
+    case 'chest': case 'steelchest': e.store = {}; e.total = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
     case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
     case 'furnace': case 'efurnace':
@@ -144,6 +144,8 @@ function occupy(e, value) {
 function rebuildGrid() {
   grid = new Array(W * H).fill(null);
   for (const e of S.entities) occupy(e, e);
+  fnets = [];
+  fluidDirty = true;
   powerDirty = true;
   undergroundDirty = true;
 }
@@ -192,6 +194,7 @@ function canPlace(type, x, y) {
   }
   const o = oreAt(x, y);
   if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };
+  if ((type === 'pipe' || type === 'tank') && neighborFluids(x, y, s).size > 1) return { ok: false, why: 'Mezclaría dos líquidos distintos' };
   if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
   if ((type === 'miner' || type === 'eminer') && !minerTile(x, y, BUILDINGS[type].area)) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
@@ -295,6 +298,7 @@ function place(type, x, y, dir, opts = {}) {
   occupy(e, e);
   powerDirty = true;
   undergroundDirty = true;
+  fluidDirty = true;
   reveal(x + sizeOf(type) / 2, y + sizeOf(type) / 2, 12);
   if (S.ghosts.length) {
     const s = sizeOf(type);
@@ -317,6 +321,7 @@ function removeEntity(e, opts = {}) {
   e._dead = true;
   powerDirty = true;
   undergroundDirty = true;
+  fluidDirty = true;
   return true;
 }
 
@@ -482,6 +487,8 @@ function drawPower(e, kw) {
 function accept(t, item, src, dry = false) {
   const ok = (fn) => { if (!dry) fn(); return true; };
   switch (t.type) {
+    case 'pipe': case 'tank':
+      return fluidAccept(t, item, dry);
     case 'hub': case 'receiver':
       return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); });
     case 'belt': case 'fastbelt': case 'expressbelt': {
@@ -502,8 +509,8 @@ function accept(t, item, src, dry = false) {
     case 'station':
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
-    case 'chest':
-      if (t.total >= 200) return false;
+    case 'chest': case 'steelchest':
+      if (t.total >= BUILDINGS[t.type].capacity) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
       if (t.type === 'furnace' && FURNACE_FUEL[item]) {
@@ -566,7 +573,7 @@ function takeFrom(src, dst, ins) {
     case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter':
       if (want(src.item)) { const k = src.item; src.item = null; return k; }
       return null;
-    case 'chest':
+    case 'chest': case 'steelchest': case 'station':
       for (const k in src.store) if (src.store[k] > 0 && want(k)) { if (--src.store[k] === 0) delete src.store[k]; src.total--; return k; }
       return null;
     case 'furnace': case 'efurnace':
@@ -711,9 +718,11 @@ function update(dt) {
 
       case 'splitter':
         if (e.item) {
+          // Con prioridad, esa salida se llena primero; si no, reparte por turnos
+          const order = e.prio === 'front' ? [0, 1, 2] : e.prio === 'left' ? [1, 0, 2] : e.prio === 'right' ? [2, 0, 1] : null;
           for (let k = 0; k < 3; k++) {
-            const idx = (e.rr + k) % 3;
-            if (pushTo(e, (e.dir + [0, 3, 1][idx]) % 4, e.item)) { e.item = null; e.rr = (idx + 1) % 3; break; }
+            const idx = order ? order[k] : (e.rr + k) % 3;
+            if (pushTo(e, (e.dir + [0, 3, 1][idx]) % 4, e.item)) { e.item = null; if (!order) e.rr = (idx + 1) % 3; break; }
           }
         }
         break;
@@ -734,7 +743,7 @@ function update(dt) {
       case 'station':
         if (e.mode === 'load' || e.total <= 0) break;
         // fallthrough: en modo descarga suelta lo que tiene como un cofre
-      case 'chest':
+      case 'chest': case 'steelchest':
         if (e.total > 0) {
           for (const k in e.store) {
             if (e.store[k] > 0 && pushTo(e, e.dir, k)) {
@@ -965,6 +974,7 @@ function update(dt) {
   }
 
   if (researchDone) finishResearch();
+  updateFluids();
   updateTrains(dt);
   updateRobots(dt);
   updateEnemies(dt);

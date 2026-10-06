@@ -9,13 +9,13 @@ const $ = (id) => document.getElementById(id);
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
   ['underground', 'inserter', 'fastinserter'],
-  ['splitter', 'sorter', 'chest', 'receiver'],
+  ['splitter', 'sorter', 'chest', 'steelchest', 'receiver'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'efurnace'],
   ['assembler', 'assembler2', 'chem'],
   ['lab'],
   ['pole', 'bigpole', 'radar'],
-  ['offshore', 'boiler', 'steam_engine', 'generator', 'solar', 'accumulator', 'lamp'],
+  ['offshore', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
   ['wall', 'turret', 'laser'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
@@ -430,9 +430,13 @@ function inspectorContent(e) {
       h += '</div>';
       break;
     }
-    case 'splitter':
-      h += '<p>Reparte por turnos entre adelante, izquierda y derecha.</p>';
+    case 'splitter': {
+      const opts = [['', 'Repartir'], ['front', 'Adelante'], ['left', 'Izquierda'], ['right', 'Derecha']];
+      h += `<p>${e.prio ? 'La salida elegida se llena primero; lo que no entra sigue por las otras.' : 'Reparte por turnos entre adelante, izquierda y derecha.'}</p>` +
+        '<div class="pick-title">Prioridad de salida</div><div class="actions">' +
+        opts.map(([v, l]) => `<button type="button" class="${(e.prio || '') === v ? 'primary' : ''}" data-act="prio" data-v="${v}">${l}</button>`).join('') + '</div>';
       break;
+    }
     case 'sorter': {
       h += row('Filtro', e.filter ? itemLabel(e.filter) : 'ninguno (todo sigue derecho)');
       h += '<div class="pick-title">El objeto elegido sigue derecho; el resto sale por los costados</div><div class="picker">';
@@ -441,8 +445,8 @@ function inspectorContent(e) {
       h += '</div>';
       break;
     }
-    case 'chest':
-      h += row('Guardado', `${e.total} / 200`) +
+    case 'chest': case 'steelchest':
+      h += row('Guardado', `${e.total} / ${def.capacity}`) +
         Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
         '<div class="actions"><button type="button" data-act="empty">Vaciar al inventario</button></div>';
       break;
@@ -454,6 +458,13 @@ function inspectorContent(e) {
     case 'receiver':
       h += '<p>Todo lo que le llega va al inventario del Núcleo.</p>';
       break;
+    case 'pipe': case 'tank': {
+      const net = fnets[e._fnet];
+      h += net ? row('Líquido', net.amount >= 1 ? itemLabel(net.fluid) : 'vacío') + row('Cantidad', `${Math.floor(net.amount)} / ${net.cap}`) + bar(net.amount / net.cap) +
+        row('Máquinas conectadas', net.users.length) + '<div class="actions"><button type="button" data-act="drain">Vaciar la red</button></div>' : '';
+      h += '<p class="muted small">Las máquinas que producen líquido lo vuelcan apuntando su flecha a una cañería. Las que lo necesitan lo toman solas si la tocan.</p>';
+      break;
+    }
     case 'roboport': {
       const near = S.ghosts.filter((g) => Math.max(Math.abs(g.x - e.x), Math.abs(g.y - e.y)) <= def.range).length;
       h += row('Robots', `${def.bots - (e.busy || 0)} libres de ${def.bots}`) + row('Planos en su zona', near) + powerRow(e) +
@@ -594,6 +605,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       break;
     case 'filter': e.filter = v || null; break;
     case 'mode': e.mode = e.mode === 'load' ? 'unload' : 'load'; break;
+    case 'prio': e.prio = v || null; break;
+    case 'drain': emptyFluidNet(e); break;
     case 'mod':
       if ((S.inv[v] || 0) >= 1 && (e.modules || []).length < MODULE_SLOTS[e.type]) { S.inv[v]--; (e.modules = e.modules || []).push(v); }
       break;
