@@ -52,6 +52,7 @@ function portsCovering(x, y) {
 }
 
 function updateRobots(dt) {
+  updateLogistics(dt);
   if (!S.ghosts.length && !S.flights.length && !S.entities.some((e) => e.type === 'roboport')) return;
   // Vuelos en curso
   for (const f of S.flights) {
@@ -115,5 +116,89 @@ function finishJob(f) {
     const id = +f.job.slice(1);
     const e = S.entities.find((x) => x.id === id);
     if (e) delete e.hp;
+  }
+}
+
+// =====================================================================
+//  Robots logísticos: llevan objetos de los cofres de provisión (y del
+//  Núcleo) a los cofres de pedido, dentro de la zona de los puertos.
+// =====================================================================
+
+const LOGI_BOTS = 5;      // por puerto
+const LOGI_CARGO = 4;     // objetos por viaje
+const logisticsOn = () => hasTech('logistic_robots');
+const portNear = (e) => portsCovering(e.x, e.y).length > 0;
+
+function updateLogistics(dt) {
+  if (!S.lflights) S.lflights = [];
+  // Vuelos: puerto → origen (levanta) → destino (deja) → puerto
+  for (const f of S.lflights) {
+    const leg = f.legs[f.i];
+    const dx = wdx(leg[0] - f.x), dy = wdy(leg[1] - f.y), d = Math.hypot(dx, dy);
+    const step = ROBOT_SPEED * dt;
+    if (d > step) { f.x = wrapX(f.x + dx / d * step); f.y = wrapY(f.y + dy / d * step); continue; }
+    f.x = leg[0]; f.y = leg[1];
+    if (leg[2] === 'pick') {
+      const src = f.src === 'hub' ? null : S.entities.find((e) => e.id === f.src);
+      const have = src ? (src.store[f.item] || 0) : Math.floor(S.inv[f.item] || 0);
+      const n = Math.min(f.n, have);
+      if (n <= 0) { f.i = f.legs.length - 1; continue; }   // ya no estaba: vuelve
+      if (src) { src.store[f.item] -= n; src.total -= n; if (!src.store[f.item]) delete src.store[f.item]; } else S.inv[f.item] -= n;
+      f.carry = n;
+    } else if (leg[2] === 'drop') {
+      const dst = S.entities.find((e) => e.id === f.dst);
+      if (dst) { add(dst.store, f.item, f.carry); dst.total += f.carry; } else add(S.inv, f.item, f.carry);
+      f.carry = 0;
+    } else { f.done = true; continue; }
+    f.i++;
+  }
+  if (S.lflights.some((f) => f.done)) {
+    for (const f of S.lflights) if (f.done && f.carry) add(S.inv, f.item, f.carry);   // nada se pierde
+    S.lflights = S.lflights.filter((f) => !f.done);
+  }
+
+  S.logiTimer = (S.logiTimer || 0) + dt;
+  if (S.logiTimer < 1 || !logisticsOn()) return;
+  S.logiTimer = 0;
+  const ports = S.entities.filter((p) => p.type === 'roboport' && p.powered);
+  if (!ports.length) return;
+  const busy = {};
+  for (const f of S.lflights) busy[f.port] = (busy[f.port] || 0) + 1;
+  const freePort = (x, y) => ports.filter((p) => (busy[p.id] || 0) < LOGI_BOTS)
+    .sort((a, b) => wdist(a.x, a.y, x, y) - wdist(b.x, b.y, x, y))[0];
+  const providers = S.entities.filter((e) => e.type === 'providerchest' && e.total > 0 && portNear(e));
+  const hub = S.entities.find((e) => e.type === 'hub');
+  const hubIn = hub && portNear(hub);
+  // Lo que ya viene en camino a cada cofre
+  const coming = {};
+  for (const f of S.lflights) if (f.i <= f.legs.findIndex((l) => l[2] === 'drop')) { const k = f.dst + ':' + f.item; coming[k] = (coming[k] || 0) + f.n; }
+  for (const r of S.entities) {
+    if (r.type !== 'requesterchest' || !r.req || !portNear(r)) continue;
+    for (const item in r.req) {
+      let missing = r.req[item] - (r.store[item] || 0) - (coming[r.id + ':' + item] || 0);
+      while (missing > 0 && r.total + (coming[r.id + ':' + item] || 0) < BUILDINGS.requesterchest.capacity) {
+        const n = Math.min(LOGI_CARGO, missing);
+        // El cofre de provisión más cercano con ese objeto; si no, el Núcleo
+        let src = null, bd = Infinity;
+        for (const pv of providers) {
+          const reserved = S.lflights.filter((f) => f.src === pv.id && f.item === item && !f.carry).reduce((a, f) => a + f.n, 0);
+          if ((pv.store[item] || 0) - reserved <= 0) continue;
+          const d = wdist(pv.x, pv.y, r.x, r.y);
+          if (d < bd) { bd = d; src = pv; }
+        }
+        let sx, sy, sid;
+        if (src) { sx = src.x + 0.5; sy = src.y + 0.5; sid = src.id; }
+        else if (hubIn && (S.inv[item] || 0) >= 1) { sx = hub.x + 1.5; sy = hub.y + 1.5; sid = 'hub'; }
+        else break;
+        const port = freePort(sx, sy);
+        if (!port) return;
+        busy[port.id] = (busy[port.id] || 0) + 1;
+        const px = port.x + 0.5, py = port.y + 0.5;
+        S.lflights.push({ port: port.id, x: px, y: py, item, n, carry: 0, src: sid, dst: r.id, i: 0,
+          legs: [[sx, sy, 'pick'], [r.x + 0.5, r.y + 0.5, 'drop'], [px, py, 'home']] });
+        coming[r.id + ':' + item] = (coming[r.id + ':' + item] || 0) + n;
+        missing -= n;
+      }
+    }
   }
 }

@@ -120,7 +120,8 @@ function makeEntity(type, x, y, dir = 0) {
     case 'splitter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.prio = null; break;
     case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
     case 'sorter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.filter = null; break;
-    case 'chest': case 'steelchest': case 'woodchest': e.store = {}; e.total = 0; break;
+    case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': e.store = {}; e.total = 0; break;
+    case 'requesterchest': e.store = {}; e.total = 0; e.req = {}; break;
     case 'nursery': e.t = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
     case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
@@ -543,7 +544,7 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'station':
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
-    case 'chest': case 'steelchest': case 'woodchest':
+    case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': case 'requesterchest':
       if (t.total >= BUILDINGS[t.type].capacity) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
@@ -620,7 +621,7 @@ function takeFrom(src, dst, ins) {
       for (const i of order) if (want(src.l[i])) { const k = src.l[i]; src.l[i] = null; src.p[i] = 0; return k; }
       return null;
     }
-    case 'chest': case 'steelchest': case 'woodchest': case 'station':
+    case 'chest': case 'steelchest': case 'woodchest': case 'station': case 'providerchest': case 'requesterchest':
       for (const k in src.store) if (src.store[k] > 0 && want(k)) { if (--src.store[k] === 0) delete src.store[k]; src.total--; return k; }
       return null;
     case 'furnace': case 'efurnace':

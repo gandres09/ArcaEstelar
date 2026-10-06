@@ -531,7 +531,28 @@ function inspectorContent(e) {
       h += '</div>';
       break;
     }
-    case 'chest': case 'steelchest': case 'woodchest':
+    case 'requesterchest': {
+      const reqs = Object.entries(e.req || {});
+      h += row('Guardado', `${e.total} / ${def.capacity}`);
+      h += '<p class="small"><b>Pedidos</b> (los robots logísticos los traen):</p>';
+      if (!reqs.length) h += '<p class="muted small">Todavía no pediste nada. Elegí un objeto abajo.</p>';
+      for (const [k, n] of reqs) {
+        h += `<div class="row">${itemLabel(k)}<span>${e.store[k] || 0} / ${n} ` +
+          `<button type="button" class="small-btn" data-act="reqinc" data-v="${k}|-10">−</button>` +
+          `<button type="button" class="small-btn" data-act="reqinc" data-v="${k}|10">+</button>` +
+          `<button type="button" class="small-btn" data-act="reqdel" data-v="${k}">✕</button></span></div>`;
+      }
+      h += '<details class="req-pick"><summary class="small">➕ Pedir otro objeto</summary><div class="pick-grid">';
+      for (const k of ITEM_ORDER) if (!FLUIDS.has(k) && !(e.req || {})[k]) h += `<button type="button" class="pick" data-act="reqadd" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}</button>`;
+      h += '</div></details>';
+      h += Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        '<div class="actions"><button type="button" data-act="empty">Vaciar al inventario</button></div>';
+      if (!hasTech('logistic_robots')) h += '<p class="bad small">Falta investigar Robots logísticos.</p>';
+      else if (!portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
+      break;
+    }
+    case 'chest': case 'steelchest': case 'woodchest': case 'providerchest':
+      if (e.type === 'providerchest' && !portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
       h += row('Guardado', `${e.total} / ${def.capacity}`) +
         Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
         '<div class="actions"><button type="button" data-act="empty">Vaciar al inventario</button></div>';
@@ -553,7 +574,9 @@ function inspectorContent(e) {
     }
     case 'roboport': {
       const near = S.ghosts.filter((g) => Math.max(Math.abs(wdx(g.x - e.x)), Math.abs(wdy(g.y - e.y))) <= def.range).length;
-      h += row('Robots', `${def.bots - (e.busy || 0)} libres de ${def.bots}`) + row('Planos en su zona', near) + powerRow(e) +
+      const lb = (S.lflights || []).filter((f) => f.port === e.id).length;
+      h += row('Robots de construcción', `${def.bots - (e.busy || 0)} libres de ${def.bots}`) +
+        (hasTech('logistic_robots') ? row('Robots logísticos', `${LOGI_BOTS - lb} libres de ${LOGI_BOTS}`) : '') + row('Planos en su zona', near) + powerRow(e) +
         '<p class="muted small">Construyen planos, reconstruyen lo que destruyen los bichos y reparan, a 25 casillas a la redonda. Los materiales salen del inventario.</p>';
       break;
     }
@@ -716,6 +739,9 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       }
       break;
     case 'filter': e.filter = v || null; break;
+    case 'reqadd': e.req = e.req || {}; if (v && ITEMS[v]) e.req[v] = 50; break;
+    case 'reqinc': { const [k, d] = String(v).split('|'); if (e.req && e.req[k] !== undefined) e.req[k] = Math.max(1, Math.min(400, e.req[k] + +d)); break; }
+    case 'reqdel': if (e.req) delete e.req[v]; break;
     case 'mode': e.mode = e.mode === 'load' ? 'unload' : 'load'; break;
     case 'prio': e.prio = v || null; break;
     case 'drain': emptyFluidNet(e); break;

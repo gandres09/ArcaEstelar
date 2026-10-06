@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -274,6 +274,18 @@ function drawBuilding(g, e, x0, y0, t) {
       if (e.total) drawProgress(g, x0, y0, e.total / 800, '#c9cfd6');
       drawArrow(g, cx, cy, e.dir, '#e6e9ee');
       break;
+
+    case 'providerchest': case 'requesterchest': {
+      const prov = e.type === 'providerchest';
+      box(g, x0, y0, prov ? '#8a3a36' : '#2f5a8f', prov ? '#e58a85' : '#8fbff0', 4);
+      g.fillStyle = prov ? '#f2b8b4' : '#cfe4ff';
+      g.fillRect(cx - 3, cy - 3, 6, 5);
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.fillRect(x0 + 5, cy - 4, TILE - 10, 1.5);
+      if (!prov && e.req) { const k = Object.keys(e.req)[0]; if (k) drawItem(g, k, x0 + TILE - 9, y0 + 9, 3.5); }
+      if (e.total) drawProgress(g, x0, y0, e.total / 400, prov ? '#e58a85' : '#8fbff0');
+      break;
+    }
 
     case 'woodchest':
       box(g, x0, y0, '#9a6a3a', '#5a3a1c', 5);
@@ -1025,6 +1037,17 @@ function drawGhostsAndRobots(g, vx0, vy0, vx1, vy1) {
     g.setLineDash([4, 3]);
     g.strokeRect(px + 1.5, py + 1.5, s - 3, s - 3);
     g.setLineDash([]);
+  }
+  for (const f of S.lflights || []) {
+    const x = f.x * TILE, y = f.y * TILE - 12;
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath(); g.ellipse(x, y + 16, 6, 3, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e07a3a';
+    g.fillRect(x - 5, y - 3, 10, 6);
+    g.strokeStyle = '#d8dee6'; g.lineWidth = 1.5;
+    const sp = Math.sin(time * 40 + f.port) * 3;
+    g.beginPath(); g.moveTo(x - 8, y - 4 + sp * 0.2); g.lineTo(x - 2, y - 4); g.moveTo(x + 2, y - 4); g.lineTo(x + 8, y - 4 - sp * 0.2); g.stroke();
+    if (f.carry) drawItem(g, f.item, x, y + 6, 3);
   }
   for (const f of S.flights) {
     const x = f.x * TILE, y = f.y * TILE - 10;

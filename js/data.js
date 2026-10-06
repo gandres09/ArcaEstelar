@@ -236,6 +236,10 @@ const BUILDINGS = {
                  desc: 'Genera 8 MW sin combustible y sin contaminar.' },
   starport:    { name: 'Dique estelar',       cat: 'nave', size: 7, hp: 6000, cost: { steel: 1000, low_density: 200, quantum_processor: 50, brick: 500 }, tech: 'starship',
                  desc: 'Acá se arma el Arca estelar para salir del sistema solar. Recibe las piezas por cinta o desde el inventario.' },
+  providerchest: { name: 'Cofre de provisión', cat: 'robots', capacity: 400, hp: 200, cost: { steel: 5, circuit: 3 }, tech: 'logistic_robots',
+                 desc: 'Los robots logísticos sacan de acá lo que piden los cofres de pedido. Llenalo con brazos o cintas.' },
+  requesterchest:{ name: 'Cofre de pedido',    cat: 'robots', capacity: 400, hp: 200, cost: { steel: 5, circuit: 3 }, tech: 'logistic_robots',
+                 desc: 'Pedile objetos y cantidades: los robots logísticos se los traen de los cofres de provisión o del Núcleo. Sacá con brazos.' },
   roboport:    { name: 'Puerto de robots',    cat: 'robots', power: 200, range: 25, bots: 5, hp: 400, cost: { steel: 30, circuit: 30, electric_engine: 10, battery: 10 }, tech: 'construction_robots',
                  desc: 'Trae 5 robots que construyen los fantasmas, reconstruyen lo destruido y reparan en 25 casillas a la redonda. Usa 200 kW.' },
   rail:        { name: 'Vía',                 cat: 'trenes', hp: 100, cost: { stone: 1, steel: 1 }, tech: 'railway',
@@ -248,7 +252,7 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -311,6 +315,8 @@ const TECHS = {
                        desc: '+50 % más de daño en torretas.' },
   laser_turrets:     { name: 'Torretas láser',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['batteries', 'defense'],
                        desc: 'Torretas que no necesitan munición.' },
+  logistic_robots:   { name: 'Robots logísticos',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['construction_robots'],
+                       desc: 'Cada puerto suma 5 robots que llevan objetos de cofres de provisión y del Núcleo a cofres de pedido.' },
   construction_robots: { name: 'Robots de construcción', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['electric_engines', 'batteries'],
                        desc: 'Robots que construyen planos sin materiales a la espera, reconstruyen y reparan.' },
   titanium:          { name: 'Metalurgia de titanio', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['chemical_science'],
