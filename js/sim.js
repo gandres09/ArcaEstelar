@@ -115,11 +115,11 @@ function smoothPhase(t, key) {
 function makeEntity(type, x, y, dir = 0) {
   const e = { id: 0, type, x, y, dir: NO_DIR.has(type) ? 0 : dir };
   switch (type) {
-    case 'belt': case 'fastbelt': case 'expressbelt': e.item = null; e.prog = 0; break;
-    case 'underground': e.item = null; e.prog = 0; e.mode = 'in'; break;
-    case 'splitter': e.item = null; e.rr = 0; e.prio = null; break;
+    case 'belt': case 'fastbelt': case 'expressbelt': e.l = [null, null]; e.p = [0, 0]; break;
+    case 'underground': e.l = [null, null]; e.p = [0, 0]; e.mode = 'in'; break;
+    case 'splitter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.prio = null; break;
     case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
-    case 'sorter': e.item = null; e.rr = 0; e.filter = null; break;
+    case 'sorter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.filter = null; break;
     case 'chest': case 'steelchest': case 'woodchest': e.store = {}; e.total = 0; break;
     case 'nursery': e.t = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
@@ -150,9 +150,17 @@ function occupy(e, value) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) grid[tIdx(e.x + dx, e.y + dy)] = value;
 }
 
+// Partidas viejas: las cintas tenían un solo objeto; ahora tienen dos carriles
+function migrateEntity(e) {
+  if (LANED.has(e.type) && !e.l) {
+    e.l = [null, e.item || null]; e.p = [0, e.prog || 0];
+    delete e.item; delete e.prog;
+  }
+}
+
 function rebuildGrid() {
   grid = new Array(W * H).fill(null);
-  for (const e of S.entities) occupy(e, e);
+  for (const e of S.entities) { migrateEntity(e); occupy(e, e); }
   fnets = [];
   fluidDirty = true;
   powerDirty = true;
@@ -163,6 +171,7 @@ function rebuildGrid() {
 function contents(e) {
   const c = {};
   if (e.item) add(c, e.item, 1);
+  if (e.l) for (const k of e.l) if (k) add(c, k, 1);
   if (e.hold) add(c, e.hold, 1);
   if (typeof e.buf === 'string') add(c, e.buf, 1);
   if (e.type === 'boiler') { if (e.water) add(c, 'water', e.water); if (e.out) add(c, 'steam', e.out); }
@@ -514,28 +523,23 @@ function drawPower(e, kw) {
 // --------------------------- Flujo de objetos ---------------------------
 
 // ¿El edificio t acepta el objeto? Con dry = true solo pregunta, sin entregarlo
-function accept(t, item, src, dry = false) {
+// lane: el carril de donde viene (si viene de una cinta), o -1
+function accept(t, item, src, dry = false, lane = -1) {
   const ok = (fn) => { if (!dry) fn(); return true; };
   switch (t.type) {
     case 'pipe': case 'tank':
       return fluidAccept(t, item, dry);
     case 'hub': case 'receiver':
       return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); });
-    case 'belt': case 'fastbelt': case 'expressbelt': {
-      if (t.item) return false;
+    case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter': {
+      if (t.type === 'underground' && t.mode !== 'in') return false;
       const [dx, dy] = DIRS[t.dir];
-      if (src && at(t.x + dx, t.y + dy) === src) return false; // no aceptar desde adelante
-      return ok(() => { t.item = item; t.prog = 0; });
+      if (src && LANED.has(t.type) && t.type !== 'splitter' && t.type !== 'sorter' && at(t.x + dx, t.y + dy) === src) return false; // no aceptar desde adelante
+      let k = laneInto(t, src, lane);
+      if (k < 0) k = !t.l[1] ? 1 : !t.l[0] ? 0 : -1;
+      if (k < 0 || t.l[k]) return false;
+      return ok(() => { t.l[k] = item; t.p[k] = 0; });
     }
-    case 'underground': {
-      if (t.mode !== 'in' || t.item) return false;
-      const [dx, dy] = DIRS[t.dir];
-      if (src && at(t.x + dx, t.y + dy) === src) return false;
-      return ok(() => { t.item = item; t.prog = 0; });
-    }
-    case 'splitter': case 'sorter':
-      if (t.item) return false;
-      return ok(() => { t.item = item; });
     case 'station':
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
@@ -610,9 +614,12 @@ function wantedBy(dst) {
 function takeFrom(src, dst, ins) {
   const want = (k) => k && (!ins.filter || ins.filter === k) && accept(dst, k, ins, true);
   switch (src.type) {
-    case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter':
-      if (want(src.item)) { const k = src.item; src.item = null; return k; }
+    case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter': {
+      // Toma el objeto más adelantado de los dos carriles
+      const order = (src.p[0] || 0) >= (src.p[1] || 0) ? [0, 1] : [1, 0];
+      for (const i of order) if (want(src.l[i])) { const k = src.l[i]; src.l[i] = null; src.p[i] = 0; return k; }
       return null;
+    }
     case 'chest': case 'steelchest': case 'woodchest': case 'station':
       for (const k in src.store) if (src.store[k] > 0 && want(k)) { if (--src.store[k] === 0) delete src.store[k]; src.total--; return k; }
       return null;
@@ -638,10 +645,31 @@ function takeFrom(src, dst, ins) {
   return null;
 }
 
-function pushTo(e, dir, item) {
+function pushTo(e, dir, item, lane = -1) {
   const [dx, dy] = DIRS[dir];
   const t = at(e.x + dx, e.y + dy);
-  return !!t && t !== e && t.type !== 'nest' && accept(t, item, e);
+  return !!t && t !== e && t.type !== 'nest' && accept(t, item, e, false, lane);
+}
+
+// En qué carril de la cinta t cae algo que viene de src (-1: cualquiera)
+//  - de atrás: el mismo carril · cinta que entra por un costado: el carril de ese lado
+//  - curva (una sola cinta entra de costado): conserva el carril · brazo o máquina de costado: el carril de enfrente
+function laneInto(t, src, lane) {
+  if (!src || src.type === 'splitter' || src.type === 'sorter' || t.type === 'splitter' || t.type === 'sorter') return lane;
+  const s = sizeOf(src.type);
+  const ddx = Math.sign(wdx(src.x + (s - 1) / 2 - t.x)), ddy = Math.sign(wdy(src.y + (s - 1) / 2 - t.y));
+  const [fx, fy] = DIRS[t.dir];
+  if (ddx === -fx && ddy === -fy) return lane;
+  const [lx, ly] = DIRS[(t.dir + 3) % 4];
+  const fromLeft = ddx === lx && ddy === ly;
+  const fromRight = ddx === -lx && ddy === -ly;
+  if (!fromLeft && !fromRight) return lane;
+  if (LANED.has(src.type) && lane >= 0) {
+    const behind = at(t.x - fx, t.y - fy);
+    const fedStraight = behind && LANED.has(behind.type) && behind.dir === t.dir && behind.type !== 'underground';
+    return fedStraight ? (fromLeft ? 0 : 1) : lane;
+  }
+  return fromLeft ? 1 : 0;
 }
 
 // --------------------------- Investigación ---------------------------
@@ -714,23 +742,26 @@ function update(dt) {
     const def = BUILDINGS[e.type];
     switch (e.type) {
       case 'belt': case 'fastbelt': case 'expressbelt':
-        if (e.item) {
-          e.prog = Math.min(1, e.prog + dt * def.speed);
-          if (e.prog >= 1 && pushTo(e, e.dir, e.item)) e.item = null;
+        for (let k = 0; k < 2; k++) {
+          if (!e.l[k]) continue;
+          e.p[k] = Math.min(1, e.p[k] + dt * def.speed);
+          if (e.p[k] >= 1 && pushTo(e, e.dir, e.l[k], k)) { e.l[k] = null; e.p[k] = 0; }
         }
         break;
 
       case 'underground':
-        if (!e.item) break;
-        e.prog += dt * def.speed;
-        if (e.mode === 'in') {
-          const p = e._pair;
-          if (!p) { e.prog = Math.min(e.prog, 0.5); break; }
-          if (e.prog >= e._dist && !p.item) { p.item = e.item; p.prog = 0.5; e.item = null; }
-          else e.prog = Math.min(e.prog, e._dist);
-        } else {
-          e.prog = Math.min(1, e.prog);
-          if (e.prog >= 1 && pushTo(e, e.dir, e.item)) e.item = null;
+        for (let k = 0; k < 2; k++) {
+          if (!e.l[k]) continue;
+          e.p[k] += dt * def.speed;
+          if (e.mode === 'in') {
+            const p = e._pair;
+            if (!p) { e.p[k] = Math.min(e.p[k], 0.5); continue; }
+            if (e.p[k] >= e._dist && !p.l[k]) { p.l[k] = e.l[k]; p.p[k] = 0.5; e.l[k] = null; e.p[k] = 0; }
+            else e.p[k] = Math.min(e.p[k], e._dist);
+          } else {
+            e.p[k] = Math.min(1, e.p[k]);
+            if (e.p[k] >= 1 && pushTo(e, e.dir, e.l[k], k)) { e.l[k] = null; e.p[k] = 0; }
+          }
         }
         break;
 
@@ -759,24 +790,27 @@ function update(dt) {
       }
 
       case 'splitter':
-        if (e.item) {
-          // Con prioridad, esa salida se llena primero; si no, reparte por turnos
+        for (let ln = 0; ln < 2; ln++) {
+          if (!e.l[ln]) continue;
+          // Con prioridad, esa salida se llena primero; si no, reparte por turnos (cada carril sigue en su carril)
           const order = e.prio === 'front' ? [0, 1, 2] : e.prio === 'left' ? [1, 0, 2] : e.prio === 'right' ? [2, 0, 1] : null;
           for (let k = 0; k < 3; k++) {
             const idx = order ? order[k] : (e.rr + k) % 3;
-            if (pushTo(e, (e.dir + [0, 3, 1][idx]) % 4, e.item)) { e.item = null; if (!order) e.rr = (idx + 1) % 3; break; }
+            if (pushTo(e, (e.dir + [0, 3, 1][idx]) % 4, e.l[ln], ln)) { e.l[ln] = null; if (!order) e.rr = (idx + 1) % 3; break; }
           }
         }
         break;
 
       case 'sorter':
-        if (e.item) {
-          if (!e.filter || e.item === e.filter) {
-            if (pushTo(e, e.dir, e.item)) e.item = null;
+        for (let ln = 0; ln < 2; ln++) {
+          const it = e.l[ln];
+          if (!it) continue;
+          if (!e.filter || it === e.filter) {
+            if (pushTo(e, e.dir, it, ln)) e.l[ln] = null;
           } else {
             for (let k = 0; k < 2; k++) {
               const idx = (e.rr + k) % 2;
-              if (pushTo(e, (e.dir + [3, 1][idx]) % 4, e.item)) { e.item = null; e.rr = (idx + 1) % 2; break; }
+              if (pushTo(e, (e.dir + [3, 1][idx]) % 4, it, ln)) { e.l[ln] = null; e.rr = (idx + 1) % 2; break; }
             }
           }
         }

@@ -1040,16 +1040,22 @@ function drawGhostsAndRobots(g, vx0, vy0, vx1, vy1) {
 }
 
 function drawItemsOn(g, e) {
-  if (!e.item) return;
+  if (!e.l || (!e.l[0] && !e.l[1])) return;
   const cx = e.x * TILE + TILE / 2, cy = e.y * TILE + TILE / 2;
-  if (isBelt(e.type) || (e.type === 'underground' && (e.mode === 'out' || e.prog < 0.5))) {
-    const [dx, dy] = DIRS[e.dir];
-    const k = (Math.min(e.prog, 1) - 0.5) * TILE;
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.beginPath(); g.ellipse(cx + dx * k + 1.5, cy + dy * k + 2.5, 5, 3.5, 0, 0, Math.PI * 2); g.fill();
-    drawItem(g, e.item, cx + dx * k, cy + dy * k, 5);
-  } else if (e.type === 'splitter' || e.type === 'sorter') {
-    drawItem(g, e.item, cx + 7, cy - 7, 3.5);
+  const [dx, dy] = DIRS[e.dir], [lx, ly] = DIRS[(e.dir + 3) % 4];
+  for (let ln = 0; ln < 2; ln++) {
+    const it = e.l[ln];
+    if (!it) continue;
+    const side = ln === 0 ? 6.5 : -6.5;   // carril izquierdo / derecho
+    if (isBelt(e.type) || (e.type === 'underground' && (e.mode === 'out' || e.p[ln] < 0.5))) {
+      const k = (Math.min(e.p[ln], 1) - 0.5) * TILE;
+      const x = cx + dx * k + lx * side, y = cy + dy * k + ly * side;
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      g.beginPath(); g.ellipse(x + 1.2, y + 2, 4, 3, 0, 0, Math.PI * 2); g.fill();
+      drawItem(g, it, x, y, 4);
+    } else if (e.type === 'splitter' || e.type === 'sorter') {
+      drawItem(g, it, cx + lx * 9 * Math.sign(side) + dx * 8, cy + ly * 9 * Math.sign(side) + dy * 8, 3.2);
+    }
   }
 }
 

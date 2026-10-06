@@ -443,7 +443,7 @@ function inspectorContent(e) {
       h += '<p>Todo lo que entra al Núcleo va a tu inventario.</p>';
       break;
     case 'belt': case 'fastbelt': case 'expressbelt':
-      h += row('Velocidad', def.speed + ' objetos/s') + row('Lleva', itemLabel(e.item));
+      h += row('Velocidad', def.speed + ' objetos/s') + row('Carril izquierdo', e.l && e.l[0] ? itemLabel(e.l[0]) : 'vacío') + row('Carril derecho', e.l && e.l[1] ? itemLabel(e.l[1]) : 'vacío');
       break;
     case 'underground':
       h += row('Tipo', e.mode === 'in' ? 'Entrada' : 'Salida') +
