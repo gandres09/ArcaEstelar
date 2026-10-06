@@ -478,8 +478,7 @@ function inspectorContent(e) {
       if (def.power) h += powerRow(e);
       if (e.type === 'miner') {
         h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'quemando' : '<span class="bad">sin combustible</span>')) +
-          '<div class="actions"><button type="button" data-act="fuel">Cargar carbón</button>' +
-          (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
+          fuelPicker(e, 10);
       }
       break;
     }
@@ -492,9 +491,11 @@ function inspectorContent(e) {
       if (r) h += bar(e.prog / r.time);
       h += '<div class="recipes-note muted">Funde: ' + Object.entries(SMELT).filter(([, r]) => hasTech(r.tech))
         .map(([k, r]) => `${r.n}×${itemImg(k, 'ico-s')}→${itemImg(r.out, 'ico-s')}`).join(' ') + '</div>';
-      h += '<div class="actions">';
-      if (e.type === 'furnace') h += '<button type="button" data-act="fuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '');
-      h += '<button type="button" data-act="feed">Cargar mineral</button><button type="button" data-act="collect">Recoger</button></div>';
+      h += pickRow(e, 'Cargar mineral', Object.keys(SMELT).filter((k) => hasTech(SMELT[k].tech)), 50,
+        e.inCount ? 'Para cambiar de mineral, primero sacá el que tiene adentro.' : '');
+      if (e.type === 'furnace') h += fuelPicker(e, 10);
+      h += '<div class="actions">' + (e.inCount ? `<button type="button" data-act="ctake" data-v="${e.inType}">Sacar mineral</button>` : '') +
+        '<button type="button" data-act="collect">Recoger</button></div>';
       break;
     }
     case 'assembler': case 'assembler2': case 'chem': {
@@ -583,7 +584,7 @@ function inspectorContent(e) {
     case 'generator':
       h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
-        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
+        fuelPicker(e, 20);
       break;
     case 'receiver':
       h += '<p>Todo lo que le llega va al inventario del Núcleo.</p>';
@@ -645,7 +646,7 @@ function inspectorContent(e) {
       h += row('Agua', `${e.water} / 20`) +
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Vapor listo', e.out) + row('Estado', e.active ? '<span class="ok">hirviendo</span>' : e.water ? 'esperando combustible' : '<span class="bad">sin agua</span>') +
-        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
+        fuelPicker(e, 20);
       break;
     case 'steam_engine':
       h += row('Vapor', `${e.steam} / 10`) + row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
@@ -769,6 +770,28 @@ function updateInspector() {
 
 function moveToInv(item, n) { giveItem(item, n); }
 
+// Fila para elegir QUÉ cargar: los objetos que tenés, con su cantidad.
+// Los que la máquina no acepta ahora salen apagados.
+function pickRow(e, title, items, max, hint) {
+  const mine = items.filter((k) => avail(k) >= 1);
+  let h = `<div class="pick-title">${title} <span class="muted">(tocá el que quieras)</span></div>`;
+  if (!mine.length) return h + `<p class="muted small">No tenés ${items.map((k) => ITEMS[k].name.toLowerCase()).slice(0, 4).join(', ')}${items.length > 4 ? '…' : ''}.</p>`;
+  let off = false;
+  h += '<div class="picker">' + mine.map((k) => {
+    const ok = accept(e, k, null, true);
+    if (!ok) off = true;
+    return `<button type="button" class="pick stack" data-act="put" data-v="${k}" data-max="${max}" ${ok ? '' : 'disabled'} title="${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(avail(k))}</span></button>`;
+  }).join('') + '</div>';
+  if (off && hint) h += `<p class="muted small">${hint}</p>`;
+  return h;
+}
+
+function fuelPicker(e, max) {
+  return pickRow(e, 'Cargar combustible', ['coal', 'wood', 'solid_fuel'], max,
+    'No se mezclan combustibles distintos y hay un máximo: si querés otro, sacá el que tiene.') +
+    (e.fuel ? '<div class="actions"><button type="button" data-act="unfuel">Sacar combustible</button></div>' : '');
+}
+
 // Contenido de un cofre (tocá para sacar) y lo que tenés para poner
 function chestPicker(e) {
   const def = BUILDINGS[e.type];
@@ -806,6 +829,7 @@ function withdrawFrom(e, k) {
   if (e.outType === k && e.outCount) { const n = e.outCount; e.outCount = 0; e.outType = null; giveItem(k, n); return n; }
   if (e.recipe && RECIPES[e.recipe].out === k && e.out) { const n = e.out; e.out = 0; giveItem(k, n); return n; }
   if (e.fuelType === k && e.fuel) { const n = e.fuel; e.fuel = 0; e.fuelType = null; giveItem(k, n); return n; }
+  if (e.inType === k && e.inCount) { const n = e.inCount; e.inCount = 0; e.inType = null; e.prog = 0; giveItem(k, n); return n; }
   return 0;
 }
 
@@ -911,6 +935,11 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       if (e.fuel) { giveItem(e.fuelType, e.fuel); e.fuel = 0; e.fuelType = null; }
       break;
     case 'ctake': withdrawFrom(e, v); break;
+    case 'put': {
+      const n = depositTo(e, v, +b.dataset.max || 50);
+      if (!n) toast('No acepta más de eso.');
+      break;
+    }
     case 'cput': if (!depositTo(e, v)) toast('No entra más.'); break;
     case 'gfuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 20);
