@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  Dibujo: objetos, edificios, mapa, superposiciones y despegue
+//  Dibujo: objetos, edificios, enemigos, noche y vistas previas
 // =====================================================================
 
 const canvas = document.getElementById('game');
@@ -9,13 +9,14 @@ const view = { x: 0, y: 0, zoom: 1 };
 let dpr = 1, cw = 0, ch = 0;
 let time = 0;
 
-const LOD_ZOOM = 0.5; // por debajo de este zoom se dibuja simplificado
+const LOD_ZOOM = 0.45; // por debajo de este zoom se dibuja simplificado
 
 const TYPE_COLOR = {
   hub: '#f0a742', belt: '#59616d', fastbelt: '#c9a640', expressbelt: '#4aa3df', underground: '#c98a2e',
-  splitter: '#8a63c4', sorter: '#2fa59a', chest: '#8b5a2b', miner: '#c9a227', eminer: '#3e7cb1',
-  furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5',
-  generator: '#5d6570', pole: '#a8743a', solar: '#2c4a7a', shipyard: '#6b737d',
+  splitter: '#8a63c4', sorter: '#2fa59a', chest: '#8b5a2b', miner: '#c9a227', eminer: '#3e7cb1', pumpjack: '#8e7fa8',
+  furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
+  generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
+  wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
 };
 
 function drawItem(g, item, x, y, s) {
@@ -50,6 +51,14 @@ function drawItem(g, item, x, y, s) {
     case 'cable':
       g.arc(x, y, s, 0, Math.PI * 2);
       break;
+    case 'barrel': g.rect(x - s * 0.75, y - s, s * 1.5, s * 2); break;
+    case 'battery': g.rect(x - s * 0.6, y - s * 0.9, s * 1.2, s * 1.9); break;
+    case 'ammo': g.rect(x - s, y - s * 0.6, s * 2, s * 1.2); break;
+    case 'flask':
+      g.moveTo(x - s * 0.3, y - s); g.lineTo(x + s * 0.3, y - s); g.lineTo(x + s * 0.3, y - s * 0.3);
+      g.lineTo(x + s, y + s * 0.8); g.lineTo(x - s, y + s * 0.8); g.lineTo(x - s * 0.3, y - s * 0.3);
+      g.closePath();
+      break;
     default: g.arc(x, y, s, 0, Math.PI * 2);
   }
   g.fill(); g.stroke();
@@ -61,6 +70,17 @@ function drawItem(g, item, x, y, s) {
   } else if (it.shape === 'cable') {
     g.strokeStyle = '#7a3f12'; g.lineWidth = 1;
     g.beginPath(); g.arc(x, y, s * 0.55, 0, Math.PI * 2); g.stroke();
+  } else if (it.shape === 'barrel') {
+    g.strokeStyle = '#8a6a4a'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x - s * 0.75, y - s * 0.4); g.lineTo(x + s * 0.75, y - s * 0.4);
+    g.moveTo(x - s * 0.75, y + s * 0.4); g.lineTo(x + s * 0.75, y + s * 0.4); g.stroke();
+  } else if (it.shape === 'battery') {
+    g.fillStyle = '#444'; g.fillRect(x - s * 0.25, y - s * 1.15, s * 0.5, s * 0.3);
+  } else if (it.shape === 'ammo') {
+    g.fillStyle = '#7a5a10';
+    for (let i = -1; i <= 1; i++) g.fillRect(x + i * s * 0.55 - s * 0.15, y - s * 0.45, s * 0.3, s * 0.9);
+  } else if (it.shape === 'flask') {
+    g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(x - s * 0.15, y - s * 0.1, s * 0.3, s * 0.6);
   } else if (it.shape === 'part') {
     g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.arc(x, y, s * 0.35, 0, Math.PI * 2); g.fill();
   }
@@ -114,7 +134,6 @@ function drawProgress(g, x0, y0, frac, color = '#5cc47a') {
   g.fillRect(x0 + 5, y0 + TILE - 7, (TILE - 10) * Math.min(1, frac), 3);
 }
 
-// Dibuja un edificio con su esquina superior izquierda en (x0, y0)
 function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
@@ -204,9 +223,13 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
-    case 'assembler': case 'assembler2': {
-      const adv = e.type === 'assembler2';
-      box(g, x0, y0, adv ? '#55307a' : '#35537e', adv ? '#e0b84a' : '#7ea4d6');
+    case 'assembler': case 'assembler2': case 'chem': {
+      const adv = e.type === 'assembler2', chem = e.type === 'chem';
+      box(g, x0, y0, chem ? '#2f5e3a' : adv ? '#55307a' : '#35537e', chem ? '#9be0a8' : adv ? '#e0b84a' : '#7ea4d6');
+      if (chem) {
+        g.fillStyle = '#9be0a8';
+        g.beginPath(); g.arc(x0 + 8, y0 + 8, 3, 0, Math.PI * 2); g.arc(x0 + TILE - 8, y0 + 8, 3, 0, Math.PI * 2); g.fill();
+      }
       if (e.recipe) drawItem(g, RECIPES[e.recipe].out, cx, cy, 6);
       else {
         g.fillStyle = '#cfe0ff'; g.font = 'bold 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -236,6 +259,104 @@ function drawBuilding(g, e, x0, y0, t) {
       g.fillStyle = '#f0d44d';
       g.font = 'bold 10px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('⚡', x0 + 8, y0 + 9);
+      break;
+    }
+
+
+    case 'pumpjack': {
+      box(g, x0, y0, '#3a3540', '#8e7fa8');
+      const a = e.active ? Math.sin(t * 4) * 0.35 : 0;
+      g.save();
+      g.translate(cx, cy + 4);
+      g.fillStyle = '#5b5266';
+      g.fillRect(-2, -4, 4, 10);
+      g.rotate(a);
+      g.fillStyle = '#c9a227';
+      g.fillRect(-12, -7, 24, 4);
+      g.fillStyle = '#2a2a2a';
+      g.beginPath(); g.arc(-12, -5, 4, 0, Math.PI * 2); g.fill();
+      g.restore();
+      drawArrow(g, cx, cy, e.dir, '#e3d6ff');
+      break;
+    }
+
+    case 'lab': {
+      box(g, x0, y0, '#2c4a5e', '#7fc4e8');
+      const k = e.active ? 0.5 + 0.5 * Math.sin(t * 6 + e.x) : 0.2;
+      g.fillStyle = `rgba(120,210,255,${0.35 + k * 0.5})`;
+      g.beginPath(); g.arc(cx, cy, 8, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#d8f2ff'; g.lineWidth = 1.2;
+      g.beginPath(); g.ellipse(cx, cy, 11, 4, t * (e.active ? 2 : 0), 0, Math.PI * 2); g.stroke();
+      break;
+    }
+
+    case 'bigpole':
+      g.strokeStyle = '#8a95a1'; g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(cx - 9, y0 + TILE - 3); g.lineTo(cx, y0 + 3); g.lineTo(cx + 9, y0 + TILE - 3);
+      g.moveTo(cx - 6, cy + 4); g.lineTo(cx + 6, cy + 4);
+      g.moveTo(cx - 11, y0 + 8); g.lineTo(cx + 11, y0 + 8);
+      g.stroke();
+      break;
+
+    case 'accumulator': {
+      box(g, x0, y0, '#3b4048', '#9aa3ad');
+      const def = BUILDINGS.accumulator;
+      const f = (e.stored || 0) / def.capacity;
+      g.fillStyle = '#1d2026';
+      g.fillRect(cx - 5, y0 + 6, 10, TILE - 12);
+      g.fillStyle = f > 0.2 ? '#5cc47a' : '#e0a040';
+      g.fillRect(cx - 4, y0 + 7 + (TILE - 14) * (1 - f), 8, (TILE - 14) * f);
+      break;
+    }
+
+    case 'lamp':
+      g.fillStyle = '#4a4f57';
+      g.fillRect(cx - 5, cy - 2, 10, 12);
+      g.fillStyle = e.lit ? '#fff3b0' : '#8a8a7a';
+      g.beginPath(); g.arc(cx, cy - 3, 7, 0, Math.PI * 2); g.fill();
+      break;
+
+    case 'wall':
+      g.fillStyle = '#8f8676';
+      g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
+      g.fillStyle = '#6f6758';
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) g.fillRect(x0 + 2 + c * 15 + (r % 2) * 7, y0 + 2 + r * 7.5, 13, 6);
+      break;
+
+    case 'turret': case 'laser': {
+      const laser = e.type === 'laser';
+      g.fillStyle = laser ? '#3a3f52' : '#4a5040';
+      g.beginPath(); g.arc(cx, cy, 13, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = laser ? '#9fa8ff' : '#b8c08a'; g.lineWidth = 1.5; g.stroke();
+      g.save();
+      g.translate(cx, cy);
+      g.rotate(e.aim || -Math.PI / 2);
+      g.fillStyle = laser ? '#cfd4ff' : '#d8d2b0';
+      g.fillRect(0, -2.5, 15, 5);
+      g.beginPath(); g.arc(0, 0, 6, 0, Math.PI * 2); g.fill();
+      g.restore();
+      if (!laser && e.id && !e.ammo && !e.shots) {
+        g.fillStyle = '#e5534b'; g.font = 'bold 10px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText('sin balas', cx, y0 + TILE - 3);
+      }
+      break;
+    }
+
+    case 'nest': {
+      const s = TILE * 2, pulse = 1 + Math.sin(t * 2 + e.x) * 0.05;
+      const ncx = x0 + s / 2, ncy = y0 + s / 2;
+      g.fillStyle = '#4a2a3e';
+      g.beginPath(); g.ellipse(ncx, ncy, 27 * pulse, 23 * pulse, 0.3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#7a3b5e';
+      for (let i = 0; i < 6; i++) {
+        const a = i * 1.05 + e.x;
+        g.beginPath(); g.arc(ncx + Math.cos(a) * 14, ncy + Math.sin(a) * 11, 7, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = '#1a0d14';
+      g.beginPath(); g.ellipse(ncx, ncy, 8, 6, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#e0a3c8';
+      g.beginPath(); g.arc(ncx - 3, ncy - 1, 1.5, 0, Math.PI * 2); g.arc(ncx + 3, ncy - 1, 1.5, 0, Math.PI * 2); g.fill();
       break;
     }
 
@@ -279,20 +400,28 @@ function drawBuilding(g, e, x0, y0, t) {
   }
 
   // Aviso de falta de energía
-  if (def && def.power && e.id) {
+  if (def && def.power && e.id && e.type !== 'laser' && e.type !== 'lamp') {
     const net = nets[e._net];
-    const noPower = !net || (net.prevDemand > 0 && net.prevCap === 0);
-    const low = net && net.sat < 1 && !noPower;
+    const noPower = !net || net.sat < 0.05;
+    const low = !noPower && net.sat < 0.95;
     if ((noPower || low) && Math.floor(t * 2) % 2 === 0) {
       g.fillStyle = noPower ? '#e5534b' : '#f0c040';
       g.font = 'bold 14px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('⚡', cx, cy);
     }
   }
-  if ((e.type === 'miner' || e.type === 'eminer') && e.depleted && !oreAt(e.x, e.y) && e.id) {
+  if ((e.type === 'miner' || e.type === 'eminer' || e.type === 'pumpjack') && e.depleted && !oreAt(e.x, e.y) && e.id) {
     g.fillStyle = '#e5534b';
     g.font = 'bold 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('∅', cx, cy);
+  }
+  // Barra de vida si está dañado
+  if (e.hp !== undefined && e.id) {
+    const s = sizeOf(e.type) * TILE, f = Math.max(0, e.hp / maxHp(e));
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(x0 + 3, y0 - 6, s - 6, 4);
+    g.fillStyle = f > 0.5 ? '#5cc47a' : f > 0.25 ? '#f0c040' : '#e5534b';
+    g.fillRect(x0 + 3, y0 - 6, (s - 6) * f, 4);
   }
 }
 
@@ -384,8 +513,8 @@ function shipProgressOf(e) {
 }
 
 function drawItemsOn(g, e) {
-  const cx = e.x * TILE + TILE / 2, cy = e.y * TILE + TILE / 2;
   if (!e.item) return;
+  const cx = e.x * TILE + TILE / 2, cy = e.y * TILE + TILE / 2;
   if (isBelt(e.type) || (e.type === 'underground' && (e.mode === 'out' || e.prog < 0.5))) {
     const [dx, dy] = DIRS[e.dir];
     const k = (Math.min(e.prog, 1) - 0.5) * TILE;
@@ -395,12 +524,126 @@ function drawItemsOn(g, e) {
   }
 }
 
+// --------------------------- Bichos y efectos ---------------------------
+
+function drawBiter(g, b, t) {
+  const k = BITERS[b.kind];
+  const px = b.x * TILE, py = b.y * TILE, s = k.size;
+  g.save();
+  g.translate(px, py);
+  g.rotate(b.ang || 0);
+  const walk = Math.sin(t * 18 + px) * 0.5;
+  g.strokeStyle = '#2a1a10'; g.lineWidth = 1.5;
+  g.beginPath();
+  for (let i = -1; i <= 1; i++) {
+    const w = i % 2 ? walk : -walk;
+    g.moveTo(i * s * 0.4, 0); g.lineTo(i * s * 0.4 + w * 3, -s * 0.9);
+    g.moveTo(i * s * 0.4, 0); g.lineTo(i * s * 0.4 - w * 3, s * 0.9);
+  }
+  g.stroke();
+  g.fillStyle = k.color;
+  g.beginPath(); g.ellipse(0, 0, s, s * 0.6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#1a0f08';
+  g.beginPath(); g.ellipse(s * 0.75, 0, s * 0.4, s * 0.35, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ff5a3c';
+  g.beginPath(); g.arc(s * 0.95, -s * 0.15, 1.2, 0, Math.PI * 2); g.arc(s * 0.95, s * 0.15, 1.2, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
+const effects = []; // { x, y, t, life, kind, scale, color }
+
+function spawnExplosion(x, y, scale = 1) {
+  effects.push({ x, y, t: 0, life: 0.6, kind: 'boom', scale });
+}
+function spawnSplat(x, y, color) {
+  effects.push({ x, y, t: 0, life: 4, kind: 'splat', scale: 1, color });
+}
+
+function drawEffects(g, dt) {
+  for (const f of effects) {
+    f.t += dt;
+    const k = f.t / f.life;
+    if (f.kind === 'boom') {
+      g.fillStyle = `rgba(255,${180 - k * 120},60,${1 - k})`;
+      g.beginPath(); g.arc(f.x * TILE, f.y * TILE, (10 + k * 30) * f.scale, 0, Math.PI * 2); g.fill();
+    } else {
+      g.globalAlpha = Math.max(0, 0.6 * (1 - k));
+      g.fillStyle = f.color;
+      g.beginPath(); g.ellipse(f.x * TILE, f.y * TILE, 7, 5, f.x, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+  }
+  for (let i = effects.length - 1; i >= 0; i--) if (effects[i].t >= effects[i].life) effects.splice(i, 1);
+}
+
+function drawShots(g) {
+  for (const s of shots) {
+    g.strokeStyle = s.laser ? 'rgba(255,60,90,0.9)' : 'rgba(255,230,140,0.9)';
+    g.lineWidth = s.laser ? 2.5 : 1.2;
+    g.beginPath();
+    g.moveTo(s.x1 * TILE, s.y1 * TILE);
+    g.lineTo(s.x2 * TILE, s.y2 * TILE);
+    g.stroke();
+  }
+}
+
+// --------------------------- Noche ---------------------------
+
+const lightCanvas = document.createElement('canvas');
+
+function lightRadius(e) {
+  switch (e.type) {
+    case 'lamp': return e.lit ? 7 : 0;
+    case 'hub': return 6;
+    case 'shipyard': return 5;
+    case 'furnace': case 'efurnace': case 'generator': return e.active ? 1.6 : 0;
+    case 'laser': case 'turret': return 1.2;
+    default: return 0;
+  }
+}
+
+function drawNight(ctx2, visible) {
+  const dark = darkness();
+  if (dark < 0.02) return;
+  const scale = 0.5;
+  const lw = Math.ceil(canvas.width * scale), lh = Math.ceil(canvas.height * scale);
+  if (lightCanvas.width !== lw || lightCanvas.height !== lh) { lightCanvas.width = lw; lightCanvas.height = lh; }
+  const g = lightCanvas.getContext('2d');
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, lw, lh);
+  g.fillStyle = `rgba(6,10,32,${dark})`;
+  g.fillRect(0, 0, lw, lh);
+  g.globalCompositeOperation = 'destination-out';
+  const k = view.zoom * dpr * scale;
+  for (const e of visible) {
+    const r = lightRadius(e);
+    if (!r) continue;
+    const s = sizeOf(e.type) / 2;
+    const sx = ((e.x + s) * TILE - view.x) * k + lw / 2, sy = ((e.y + s) * TILE - view.y) * k + lh / 2;
+    const rad = r * TILE * k;
+    const grd = g.createRadialGradient(sx, sy, 0, sx, sy, rad);
+    grd.addColorStop(0, 'rgba(0,0,0,1)');
+    grd.addColorStop(0.6, 'rgba(0,0,0,0.7)');
+    grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd;
+    g.fillRect(sx - rad, sy - rad, rad * 2, rad * 2);
+  }
+  ctx2.setTransform(1, 0, 0, 1, 0, 0);
+  ctx2.imageSmoothingEnabled = true;
+  ctx2.drawImage(lightCanvas, 0, 0, canvas.width, canvas.height);
+}
+
 // --------------------------- Cuadro principal ---------------------------
 
 let launchAnim = null; // { yard, t }
 const particles = [];
+let showPollution = false;
+let lastRender = 0;
 
 function render(ctx) {
+  const now = performance.now();
+  const rdt = Math.min(0.1, (now - (lastRender || now)) / 1000);
+  lastRender = now;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#0d1014';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -411,7 +654,8 @@ function render(ctx) {
     shakeX = (Math.random() - 0.5) * k; shakeY = (Math.random() - 0.5) * k;
   }
   const z = view.zoom * dpr;
-  ctx.setTransform(z, 0, 0, z, dpr * (cw / 2 - view.x * view.zoom + shakeX), dpr * (ch / 2 - view.y * view.zoom + shakeY));
+  const worldTransform = () => ctx.setTransform(z, 0, 0, z, dpr * (cw / 2 - view.x * view.zoom + shakeX), dpr * (ch / 2 - view.y * view.zoom + shakeY));
+  worldTransform();
 
   const vx0 = view.x - cw / 2 / view.zoom, vx1 = view.x + cw / 2 / view.zoom;
   const vy0 = view.y - ch / 2 / view.zoom, vy1 = view.y + ch / 2 / view.zoom;
@@ -430,13 +674,14 @@ function render(ctx) {
     }
   }
 
-  // Áreas de energía al elegir un edificio eléctrico o un poste
-  const showPower = tool !== 'hand' && tool !== 'delete' && (BUILDINGS[tool]?.power || BUILDINGS[tool]?.output || tool === 'pole');
-  if (showPower) {
+  // Zonas de energía al elegir algo eléctrico
+  const tdef = BUILDINGS[tool];
+  if (tdef && (tdef.power || tdef.output || tdef.capacity || tdef.supply)) {
     ctx.fillStyle = 'rgba(80,160,255,0.12)';
     for (const e of S.entities) {
-      if (e.type !== 'pole') continue;
-      ctx.fillRect((e.x - POLE_SUPPLY) * TILE, (e.y - POLE_SUPPLY) * TILE, TILE * (POLE_SUPPLY * 2 + 1), TILE * (POLE_SUPPLY * 2 + 1));
+      if (!isPole(e)) continue;
+      const sup = BUILDINGS[e.type].supply;
+      ctx.fillRect((e.x - sup) * TILE, (e.y - sup) * TILE, TILE * (sup * 2 + 1), TILE * (sup * 2 + 1));
     }
   }
 
@@ -452,65 +697,108 @@ function render(ctx) {
       ctx.fillStyle = TYPE_COLOR[e.type] || '#999';
       ctx.fillRect(e.x * TILE + 2, e.y * TILE + 2, s * TILE - 4, s * TILE - 4);
     }
+    ctx.fillStyle = '#ff5a3c';
+    for (const b of S.biters) ctx.fillRect(b.x * TILE - 6, b.y * TILE - 6, 12, 12);
   } else {
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
+    for (const b of S.biters) {
+      if (b.x * TILE < vx0 - 20 || b.x * TILE > vx1 + 20 || b.y * TILE < vy0 - 20 || b.y * TILE > vy1 + 20) continue;
+      drawBiter(ctx, b, time);
+    }
   }
+  drawEffects(ctx, rdt);
+  drawShots(ctx);
 
   // Cables de los postes
-  ctx.strokeStyle = 'rgba(30,20,10,0.55)';
   ctx.lineWidth = lod ? 2 : 1.2;
-  ctx.beginPath();
-  for (const [x1, y1, x2, y2] of wires) {
-    const ax = x1 * TILE + TILE / 2, ay = y1 * TILE + 6, bx = x2 * TILE + TILE / 2, by = y2 * TILE + 6;
-    ctx.moveTo(ax, ay);
-    ctx.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + 10, bx, by);
+  for (const big of [false, true]) {
+    ctx.strokeStyle = big ? 'rgba(160,170,190,0.6)' : 'rgba(30,20,10,0.55)';
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2, isBig] of wires) {
+      if (!!isBig !== big) continue;
+      const ax = x1 * TILE + TILE / 2, ay = y1 * TILE + 6, bx = x2 * TILE + TILE / 2, by = y2 * TILE + 6;
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + 10, bx, by);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
 
+  if (showPollution) drawPollution(ctx, vx0, vy0, vx1, vy1);
+
+  drawNight(ctx, visible);
+  worldTransform();
   drawOverlays(ctx);
   drawLaunch(ctx);
 }
 
-function drawOverlays(ctx) {
-  if (!hover || panning || launchAnim) return;
-  if (tool === 'hand' || tool === 'delete') {
-    const e = at(hover.x, hover.y);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = tool === 'delete' ? (e && e.type !== 'hub' ? '#e5534b' : 'rgba(229,83,75,0.4)') : 'rgba(255,255,255,0.4)';
-    if (e) {
-      const s = sizeOf(e.type);
-      ctx.strokeRect(e.x * TILE + 1, e.y * TILE + 1, TILE * s - 2, TILE * s - 2);
-    } else {
-      ctx.strokeRect(hover.x * TILE + 1, hover.y * TILE + 1, TILE - 2, TILE - 2);
+function drawPollution(ctx, vx0, vy0, vx1, vy1) {
+  const cs = POLL_CELL * TILE;
+  for (let cy = Math.max(0, Math.floor(vy0 / cs)); cy <= Math.min(PH - 1, Math.floor(vy1 / cs)); cy++) {
+    for (let cx = Math.max(0, Math.floor(vx0 / cs)); cx <= Math.min(PW - 1, Math.floor(vx1 / cs)); cx++) {
+      const p = pollution[cy * PW + cx];
+      if (p < 1) continue;
+      ctx.fillStyle = `rgba(150,70,30,${Math.min(0.5, 0.06 + p / 300)})`;
+      ctx.fillRect(cx * cs, cy * cs, cs, cs);
     }
-  } else {
-    const s = sizeOf(tool);
-    const ax = hover.x - Math.floor(s / 2), ay = hover.y - Math.floor(s / 2);
-    const res = canPlace(tool, ax, ay);
-    const ghost = makeEntity(tool, ax, ay, toolDir);
-    if (tool === 'underground') ghost.mode = undergroundModeFor(ax, ay, toolDir);
-    ctx.globalAlpha = 0.55;
-    drawBuilding(ctx, ghost, ax * TILE, ay * TILE, time);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = res.ok ? '#5cc47a' : '#e5534b';
+  }
+}
+
+// Vistas previas: fantasmas de lo que se va a construir, áreas y marcas
+function drawOverlays(ctx) {
+  if (launchAnim) return;
+  const pv = getPreview();
+  if (pv.rect) {
+    const r = pv.rect;
+    ctx.fillStyle = r.fill;
+    ctx.fillRect(r.x0 * TILE, r.y0 * TILE, (r.x1 - r.x0 + 1) * TILE, (r.y1 - r.y0 + 1) * TILE);
+    ctx.strokeStyle = r.stroke;
     ctx.lineWidth = 2;
-    ctx.strokeRect(ax * TILE + 1, ay * TILE + 1, TILE * s - 2, TILE * s - 2);
-    if (tool === 'pole') {
+    ctx.setLineDash([8, 6]);
+    ctx.strokeRect(r.x0 * TILE + 1, r.y0 * TILE + 1, (r.x1 - r.x0 + 1) * TILE - 2, (r.y1 - r.y0 + 1) * TILE - 2);
+    ctx.setLineDash([]);
+  }
+  for (const gh of pv.ghosts) {
+    const s = sizeOf(gh.type);
+    const ghost = makeEntity(gh.type, gh.x, gh.y, gh.dir);
+    if (gh.type === 'underground') ghost.mode = undergroundModeFor(gh.x, gh.y, gh.dir);
+    if (gh.recipe) ghost.recipe = gh.recipe;
+    ctx.globalAlpha = 0.55;
+    drawBuilding(ctx, ghost, gh.x * TILE, gh.y * TILE, time);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = gh.ok ? '#5cc47a' : '#e5534b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(gh.x * TILE + 1, gh.y * TILE + 1, TILE * s - 2, TILE * s - 2);
+    if (gh.type === 'pole' || gh.type === 'bigpole') {
+      const d = BUILDINGS[gh.type];
       ctx.strokeStyle = 'rgba(120,180,255,0.6)';
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
-      ctx.arc(ax * TILE + TILE / 2, ay * TILE + TILE / 2, POLE_REACH * TILE, 0, Math.PI * 2);
+      ctx.arc(gh.x * TILE + TILE / 2, gh.y * TILE + TILE / 2, d.reach * TILE, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(80,160,255,0.18)';
-      ctx.fillRect((ax - POLE_SUPPLY) * TILE, (ay - POLE_SUPPLY) * TILE, TILE * 5, TILE * 5);
+      ctx.fillRect((gh.x - d.supply) * TILE, (gh.y - d.supply) * TILE, TILE * (d.supply * 2 + 1), TILE * (d.supply * 2 + 1));
     }
-    if (tool === 'underground') {
-      const [dx, dy] = DIRS[toolDir];
+    if (gh.type === 'turret' || gh.type === 'laser') {
+      ctx.strokeStyle = 'rgba(255,120,90,0.5)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.arc(gh.x * TILE + TILE / 2, gh.y * TILE + TILE / 2, BUILDINGS[gh.type].range * TILE, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (gh.type === 'underground' && pv.ghosts.length === 1) {
+      const [dx, dy] = DIRS[gh.dir];
       ctx.fillStyle = 'rgba(201,138,46,0.18)';
-      for (let k = 1; k <= UNDERGROUND_REACH + 1; k++) ctx.fillRect((ax + dx * k) * TILE, (ay + dy * k) * TILE, TILE, TILE);
+      for (let k = 1; k <= UNDERGROUND_REACH + 1; k++) ctx.fillRect((gh.x + dx * k) * TILE, (gh.y + dy * k) * TILE, TILE, TILE);
     }
+  }
+  for (const m of pv.marks) {
+    ctx.strokeStyle = m.color;
+    ctx.lineWidth = 3;
+    const s = (m.size || 1) * TILE;
+    ctx.strokeRect(m.x * TILE + 1.5, m.y * TILE + 1.5, s - 3, s - 3);
   }
   if (handMining) {
     const { x, y, prog } = handMining;
@@ -527,6 +815,7 @@ function startLaunch(yard) {
   launchAnim = { yard, t: 0 };
   view.x = (yard.x + 2.5) * TILE;
   view.y = (yard.y + 2.5) * TILE;
+  view.zoom = Math.max(view.zoom, 0.8);
 }
 
 function updateLaunch(dt) {
@@ -546,7 +835,7 @@ function updateLaunch(dt) {
   if (a.t > 8) {
     launchAnim = null;
     particles.length = 0;
-    S.launched = true;
+    S.launched = (S.launched || 0) + 1;
     for (const k in SHIP) y.parts[k] = 0;
     save();
     showWin();
@@ -576,11 +865,21 @@ function renderMinimap(mc) {
   const sx = mc.width / W, sy = mc.height / H;
   g.imageSmoothingEnabled = false;
   g.drawImage(pixelMap, 0, 0, mc.width, mc.height);
+  if (showPollution) {
+    for (let i = 0; i < pollution.length; i++) {
+      const p = pollution[i];
+      if (p < 1) continue;
+      g.fillStyle = `rgba(150,70,30,${Math.min(0.6, 0.1 + p / 250)})`;
+      g.fillRect((i % PW) * POLL_CELL * sx, Math.floor(i / PW) * POLL_CELL * sy, POLL_CELL * sx, POLL_CELL * sy);
+    }
+  }
   for (const e of S.entities) {
     const s = sizeOf(e.type);
-    g.fillStyle = TYPE_COLOR[e.type] || '#fff';
+    g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(e.x * sx, e.y * sy, Math.max(1.5, s * sx), Math.max(1.5, s * sy));
   }
+  g.fillStyle = '#ff7a5c';
+  for (const b of S.biters) if (b.state === 'attack') g.fillRect(b.x * sx - 1, b.y * sy - 1, 2, 2);
   const vw = cw / view.zoom / TILE, vh = ch / view.zoom / TILE;
   g.strokeStyle = '#fff';
   g.lineWidth = 1;

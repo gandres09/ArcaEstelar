@@ -10,91 +10,159 @@ function resize() {
   canvas.height = Math.round(ch * dpr);
 }
 
-// Los campos que empiezan con _ son temporales (redes, pares de túneles)
+// Los campos que empiezan con _ son temporales (redes, pares de túneles, objetivos)
 const saveReplacer = (k, v) => (k.startsWith('_') ? undefined : v);
 
+function serialize() {
+  return JSON.stringify({ ...S, pollution: savePollution(), view: { ...view }, ore: encodeOre() }, saveReplacer);
+}
+
 function save() {
-  try {
-    const data = { ...S, view: { ...view }, ore: encodeOre() };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data, saveReplacer));
-  } catch (_) { /* sin almacenamiento disponible */ }
+  try { localStorage.setItem(SAVE_KEY, serialize()); return true; } catch (_) { return false; }
+}
+
+function loadFrom(raw) {
+  const data = JSON.parse(raw);
+  if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.entities)) throw new Error('version');
+  const { view: v, ore, pollution: poll, ...state } = data;
+  S = { ...newState(state.seed, state.peaceful), ...state };
+  generateMap(S.seed);
+  if (ore) decodeOre(ore);
+  loadPollution(poll);
+  if (v) Object.assign(view, v);
+  undoStack.length = 0;
+  rebuildGrid();
 }
 
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (!data || data.v !== 2 || !Array.isArray(data.entities)) return false;
-    const { view: v, ore, ...state } = data;
-    S = state;
-    generateMap(S.seed);
-    if (ore) decodeOre(ore);
-    if (v) Object.assign(view, v);
-    rebuildGrid();
+    loadFrom(raw);
     return true;
   } catch (_) {
     return false;
   }
 }
 
-function startNewGame(seed) {
-  S = newState(seed);
+function startNewGame(seed, peaceful) {
+  S = newState(seed, peaceful);
   generateMap(seed);
+  loadPollution(null);
   const cx = W >> 1, cy = H >> 1;
   const hub = makeEntity('hub', cx - 1, cy - 1);
   hub.id = S.nextId++;
   S.entities.push(hub);
   rebuildGrid();
+  generateNests(seed);
   view.x = cx * TILE + TILE / 2;
   view.y = cy * TILE + TILE / 2;
-  view.zoom = 0.9;
+  view.zoom = window.innerWidth < 760 ? 0.55 : 0.9;
   tool = 'hand';
   toolDir = 0;
+  undoStack.length = 0;
+  lastAttack = null;
+  clearPlans();
   closeInspector();
   save();
 }
+
+// --------------------------- Exportar e importar ---------------------------
+
+async function gzipBase64(text) {
+  if (typeof CompressionStream === 'undefined') return 'R:' + btoa(unescape(encodeURIComponent(text)));
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+  const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  let s = '';
+  for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return 'Z:' + btoa(s);
+}
+
+async function unpackCode(code) {
+  code = code.trim();
+  if (code.startsWith('R:')) return decodeURIComponent(escape(atob(code.slice(2))));
+  if (!code.startsWith('Z:')) throw new Error('formato');
+  const bin = atob(code.slice(2));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+
+async function exportGame() {
+  const code = await gzipBase64(serialize());
+  const box = $('export-text');
+  box.value = code;
+  box.hidden = false;
+  try {
+    await navigator.clipboard.writeText(code);
+    toast('Código copiado. Guardalo en algún lado (notas, mensaje) para recuperar la partida.');
+  } catch (_) {
+    box.focus();
+    box.select();
+    toast('Seleccioná el código y copialo.');
+  }
+}
+
+async function importGame() {
+  try {
+    const raw = await unpackCode($('import-text').value);
+    loadFrom(raw);
+    save();
+    closeModals();
+    toolbarKey = '';
+    updateUI();
+    toast('Partida cargada.');
+  } catch (_) {
+    toast('Ese código no es válido. Copialo completo, desde el principio hasta el final.');
+  }
+}
+
+// --------------------------- Arranque ---------------------------
 
 function init() {
   resize();
   window.addEventListener('resize', resize);
   if (!load()) {
-    startNewGame((Math.random() * 2 ** 31) | 0);
-    $('help').hidden = false;
+    startNewGame((Math.random() * 2 ** 31) | 0, false);
+    openModal('help');
   }
-  buildToolbar();
+  try {
+    const side = localStorage.getItem('mini-fabrica-side');
+    if (side === '1') document.body.classList.add('side-open');
+    if (side === '0') document.body.classList.add('side-closed');
+  } catch (_) { /* sin almacenamiento */ }
   buildInventory();
   updateUI();
 
+  $('btn-research').addEventListener('click', () => openModal('research'));
+  $('research-chip').addEventListener('click', () => openModal('research'));
+  $('btn-side').addEventListener('click', () => { toggleSide(); updateUI(); });
+  $('side-close').addEventListener('click', () => toggleSide(false));
+  $('btn-pollution').addEventListener('click', togglePollution);
+  $('btn-menu').addEventListener('click', () => openModal('menu'));
   $('btn-help').addEventListener('click', () => openModal('help'));
   $('btn-help-close').addEventListener('click', closeModals);
-  $('btn-research').addEventListener('click', () => openModal('research'));
   $('btn-stats').addEventListener('click', () => openModal('stats'));
   $('btn-win-close').addEventListener('click', closeModals);
+  $('btn-save').addEventListener('click', () => toast(save() ? '💾 Partida guardada.' : 'No se pudo guardar en este navegador. Usá “Copiar código de partida”.'));
+  $('btn-export').addEventListener('click', exportGame);
+  $('btn-import-open').addEventListener('click', () => { $('import-box').hidden = false; $('import-text').focus(); });
+  $('btn-import').addEventListener('click', importGame);
+  $('btn-new').addEventListener('click', () => openModal('newgame'));
+  $('btn-new-go').addEventListener('click', () => {
+    startNewGame((Math.random() * 2 ** 31) | 0, $('opt-peaceful').checked);
+    toolbarKey = '';
+    updateUI();
+    openModal('help');
+  });
+  $('alert').addEventListener('click', () => {
+    if (lastAttack) { view.x = (lastAttack.x + 0.5) * TILE; view.y = (lastAttack.y + 0.5) * TILE; clampView(); }
+  });
   for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', closeModals);
   for (const m of document.querySelectorAll('.modal')) {
     m.addEventListener('pointerdown', (ev) => { if (ev.target === m) closeModals(); });
   }
-  // Confirmación en dos pasos (sin diálogos del navegador)
-  let newArmed = null;
-  $('btn-new').addEventListener('click', () => {
-    const b = $('btn-new');
-    if (!newArmed) {
-      b.textContent = '¿Seguro? Se borra todo';
-      b.classList.add('danger');
-      newArmed = setTimeout(() => { newArmed = null; b.textContent = 'Nuevo juego'; b.classList.remove('danger'); }, 3500);
-      return;
-    }
-    clearTimeout(newArmed);
-    newArmed = null;
-    b.textContent = 'Nuevo juego';
-    b.classList.remove('danger');
-    startNewGame((Math.random() * 2 ** 31) | 0);
-    updateUI();
-    $('help').hidden = false;
-  });
-  $('side-toggle').addEventListener('click', () => document.body.classList.toggle('side-hidden'));
-  if (window.innerWidth < 760) document.body.classList.add('side-hidden');
 
   window.addEventListener('beforeunload', save);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
@@ -116,7 +184,7 @@ function init() {
         if (o) { add(S.inv, o, 1); countProduced(o); } else handMining = null;
       }
     }
-    update(dt);
+    if (!launchAnim || launchAnim.t < 8) update(dt);
     updateLaunch(dt);
     render(ctx);
     requestAnimationFrame(frame);
@@ -125,8 +193,8 @@ function init() {
 
   // Acceso para pruebas desde la consola
   window.fabrica = {
-    get state() { return S; }, place, removeEntity, update, at, oreAt, startLaunch,
-    get nets() { return nets; },
+    get state() { return S; }, place, removeEntity, update, at, oreAt, startLaunch, setResearch,
+    get nets() { return nets; }, undo, addNest, spawnBiter, save, serialize,
   };
 }
 

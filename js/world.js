@@ -8,7 +8,7 @@ let oreAmt;    // Uint16Array: cantidad restante
 let pixelMap;  // canvas de W×H píxeles: un píxel por casilla (minimapa y zoom lejano)
 const CHUNK = 16;
 const chunkCache = new Map();
-const MAX_CHUNKS = 48;
+const MAX_CHUNKS = 60;
 
 function mulberry32(a) {
   return function () {
@@ -51,34 +51,53 @@ function generateMap(seed) {
   };
 
   // Yacimientos iniciales alrededor del Núcleo
-  patch(cx - 15, cy - 9, 5, 1, 900);
-  patch(cx + 15, cy - 9, 5, 2, 900);
-  patch(cx - 13, cy + 10, 4, 3, 900);
-  patch(cx + 13, cy + 10, 4, 4, 700);
+  patch(cx - 15, cy - 9, 5.5, 1, 1200);
+  patch(cx + 15, cy - 9, 5.5, 2, 1200);
+  patch(cx - 13, cy + 10, 4.5, 3, 1100);
+  patch(cx + 13, cy + 10, 4.5, 4, 900);
+  patch(cx - 2, cy + 22, 3.5, 1, 900);
 
-  // Garantizar cuarzo a media distancia y titanio lejos
+  // Recursos en anillos: más lejos, más raros y más ricos
   const ring = (id, dmin, dmax, count, rmin, rmax, rich) => {
     let placed = 0, tries = 0;
-    while (placed < count && tries++ < 500) {
+    while (placed < count && tries++ < 800) {
       const a = rnd() * Math.PI * 2, d = dmin + rnd() * (dmax - dmin);
       const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
       if (px < 4 || py < 4 || px > W - 5 || py > H - 5) continue;
-      patch(px, py, rmin + rnd() * (rmax - rmin), id, rich * (1 + d / 40));
+      patch(px, py, rmin + rnd() * (rmax - rmin), id, rich * (1 + d / 50));
       placed++;
     }
   };
-  ring(5, 24, 40, 3, 3, 5, 700);
-  ring(6, 48, 75, 4, 3.5, 6, 800);
+  ring(5, 28, 50, 4, 3, 5, 900);
+  ring(6, 60, 130, 7, 3.5, 6.5, 1000);
 
-  // Más yacimientos comunes por todo el mapa
-  for (let i = 0; i < 80; i++) {
+  // Pozos de petróleo: grupos de casillas sueltas
+  const oilField = (px, py) => {
+    for (let k = 0; k < 4 + Math.floor(rnd() * 4); k++) {
+      const x = Math.round(px + (rnd() - 0.5) * 9), y = Math.round(py + (rnd() - 0.5) * 9);
+      if (!inBounds(x, y)) continue;
+      oreType[y * W + x] = 7;
+      oreAmt[y * W + x] = 30000 + Math.floor(rnd() * 30000);
+    }
+  };
+  let fields = 0, tries = 0;
+  while (fields < 9 && tries++ < 500) {
+    const a = rnd() * Math.PI * 2, d = 32 + rnd() * 100;
+    const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
+    if (px < 6 || py < 6 || px > W - 7 || py > H - 7) continue;
+    oilField(px, py);
+    fields++;
+  }
+
+  // Yacimientos comunes por todo el mapa
+  for (let i = 0; i < 220; i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
-    if (d < 24) continue;
+    if (d < 26) continue;
     let id = 1 + Math.floor(rnd() * 4);
-    if (d > 30 && rnd() < 0.18) id = 5;
-    if (d > 50 && rnd() < 0.15) id = 6;
-    patch(px, py, 2.5 + rnd() * 4.5, id, 600 * (1 + d / 35));
+    if (d > 35 && rnd() < 0.15) id = 5;
+    if (d > 60 && rnd() < 0.15) id = 6;
+    patch(px, py, 2.5 + rnd() * 5, id, 700 * (1 + d / 45));
   }
 
   // Despejar la zona del Núcleo
@@ -149,6 +168,13 @@ function drawTile(g, x, y, px, py) {
   if (!o) return;
   g.fillStyle = ORE_GROUND[o];
   g.fillRect(px, py, TILE, TILE);
+  if (o === 'oil') {
+    g.fillStyle = '#050405';
+    g.beginPath(); g.ellipse(px + 16, py + 17, 11, 8, 0.3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(120,90,200,0.35)';
+    g.beginPath(); g.ellipse(px + 13, py + 14, 4, 2, 0.3, 0, Math.PI * 2); g.fill();
+    return;
+  }
   g.fillStyle = ITEMS[o].color;
   const amt = oreAmt[y * W + x];
   const dots = amt > 600 ? 5 : amt > 250 ? 4 : amt > 80 ? 3 : 2;
