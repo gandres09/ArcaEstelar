@@ -26,6 +26,7 @@ function loadFrom(raw) {
   const data = JSON.parse(raw);
   if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.entities)) throw new Error('version');
   const { view: v, ore, pollution: poll, fog, ...state } = data;
+  setMapSize(state.mapW || 320, state.mapH || 240);
   S = { ...newState(state.seed, state.peaceful, !!state.character), ...state };
   if (S.character && !S.player) S.player = newPlayer(W / 2 + 0.5, H / 2 + 3.5);
   generateMap(S.seed);
@@ -34,6 +35,13 @@ function loadFrom(raw) {
   prodHist = [];
   decodeFog(fog);
   if (v) Object.assign(view, v);
+  // Partidas de antes de las etapas que ya habían lanzado la nave: pasan a la etapa 2
+  if (S.launched && !S.stage) {
+    S.stage = 2;
+    explored.fill(1);
+    S.nestsAtStage2 = S.entities.filter((e) => e.type === 'nest').length;
+    S.cleanTime = 0;
+  }
   undoStack.length = 0;
   rebuildGrid();
 }
@@ -50,6 +58,7 @@ function load() {
 }
 
 function startNewGame(seed, peaceful, character = true) {
+  setMapSize(MAP_SIZE[0], MAP_SIZE[1]);
   S = newState(seed, peaceful, character);
   generateMap(seed);
   loadPollution(null);

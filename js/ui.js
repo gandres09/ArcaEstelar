@@ -286,7 +286,29 @@ function nextTech() {
 function currentHint() {
   const d = S.delivered;
   const hasMinerOn = (ore) => S.entities.some((e) => (e.type === 'miner' || e.type === 'eminer') && oreAt(e.x, e.y) === ore);
-  if (S.launched) return '🎉 ¡Escapaste del planeta! Seguí expandiendo la fábrica o armá otra nave.';
+  const st = stageOf();
+  if (st >= 4) return '🌌 ¡El Arca salió del sistema solar! Ganaste. Podés seguir jugando todo lo que quieras.';
+  if (st === 3) {
+    const sp = shipProgress('starport');
+    if (!S.techs.superconductors) return '<b>Etapa 3: escapar del sistema solar.</b> Investigá <b>Superconductores</b> (cobre + titanio + lubricante en la planta química) para empezar la cadena del Arca.';
+    if (!S.techs.star_science) return 'Con superconductores y procesadores cuánticos investigá <b>Ciencia estelar</b>: el pack nuevo para las últimas tecnologías.';
+    if (!S.techs.starship) return 'Seguí investigando hasta el <b>Arca estelar</b>: Fusión → Motor de curvatura → Arca. La <b>Planta de fusión</b> da 8 MW limpios.';
+    if (!sp.yard) return 'Construí el <b>Dique estelar</b> (7×7) para armar el Arca.';
+    if (shipReady(sp.yard)) return '¡El Arca está completa! Tocá el Dique estelar y apretá <b>Despegar</b>.';
+    return `Llevá las piezas del Arca al <b>Dique estelar</b> (${Math.floor(sp.frac * 100)} %): casco, motores de curvatura, núcleos de fusión, hábitats, escudos, navegación y combustible.`;
+  }
+  if (st === 2) {
+    const c = cleanupProgress();
+    const air = `Aire: polución ${Math.round(c.poll)} (meta: menos de ${CLEAN_TARGET} durante 5 min, llevás ${Math.floor((S.cleanTime || 0) / 60)}:${String((S.cleanTime || 0) % 60).padStart(2, '0')}).`;
+    if (!S.techs.air_purification) return `<b>Etapa 2: limpiar el planeta.</b> Desde la órbita ves todo el mapa. Investigá <b>Purificación del aire</b>${S.peaceful ? '' : ' y <b>Ataque orbital</b>'}. ${air}`;
+    if (!countType('purifier')) return `Poné <b>Purificadores de aire</b> con <b>filtros</b> donde más contaminás. Ayuda pasar a hornos eléctricos y energía solar, y los <b>bosques</b> absorben polución. ${air}`;
+    if (!S.peaceful && c.nests > 0) {
+      if (!S.techs.orbital_strike) return `Quedan <b>${c.nests} nidos</b>. Investigá <b>Ataque orbital</b> para borrarlos desde el espacio. ${air}`;
+      if (!countType('uplink')) return `Construí un <b>Enlace orbital</b> y cargale <b>cargas orbitales</b>: cada una borra el grupo de nidos más cercano. Quedan ${c.nests}. ${air}`;
+      return `Quedan <b>${c.nests} nidos</b>: mantené el Enlace orbital con cargas y energía. ${air}`;
+    }
+    return air + ' Cuando se cumpla, empieza la última etapa.';
+  }
   // Arranque con personaje: todo empieza a mano
   if (playerOn() && !S.entities.some((e) => e.type === 'miner' || e.type === 'eminer')) {
     const pv = (k) => S.pinv[k] || 0;
@@ -360,9 +382,11 @@ function updateTopbar() {
   $('research-chip').textContent = r ? `🔬 ${techName(r)} ${Math.floor(100 * S.research.progress / techUnits(r))} %` : '🔬 Elegí investigación';
   $('research-chip').classList.toggle('warn', !r && !!nextTech());
   $('alert').hidden = !(lastAttack && S.playTime - lastAttack.t < 30);
-  const sp = shipProgress();
-  $('ship-mini-bar').style.width = (sp.frac * 100).toFixed(1) + '%';
-  $('ship-mini-pct').textContent = Math.floor(sp.frac * 100) + '%';
+  const st = Math.min(3, stageOf()), frac = stageProgress();
+  $('stage-icon').textContent = STAGES[st - 1].icon;
+  $('ship-mini').title = `Etapa ${st} de 3: ${STAGES[st - 1].name}. ${STAGES[st - 1].desc}`;
+  $('ship-mini-bar').style.width = (frac * 100).toFixed(1) + '%';
+  $('ship-mini-pct').textContent = `${st}/3 · ${Math.floor(frac * 100)}%`;
 }
 
 // --------------------------- Inspector ---------------------------
@@ -528,7 +552,7 @@ function inspectorContent(e) {
       break;
     }
     case 'roboport': {
-      const near = S.ghosts.filter((g) => Math.max(Math.abs(g.x - e.x), Math.abs(g.y - e.y)) <= def.range).length;
+      const near = S.ghosts.filter((g) => Math.max(Math.abs(wdx(g.x - e.x)), Math.abs(wdy(g.y - e.y))) <= def.range).length;
       h += row('Robots', `${def.bots - (e.busy || 0)} libres de ${def.bots}`) + row('Planos en su zona', near) + powerRow(e) +
         '<p class="muted small">Construyen planos, reconstruyen lo que destruyen los bichos y reparan, a 25 casillas a la redonda. Los materiales salen del inventario.</p>';
       break;
@@ -580,6 +604,23 @@ function inspectorContent(e) {
     case 'lamp':
       h += row('Estado', e.lit ? 'encendida' : 'apagada (de día o sin energía)') + powerRow(e);
       break;
+    case 'fusion_plant':
+      h += row('Genera', `${BUILDINGS.fusion_plant.output / 1000} MW, sin combustible y sin polución`) + powerRow(e);
+      break;
+    case 'purifier': {
+      const cell = cellOf(e.x + 1, e.y + 1);
+      h += row('Filtros', `${e.filters} (+${Math.max(0, Math.round(e.left))} de polución en el actual)`) +
+        row('Limpiando', `${(e.rate || 0).toFixed(1)} por segundo`) + row('Polución en la zona', Math.round(pollution[cell])) + powerRow(e) +
+        '<div class="actions"><button type="button" data-act="pfeed">Cargar filtros</button></div>';
+      break;
+    }
+    case 'uplink': {
+      const c = cleanupProgress();
+      h += row('Cargas orbitales', `${e.charges} / 10`) + row('Recarga', e.cd > 0 ? `${Math.ceil(e.cd)} s` : 'lista') +
+        row('Nidos en el planeta', c.nests) + row('Ataques hechos', S.strikes || 0) + powerRow(e) +
+        '<div class="actions"><button type="button" data-act="ufeed">Cargar cargas orbitales</button></div>';
+      break;
+    }
     case 'turret':
       h += row('Munición', `${e.ammo} cargadores` + (e.shots ? ` + ${e.shots} balas` : '')) + row('Alcance', `${def.range} casillas`) +
         row('Daño', `${Math.round(def.dmg * weaponMult())} por disparo`) +
@@ -591,11 +632,12 @@ function inspectorContent(e) {
     case 'wall':
       h += '<p>Frena a los bichos mientras las torretas disparan.</p>';
       break;
-    case 'shipyard': {
-      h += '<p>Piezas de la nave:</p>';
-      for (const k in SHIP) {
+    case 'shipyard': case 'starport': {
+      const needs = shipNeeds(e);
+      h += `<p>Piezas ${e.type === 'starport' ? 'del Arca estelar' : 'de la nave'}:</p>`;
+      for (const k in needs) {
         const have = e.parts[k] || 0;
-        h += `<div class="row">${itemLabel(k)}<span>${have} / ${SHIP[k]}</span></div>` + bar(have / SHIP[k]);
+        h += `<div class="row">${itemLabel(k)}<span>${have} / ${needs[k]}</span></div>` + bar(have / needs[k]);
       }
       h += '<div class="actions"><button type="button" data-act="transfer">Transferir del inventario</button>';
       if (shipReady(e)) h += '<button type="button" class="primary" data-act="launch">🚀 ¡Despegar!</button>';
@@ -655,7 +697,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   const e = inspected;
   const v = b.dataset.v;
   // Mover objetos o desarmar exige estar cerca
-  const NEEDS_REACH = ['remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
+  const NEEDS_REACH = ['pfeed', 'ufeed', 'remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
   if (NEEDS_REACH.includes(b.dataset.act) && !inReach(Math.floor(e.x), Math.floor(e.y))) {
     toast('Está lejos: el personaje va para allá.');
     stopPlayerTasks();
@@ -712,6 +754,12 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       break;
     }
     case 'research': openModal('research'); return;
+    case 'pfeed':
+      if (!feedFrom(e, ['air_filter'], 20)) toast('No tenés filtros de aire. Se fabrican en una ensambladora (carbón + plástico + acero).');
+      break;
+    case 'ufeed':
+      if (!feedFrom(e, ['orbital_charge'], 10)) toast('No tenés cargas orbitales. Se fabrican en una ensambladora avanzada.');
+      break;
     case 'ammo': {
       const n = feedFrom(e, ['ammo'], 20);
       if (!n) toast('No tenés munición en el inventario. Fabricala en una ensambladora.');
@@ -727,11 +775,12 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       break;
     case 'transfer': {
       let moved = 0;
-      for (const k in SHIP) {
-        const n = Math.min(Math.floor(avail(k)), SHIP[k] - (e.parts[k] || 0));
+      const needs = shipNeeds(e);
+      for (const k in needs) {
+        const n = Math.min(Math.floor(avail(k)), needs[k] - (e.parts[k] || 0));
         if (n > 0) { takeItem(k, n); add(e.parts, k, n); moved += n; }
       }
-      toast(moved ? `Transferiste ${moved} piezas al astillero.` : 'No tenés piezas de la nave en el inventario.');
+      toast(moved ? `Transferiste ${moved} piezas.` : 'No tenés piezas en el inventario.');
       break;
     }
     case 'launch':
@@ -775,6 +824,7 @@ function renderResearch() {
       <div class="tech-head"><b>${t.infinite ? `♾️ ${techName(id)}` : t.name}</b>${done ? '<span class="ok">✔</span>' : ''}${t.infinite && infLevel(id) ? `<span class="ok small">nivel ${infLevel(id)} hecho</span>` : ''}</div>
       <div class="tech-desc">${t.desc}</div>
       <div class="tech-unlocks">${techUnlocksHtml(id)}</div>
+      ${t.stage && stageOf() < t.stage ? `<div class="muted small">🔒 Se desbloquea en la etapa ${t.stage}: ${STAGES[t.stage - 1].name}</div>` : ''}
       ${t.req.length && !done ? `<div class="muted small">Requiere: ${t.req.map((r) => `<span class="${S.techs[r] ? 'ok' : ''}">${TECHS[r].name}</span>`).join(', ')}</div>` : ''}
       ${done ? '' : `<div class="tech-cost">${t.packs.map((p) => itemImg(p, 'ico-s')).join('')} × ${techUnits(id)} <span class="muted">(${t.time} s c/u)</span></div>
         ${state === 'current' ? '<span class="ok small">En curso</span>' : `<button type="button" class="${avail ? 'primary' : ''}" data-tech="${id}" ${avail ? '' : 'disabled'}>Investigar</button>`}`}
@@ -867,10 +917,32 @@ function updateTooltip() {
   el.style.top = Math.min(mouse.y + 16, ch - th - 8) + 'px';
 }
 
-function showWin() {
+// Cartel de cada etapa (y del final)
+function showStage(n) {
   sfx('win');
+  if (n === 2) {
+    $('win-title').textContent = '🚀 ¡Llegaste al espacio!';
+    $('win-text').innerHTML = '<p>La nave está en órbita y ahora es una <b>estación espacial</b>: desde ahí ves <b>todo el planeta</b>.</p>' +
+      `<p><b>Etapa 2 de 3: limpiar el planeta.</b> ${S.peaceful ? 'Dejá el aire limpio' : 'Borrá todos los nidos con ataques orbitales y dejá el aire limpio'} (polución total menor a ${CLEAN_TARGET} durante 5 minutos). Hay investigaciones nuevas.</p>`;
+  } else {
+    $('win-title').textContent = '🌱 ¡El planeta está limpio!';
+    $('win-text').innerHTML = '<p>Sin nidos y con el aire limpio, el planeta respira de nuevo.</p>' +
+      '<p><b>Etapa 3 de 3: escapar del sistema solar.</b> Superconductores, ciencia estelar, fusión y motores de curvatura para armar el <b>Arca estelar</b>.</p>';
+  }
+  $('win-stats').innerHTML = '';
+  openModal('win');
+}
+
+function showWin(final = true) {
+  sfx('win');
+  $('win-title').textContent = final ? '🌌 ¡Escapaste del sistema solar!' : '🚀 ¡Otra nave en órbita!';
+  $('win-text').innerHTML = final
+    ? '<p>El Arca estelar encendió los motores de curvatura y dejó atrás el sistema solar. Empezaste sin nada y terminaste cruzando las estrellas.</p><p class="muted">Podés seguir jugando, expandir la fábrica y armar otra arca.</p>'
+    : '<p>La estación en órbita suma otra nave.</p>';
   const total = Object.values(S.produced).reduce((a, b) => a + b, 0);
-  $('win-stats').innerHTML =
+  const t = S.stageTimes || {};
+  const hm = (sec) => `${Math.floor(sec / 3600)} h ${String(Math.floor(sec / 60) % 60).padStart(2, '0')} min`;
+  $('win-stats').innerHTML = (final && t[1] ? `<p>🚀 Espacio: <b>${hm(t[1])}</b>${t[2] ? ` · 🌱 Planeta limpio: <b>${hm(t[2])}</b>` : ''}${t[3] ? ` · 🌌 Arca: <b>${hm(t[3])}</b>` : ''}</p>` : '') +
     `<p>⏱️ Tiempo: <b>${Math.floor(S.playTime / 60)} min</b><br>🏭 Edificios: <b>${S.entities.length - 1 - countType('nest')}</b><br>` +
     `📦 Objetos producidos: <b>${fmt(total)}</b><br>🔬 Investigaciones: <b>${Object.keys(S.techs).length}/${TECH_ORDER.length}</b></p>`;
   openModal('win');

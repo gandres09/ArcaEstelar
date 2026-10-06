@@ -21,7 +21,10 @@ const ACHIEVEMENTS = [
   { id: 'big_factory',  name: 'Megafábrica',           desc: 'Tené 2.000 edificios.',                          test: () => S.entities.length >= 2000, prog: () => [S.entities.length, 2000] },
   { id: 'all_techs',    name: 'Sabelotodo',            desc: 'Investigá todas las tecnologías (sin contar las infinitas).', test: () => TECH_ORDER.every((t) => TECHS[t].infinite || S.techs[t]) },
   { id: 'infinite',     name: 'Más allá',              desc: 'Terminá un nivel de investigación infinita.',    test: () => Object.values(S.inf || {}).some((n) => n > 0) },
-  { id: 'launch',       name: '¡Despegue!',            desc: 'Lanzá la nave y escapá del planeta.',            test: () => (S.launched || 0) >= 1 },
+  { id: 'launch',       name: '¡Despegue!',            desc: 'Lanzá la nave y llegá al espacio.',              test: () => (S.launched || 0) >= 1 },
+  { id: 'strikes',      name: 'Lluvia de fuego',       desc: 'Hacé 10 ataques orbitales.',                     test: () => (S.strikes || 0) >= 10, prog: () => [S.strikes || 0, 10] },
+  { id: 'clean',        name: 'Planeta limpio',        desc: 'Completá la etapa 2: sin nidos y con el aire limpio.', test: () => (S.stage || 1) >= 3 },
+  { id: 'ark',          name: 'Hacia las estrellas',   desc: 'Lanzá el Arca estelar y salí del sistema solar.', test: () => (S.stage || 1) >= 4 },
   { id: 'fast_launch',  name: 'Contrarreloj',          desc: 'Lanzá la nave en menos de 8 horas de juego.',     test: () => (S.launched || 0) >= 1 && S.launchTime && S.launchTime < 8 * 3600 },
   { id: 'peaceful_no',  name: 'Sin miedo',             desc: 'Lanzá la nave con los enemigos activados.',       test: () => (S.launched || 0) >= 1 && !S.peaceful },
 ];

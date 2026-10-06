@@ -30,7 +30,7 @@ let clipboard = null;    // { items: [...], w, h }
 let pastePos = null;     // táctil: dónde se va a pegar
 
 const isTouch = () => pointerType !== 'mouse';
-const sameTile = (a, b) => a && b && a.x === b.x && a.y === b.y;
+const sameTile = (a, b) => a && b && wrapX(a.x) === wrapX(b.x) && wrapY(a.y) === wrapY(b.y);
 const anchorFor = (type, t) => { const s = sizeOf(type); return { x: t.x - Math.floor(s / 2), y: t.y - Math.floor(s / 2) }; };
 const isLineTool = (t) => isBelt(t) || t === 'rail';
 
@@ -42,14 +42,19 @@ function screenToTile(sx, sy) {
   return { x: Math.floor(w.x / TILE), y: Math.floor(w.y / TILE) };
 }
 
+// El mapa da la vuelta: la cámara se mantiene dentro de una copia del mapa
 function clampView() {
-  view.x = Math.max(0, Math.min(W * TILE, view.x));
-  view.y = Math.max(launchAnim ? -2000 : 0, Math.min(H * TILE, view.y));
+  if (launchAnim) return;
+  const mw = W * TILE, mh = H * TILE;
+  view.x = ((view.x % mw) + mw) % mw;
+  view.y = ((view.y % mh) + mh) % mh;
 }
+// Zoom mínimo: nunca se ve más que un mapa entero
+const minZoom = () => Math.max(0.1, cw / (W * TILE), ch / (H * TILE));
 
 function zoomAt(sx, sy, factor) {
   const before = screenToWorld(sx, sy);
-  view.zoom = Math.min(2.5, Math.max(0.1, view.zoom * factor));
+  view.zoom = Math.min(2.5, Math.max(minZoom(), view.zoom * factor));
   view.x = before.x - (sx - cw / 2) / view.zoom;
   view.y = before.y - (sy - ch / 2) / view.zoom;
   clampView();
@@ -73,6 +78,7 @@ function clearPlans() {
 
 // Camino en L: primero horizontal y después vertical (o al revés con flip)
 function beltPath(a, b, flip) {
+  b = { x: a.x + wdx(b.x - a.x), y: a.y + wdy(b.y - a.y) };   // por el lado corto del mapa
   const pts = [];
   let x = a.x, y = a.y;
   pts.push({ x, y });
@@ -104,6 +110,7 @@ function buildBeltPlan() {
 // --------------------------- Áreas: desarmar y copiar ---------------------------
 
 function rectOf(a, b) {
+  b = { x: a.x + wdx(b.x - a.x), y: a.y + wdy(b.y - a.y) };
   return { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) };
 }
 
@@ -130,11 +137,13 @@ function deleteArea(r) {
 function copyArea(r) {
   const list = entitiesIn(r);
   if (!list.length) { toast('No hay nada para copiar en esa área.'); return; }
-  const x0 = Math.min(...list.map((e) => e.x)), y0 = Math.min(...list.map((e) => e.y));
-  const x1 = Math.max(...list.map((e) => e.x + sizeOf(e.type) - 1)), y1 = Math.max(...list.map((e) => e.y + sizeOf(e.type) - 1));
+  // Posiciones relativas al área (sirve también si el área cruza el borde del mapa)
+  const ux = (e) => r.x0 + wdx(e.x - r.x0), uy = (e) => r.y0 + wdy(e.y - r.y0);
+  const x0 = Math.min(...list.map(ux)), y0 = Math.min(...list.map(uy));
+  const x1 = Math.max(...list.map((e) => ux(e) + sizeOf(e.type) - 1)), y1 = Math.max(...list.map((e) => uy(e) + sizeOf(e.type) - 1));
   clipboard = {
     w: x1 - x0 + 1, h: y1 - y0 + 1,
-    items: list.map((e) => ({ type: e.type, dx: e.x - x0, dy: e.y - y0, dir: e.dir, recipe: e.recipe || null, filter: e.filter || null })),
+    items: list.map((e) => ({ type: e.type, dx: ux(e) - x0, dy: uy(e) - y0, dir: e.dir, recipe: e.recipe || null, filter: e.filter || null })),
   };
   toast(`Copiaste ${list.length} edificio${list.length > 1 ? 's' : ''}. ${isTouch() ? 'Tocá dónde pegar.' : 'Clic para pegar, R para girar.'}`);
   selectTool('paste');
@@ -416,6 +425,7 @@ canvas.addEventListener('pointermove', (ev) => {
 
 // Arrastre con mouse: cintas siguiendo al puntero, otros edificios en línea
 function dragTo(target) {
+  target = { x: dragging.x + wdx(target.x - dragging.x), y: dragging.y + wdy(target.y - dragging.y) };
   let guard = 500;
   while ((dragging.x !== target.x || dragging.y !== target.y) && guard-- > 0) {
     const next = { x: dragging.x, y: dragging.y };
@@ -562,8 +572,9 @@ function handleKeysPan(dt) {
     if (ix || iy) { followCam = true; S.player.queue.length = 0; }
     if (followCam && !panning) {
       const k = Math.min(1, dt * 8);
-      view.x += ((S.player.x * TILE) - view.x) * k;
-      view.y += ((S.player.y * TILE) - view.y) * k;
+      view.x += wdx(S.player.x - view.x / TILE) * TILE * k;
+      view.y += wdy(S.player.y - view.y / TILE) * TILE * k;
+      clampView();
     }
     if (!isTouch()) hover = screenToTile(mouse.x, mouse.y);
     return;

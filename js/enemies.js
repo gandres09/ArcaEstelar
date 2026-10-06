@@ -8,7 +8,7 @@ let pollTimer = 0;
 let lastAttack = null;     // { x, y, t } último ataque a la fábrica
 const shots = [];          // disparos para dibujar { x1, y1, x2, y2, t, laser }
 
-const cellOf = (x, y) => Math.min(PH - 1, Math.max(0, Math.floor(y / POLL_CELL))) * PW + Math.min(PW - 1, Math.max(0, Math.floor(x / POLL_CELL)));
+const cellOf = (x, y) => Math.floor(wrapY(y) / POLL_CELL) * PW + Math.floor(wrapX(x) / POLL_CELL);
 const center = (e) => { const s = sizeOf(e.type) / 2; return { x: e.x + s, y: e.y + s }; };
 
 function loadPollution(arr) {
@@ -34,14 +34,16 @@ function diffusePollution() {
       const i = cy * PW + cx, p = pollution[i];
       if (p < 0.05) continue;
       const spread = p * 0.02;
-      if (cx > 0) { next[i - 1] += spread; next[i] -= spread; }
-      if (cx < PW - 1) { next[i + 1] += spread; next[i] -= spread; }
-      if (cy > 0) { next[i - PW] += spread; next[i] -= spread; }
-      if (cy < PH - 1) { next[i + PW] += spread; next[i] -= spread; }
+      // Los bordes se tocan: la polución también da la vuelta
+      next[cx > 0 ? i - 1 : i + PW - 1] += spread;
+      next[cx < PW - 1 ? i + 1 : i - PW + 1] += spread;
+      next[cy > 0 ? i - PW : i + PW * (PH - 1)] += spread;
+      next[cy < PH - 1 ? i + PW : i - PW * (PH - 1)] += spread;
+      next[i] -= spread * 4;
     }
   }
-  // El terreno absorbe de a poco
-  for (let i = 0; i < next.length; i++) next[i] = Math.max(0, next[i] - 0.06 - next[i] * 0.004);
+  // El terreno absorbe de a poco, y los bosques bastante más
+  for (let i = 0; i < next.length; i++) next[i] = Math.max(0, next[i] - 0.06 - (forestCell[i] || 0) * 0.15 - next[i] * 0.004);
   pollution = next;
 }
 
@@ -55,13 +57,13 @@ function totalPollution() {
 
 function areaFree(x, y, s) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
-    if (!inBounds(x + dx, y + dy) || at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water') return false;
+    if (at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water') return false;
   }
   return true;
 }
 
 function addNest(x, y) {
-  const n = makeEntity('nest', x, y, 0);
+  const n = makeEntity('nest', wrapX(x), wrapY(y), 0);
   n.id = S.nextId++;
   S.entities.push(n);
   occupy(n, n);
@@ -73,11 +75,13 @@ function generateNests(seed) {
   const rnd = mulberry32(seed ^ 0x5bd1e995);
   const cx = W >> 1, cy = H >> 1;
   let clusters = 0, tries = 0;
-  while (clusters < 70 && tries++ < 3000) {
+  const K = (W * H) / (320 * 240);
+  const target = K > 1 ? 70 * K * 0.5 : 70;
+  while (clusters < target && tries++ < 3000 * K) {
     const x = 3 + Math.floor(rnd() * (W - 6)), y = 3 + Math.floor(rnd() * (H - 6));
     const d = Math.hypot(x - cx, (y - cy) / 0.75);
     if (d < SAFE_RADIUS) continue;
-    const n = 1 + Math.floor(rnd() * 2 + d / 70);
+    const n = 1 + Math.floor(rnd() * 2 + d / (K > 1 ? 120 : 70));
     for (let k = 0; k < n; k++) {
       const nx = Math.round(x + (rnd() - 0.5) * 8), ny = Math.round(y + (rnd() - 0.5) * 8);
       if (areaFree(nx, ny, 2)) addNest(nx, ny);
@@ -112,7 +116,7 @@ function nearestPlayerEntity(x, y, maxD, pollutersOnly) {
     if (e.type === 'nest') continue;
     if (pollutersOnly && !BUILDINGS[e.type]?.poll) continue;
     const c = center(e);
-    const d = Math.hypot(c.x - x, c.y - y);
+    const d = wdist(x, y, c.x, c.y);
     if (d < bd) { bd = d; best = e; }
   }
   return best;
@@ -162,7 +166,7 @@ function expandNests(dt) {
     const src = nests[Math.floor(Math.random() * nests.length)];
     const a = Math.random() * Math.PI * 2, d = 6 + Math.random() * 10;
     const x = Math.round(src.x + Math.cos(a) * d), y = Math.round(src.y + Math.sin(a) * d);
-    if (!areaFree(x, y, 2) || Math.hypot(x - cx, y - cy) < 30) continue;
+    if (!areaFree(x, y, 2) || wdist(x, y, cx, cy) < 30) continue;
     if (nearestPlayerEntity(x + 1, y + 1, 16, false)) continue;
     addNest(x, y);
     return;
@@ -177,7 +181,7 @@ function biterStep(b, dt) {
     b.ang += (Math.random() - 0.5) * 2 * dt;
     const wx = b.x + Math.cos(b.ang) * 0.3 * dt, wy = b.y + Math.sin(b.ang) * 0.3 * dt;
     if (oreAt(Math.floor(wx), Math.floor(wy)) === 'water') b.ang += Math.PI;
-    else { b.x = wx; b.y = wy; }
+    else { b.x = wrapX(wx); b.y = wrapY(wy); }
     return;
   }
   let t = b._t;
@@ -187,7 +191,7 @@ function biterStep(b, dt) {
     if (!t) { b.state = 'idle'; return; }
   }
   const c = center(t);
-  const dx = c.x - b.x, dy = c.y - b.y, dist = Math.hypot(dx, dy);
+  const dx = wdx(c.x - b.x), dy = wdy(c.y - b.y), dist = Math.hypot(dx, dy);
   b.ang = Math.atan2(dy, dx);
   b.cd -= dt;
   if (dist <= sizeOf(t.type) / 2 + 1) {
@@ -199,7 +203,7 @@ function biterStep(b, dt) {
   // Los bichos no nadan: si hay agua en el medio, buscan un camino que la rodee
   if (b.path && b.path.length) {
     const wp = b.path[0];
-    const wx = wp.x + 0.5 - b.x, wy = wp.y + 0.5 - b.y, wd = Math.hypot(wx, wy);
+    const wx = wdx(wp.x + 0.5 - b.x), wy = wdy(wp.y + 0.5 - b.y), wd = Math.hypot(wx, wy);
     if (wd < 0.4) { b.path.shift(); return; }
     nx = b.x + (wx / wd) * step; ny = b.y + (wy / wd) * step;
     b.ang = Math.atan2(wy, wx);
@@ -209,7 +213,7 @@ function biterStep(b, dt) {
     b.path = path;
     // Los compañeros cercanos con el mismo objetivo usan el mismo camino
     for (const o of S.biters) {
-      if (o !== b && o._t === t && !o.path && Math.hypot(o.x - b.x, o.y - b.y) < 6) o.path = path.slice();
+      if (o !== b && o._t === t && !o.path && wdist(o.x, o.y, b.x, b.y) < 6) o.path = path.slice();
     }
     return;
   }
@@ -219,7 +223,7 @@ function biterStep(b, dt) {
     if (b.cd <= 0) { damageEntity(occ, k.dmg); b.cd = 1; noteAttack(occ); }
     return;
   }
-  b.x = nx; b.y = ny;
+  b.x = wrapX(nx); b.y = wrapY(ny);
 }
 
 function noteAttack(e) {
@@ -231,7 +235,8 @@ function noteAttack(e) {
 
 // Camino más corto evitando el agua (A* sobre casillas, en 8 direcciones)
 function findPath(sx, sy, tx, ty, maxNodes = 15000) {
-  const idx = (x, y) => y * W + x;
+  const idx = (x, y) => tIdx(x, y);
+  tx = wrapX(tx); ty = wrapY(ty);
   const goal = idx(tx, ty);
   const g = new Map(), from = new Map();
   const heap = [];
@@ -256,7 +261,7 @@ function findPath(sx, sy, tx, ty, maxNodes = 15000) {
     }
     return top[1];
   };
-  const h = (x, y) => { const dx = Math.abs(x - tx), dy = Math.abs(y - ty); return Math.max(dx, dy) + 0.41 * Math.min(dx, dy); };
+  const h = (x, y) => { const dx = Math.abs(wdx(x - tx)), dy = Math.abs(wdy(y - ty)); return Math.max(dx, dy) + 0.41 * Math.min(dx, dy); };
   const start = idx(sx, sy);
   g.set(start, 0);
   push(start, h(sx, sy));
@@ -265,7 +270,7 @@ function findPath(sx, sy, tx, ty, maxNodes = 15000) {
     const cur = pop();
     const cx = cur % W, cy = (cur / W) | 0;
     // Basta con llegar al lado del objetivo
-    if (cur === goal || Math.max(Math.abs(cx - tx), Math.abs(cy - ty)) <= 1) {
+    if (cur === goal || Math.max(Math.abs(wdx(cx - tx)), Math.abs(wdy(cy - ty))) <= 1) {
       const path = [];
       let k = cur;
       while (k !== start) { path.push({ x: k % W, y: (k / W) | 0 }); k = from.get(k); }
@@ -275,8 +280,8 @@ function findPath(sx, sy, tx, ty, maxNodes = 15000) {
     const gc = g.get(cur);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
-      const x = cx + dx, y = cy + dy;
-      if (!inBounds(x, y) || oreAt(x, y) === 'water') continue;
+      const x = wrapX(cx + dx), y = wrapY(cy + dy);
+      if (oreAt(x, y) === 'water') continue;
       // No cortar esquinas pegadas al agua
       if (dx && dy && (oreAt(cx + dx, cy) === 'water' || oreAt(cx, cy + dy) === 'water')) continue;
       const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1);
@@ -301,18 +306,18 @@ function turretStep(e, dt) {
   let target = null, bd = def.range;
   for (const b of S.biters) {
     if (b.dead) continue;
-    const d = Math.hypot(b.x - tx, b.y - ty);
+    const d = wdist(tx, ty, b.x, b.y);
     if (d < bd) { bd = d; target = b; }
   }
   let nest = null;
   if (!target) {
     for (const n of S.entities) {
       if (n.type !== 'nest') continue;
-      const d = Math.hypot(n.x + 1 - tx, n.y + 1 - ty);
+      const d = wdist(tx, ty, n.x + 1, n.y + 1);
       if (d < bd) { bd = d; nest = n; }
     }
   }
-  e.aim = target ? Math.atan2(target.y - ty, target.x - tx) : nest ? Math.atan2(nest.y + 1 - ty, nest.x + 1 - tx) : e.aim;
+  e.aim = target ? Math.atan2(wdy(target.y - ty), wdx(target.x - tx)) : nest ? Math.atan2(wdy(nest.y + 1 - ty), wdx(nest.x + 1 - tx)) : e.aim;
   if (!target && !nest) return;
 
   let fire = false;
@@ -328,10 +333,10 @@ function turretStep(e, dt) {
   const dmg = def.dmg * weaponMult();
   if (target) {
     hitBiter(target, dmg);
-    shots.push({ x1: tx, y1: ty, x2: target.x, y2: target.y, t: 0, laser: e.type === 'laser' });
+    shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
   } else {
     damageEntity(nest, dmg);
-    shots.push({ x1: tx, y1: ty, x2: nest.x + 1, y2: nest.y + 1, t: 0, laser: e.type === 'laser' });
+    shots.push({ x1: tx, y1: ty, x2: tx + wdx(nest.x + 1 - tx), y2: ty + wdy(nest.y + 1 - ty), t: 0, laser: e.type === 'laser' });
     // El nido se defiende: sus bichos van contra la torreta
     if (!nest._dead) for (const b of S.biters) if (b.nest === nest.id && b.state === 'idle') { b.state = 'attack'; b._t = e; }
   }

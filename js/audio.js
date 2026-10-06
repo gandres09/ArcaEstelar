@@ -103,7 +103,7 @@ function sfx(name, x, y) {
   if (!s) return;
   // Sonidos del mundo: solo si pasan cerca de la cámara
   if (x !== undefined) {
-    const d = Math.hypot(x * TILE - view.x, y * TILE - view.y) * view.zoom;
+    const d = Math.hypot(wdx(x - view.x / TILE), wdy(y - view.y / TILE)) * TILE * view.zoom;
     if (d > Math.max(cw, ch)) return;
   }
   const now = audio.ctx.currentTime;

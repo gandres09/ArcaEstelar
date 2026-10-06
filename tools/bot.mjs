@@ -24,7 +24,8 @@ const t0 = Date.now();
 let last = null;
 for (let i = 0; i < maxHours * 6; i++) {
   last = await page.evaluate(() => BOT.run(600));
-  console.log(`${last.t}  techs ${String(last.techs).padStart(2)}  edificios ${String(last.entities).padStart(5)}  investigando: ${last.research || '-'}`);
+  const poll = await page.evaluate(() => Math.round(totalPollution()));
+  console.log(`${last.t}  techs ${String(last.techs).padStart(2)}  edificios ${String(last.entities).padStart(5)}  polución ${String(poll).padStart(6)}  investigando: ${last.research || '-'}`);
   if (last.launched || errors.length) break;
 }
 const out = await page.evaluate(() => ({ log: BOT.log, starved: BOT.starved, inv: S.inv, lines: BOT.lines.length, hand: BOT.handMined || 0 }));

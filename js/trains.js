@@ -18,12 +18,13 @@ function railLinks(x, y) {
 }
 
 function trainAt(x, y) {
-  return S.trains.find((t) => Math.round(t.x) === x && Math.round(t.y) === y);
+  return S.trains.find((t) => wrapX(Math.round(t.x)) === wrapX(x) && wrapY(Math.round(t.y)) === wrapY(y));
 }
 
 // Camino por las vías hasta la estación, en casillas
 function railPath(sx, sy, station) {
   const key = (x, y) => y * W + x;
+  sx = wrapX(sx); sy = wrapY(sy);
   const from = new Map([[key(sx, sy), -1]]);
   const queue = [[sx, sy]];
   for (let qi = 0; qi < queue.length; qi++) {
@@ -35,7 +36,7 @@ function railPath(sx, sy, station) {
       return path.reverse();
     }
     for (const [dx, dy] of DIRS) {
-      const nx = x + dx, ny = y + dy;
+      const nx = wrapX(x + dx), ny = wrapY(y + dy);
       if (!isRail(at(nx, ny)) || from.has(key(nx, ny))) continue;
       from.set(key(nx, ny), key(x, y));
       queue.push([nx, ny]);
@@ -45,6 +46,7 @@ function railPath(sx, sy, station) {
 }
 
 function stationsReachable(sx, sy) {
+  sx = wrapX(sx); sy = wrapY(sy);
   const seen = new Set([sy * W + sx]);
   const queue = [[sx, sy]];
   const found = [];
@@ -53,7 +55,7 @@ function stationsReachable(sx, sy) {
     const e = at(x, y);
     if (e && e.type === 'station') found.push(e);
     for (const [dx, dy] of DIRS) {
-      const nx = x + dx, ny = y + dy, k = ny * W + nx;
+      const nx = wrapX(x + dx), ny = wrapY(y + dy), k = ny * W + nx;
       if (seen.has(k) || !isRail(at(nx, ny))) continue;
       seen.add(k);
       queue.push([nx, ny]);
@@ -73,7 +75,7 @@ function canPlaceTrain(x, y) {
 function placeTrain(x, y) {
   if (!canPlaceTrain(x, y).ok) return null;
   pay(BUILDINGS.train.cost);
-  const t = { id: S.nextId++, type: 'train', x, y, cargo: {}, total: 0, fuelType: null, fuel: 0, energy: 0, state: 'idle', wait: 0, target: null, last: null, ang: 0 };
+  const t = { id: S.nextId++, type: 'train', x: wrapX(x), y: wrapY(y), cargo: {}, total: 0, fuelType: null, fuel: 0, energy: 0, state: 'idle', wait: 0, target: null, last: null, ang: 0 };
   S.trains.push(t);
   return t;
 }
@@ -149,7 +151,7 @@ function updateTrains(dt) {
     }
     // Otro tren adelante: esperar
     const ahead = path.slice(t._i + 1, t._i + 4);
-    if (S.trains.some((o) => o !== t && ahead.some((p) => Math.round(o.x) === p.x && Math.round(o.y) === p.y))) { t.blocked = true; continue; }
+    if (S.trains.some((o) => o !== t && ahead.some((p) => wrapX(Math.round(o.x)) === p.x && wrapY(Math.round(o.y)) === p.y))) { t.blocked = true; continue; }
     t.blocked = false;
     if (t.energy <= 0 && t.fuel > 0) { t.energy += FUELS[t.fuelType]; if (--t.fuel === 0) t.fuelType = null; }
     const fast = t.energy > 0;
@@ -163,12 +165,13 @@ function updateTrains(dt) {
     if (!t._path) continue;
     const a = path[t._i], b = path[Math.min(t._i + 1, path.length - 1)];
     const f = t._i >= path.length - 1 ? 0 : t._f;
-    t.x = a.x + (b.x - a.x) * f; t.y = a.y + (b.y - a.y) * f;
-    if (a.x !== b.x || a.y !== b.y) t.ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const sx = wdx(b.x - a.x), sy = wdy(b.y - a.y);
+    t.x = wrapX(a.x + sx * f); t.y = wrapY(a.y + sy * f);
+    if (sx || sy) t.ang = Math.atan2(sy, sx);
     // Historia de posiciones para dibujar los vagones detrás
     t._hist = t._hist || [];
     const last = t._hist[t._hist.length - 1];
-    if (!last || Math.hypot(last.x - t.x, last.y - t.y) > 0.1) { t._hist.push({ x: t.x, y: t.y }); if (t._hist.length > 60) t._hist.shift(); }
+    if (!last || wdist(last.x, last.y, t.x, t.y) > 0.1) { t._hist.push({ x: t.x, y: t.y }); if (t._hist.length > 60) t._hist.shift(); }
   }
 }
 
@@ -177,13 +180,15 @@ function trainTrail(t, dist) {
   const h = t._hist || [];
   let acc = 0, px = t.x, py = t.y;
   for (let i = h.length - 1; i >= 0; i--) {
-    const d = Math.hypot(h[i].x - px, h[i].y - py);
+    // Los puntos se toman sin saltar el borde del mapa
+    const hx = px + wdx(h[i].x - px), hy = py + wdy(h[i].y - py);
+    const d = Math.hypot(hx - px, hy - py);
     if (acc + d >= dist) {
       const k = (dist - acc) / d;
-      const x = px + (h[i].x - px) * k, y = py + (h[i].y - py) * k;
-      return { x, y, ang: Math.atan2(py - h[i].y, px - h[i].x) };
+      const x = px + (hx - px) * k, y = py + (hy - py) * k;
+      return { x, y, ang: Math.atan2(py - hy, px - hx) };
     }
-    acc += d; px = h[i].x; py = h[i].y;
+    acc += d; px = hx; py = hy;
   }
   return { x: px - Math.cos(t.ang) * (dist - acc), y: py - Math.sin(t.ang) * (dist - acc), ang: t.ang };
 }

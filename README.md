@@ -1,8 +1,8 @@
 # Mini Fábrica
 
 Un juego de automatización para el navegador, inspirado en Factorio. Te estrellaste en un planeta
-desconocido y la única forma de salir es levantar una fábrica cada vez más grande hasta armar una
-**nave espacial**, mientras la polución despierta a los bichos del planeta.
+desconocido y la única forma de salir es levantar una fábrica cada vez más grande. El juego tiene
+**tres etapas**: llegar al espacio, limpiar el planeta y escapar del sistema solar en un **Arca estelar**.
 
 Está hecho con HTML, CSS y JavaScript puro: no necesita instalar nada. Abrí `index.html` en el
 navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
@@ -14,8 +14,12 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
   El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
 - **Gráficos** con terreno orgánico (pasto, tierra, arena, agua con profundidad y espuma), bosques, yacimientos con
   rocas y cristales, edificios con relieve, cintas por nivel (amarilla, roja y azul), humo y luces de noche.
-- **Mapa grande** (320 × 240) con yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
-- **Investigación con laboratorios** y 4 packs de ciencia (roja, verde, azul y espacial), 33 tecnologías, 4 infinitas y 4 eras.
+- **Tres etapas**: 🚀 lanzar la nave a la órbita (desde ahí se ve todo el mapa) · 🌱 borrar todos los nidos con
+  ataques orbitales y dejar el aire limpio con purificadores (los bosques también absorben polución) · 🌌 armar y
+  lanzar el Arca estelar con superconductores, ciencia estelar, fusión y motores de curvatura.
+- **Mapa enorme que da la vuelta** (640 × 480): saliendo por un borde se entra por el opuesto, sin costuras.
+  Yacimientos que se agotan, cuarzo, titanio y pozos de petróleo lejos del centro.
+- **Investigación con laboratorios** y 5 packs de ciencia (roja, verde, azul, espacial y estelar), 41 tecnologías, 4 infinitas y 5 eras.
 - **Electricidad**: generadores a carbón, energía a vapor, paneles solares, acumuladores, postes y torres de alta tensión.
 - **Agua infinita** en lagos: bombas de agua en la orilla para calderas y química. Los bichos no la cruzan
   (la rodean buscando camino) y se puede rellenar con piedra.
@@ -36,7 +40,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Robots de construcción**: lo que construís o pegás sin materiales queda como plano y los robots lo arman cuando
   llegan; también reconstruyen lo que destruyen los bichos y reparan.
 - **Módulos** de velocidad, productividad y eficiencia, e **investigaciones infinitas** para después de la nave.
-- **Sonido y música** generados en el momento (con volumen en el menú), **20 logros** y **gráficos de producción**.
+- **Sonido y música** generados en el momento (con volumen en el menú), **23 logros** y **gráficos de producción**.
 - **Química**: bombas de petróleo y planta química para plástico, azufre, baterías y combustible de cohete.
 - **Construcción cómoda**: doble toque para construir, cintas de punto a punto, deshacer, copiar y pegar zonas
   y desarmar zonas enteras.
@@ -51,6 +55,18 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 | Computadora de navegación | 20 | unidades de control (procesador + batería) + procesadores |
 | Soporte vital | 25 | unidad de control + motor eléctrico + agua |
 | Combustible de cohete | 300 | combustible sólido + petróleo |
+
+Y el **Arca estelar** (etapa 3), en el Dique estelar:
+
+| Pieza | Cantidad | Se hace con |
+| --- | --- | --- |
+| Placa de casco | 400 | igual que en la nave |
+| Motor de curvatura | 24 | núcleo de fusión + propulsores + procesadores cuánticos |
+| Núcleo de fusión | 30 | superconductores + procesadores cuánticos + acero + titanio |
+| Módulo de hábitat | 40 | casco + soporte vital + plástico |
+| Escudo deflector | 40 | superconductores + baterías + procesadores cuánticos |
+| Computadora de navegación | 60 | igual que en la nave |
+| Combustible de cohete | 800 | igual que en la nave |
 
 Para llegar hay que combinar casi todas las líneas: hierro, cobre, acero, petróleo con agua (plástico, azufre,
 lubricante), baterías, procesadores con silicio y titanio.

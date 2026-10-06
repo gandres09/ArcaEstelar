@@ -16,6 +16,7 @@ const TYPE_COLOR = {
   splitter: '#8a63c4', sorter: '#2fa59a', chest: '#8b5a2b', miner: '#c9a227', eminer: '#3e7cb1', pumpjack: '#8e7fa8',
   furnace: '#a0583f', efurnace: '#9aa3ad', assembler: '#4a72aa', assembler2: '#8a52b5', chem: '#3f8a52', lab: '#5fb4de',
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
+  purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
   inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -638,7 +639,61 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
-    case 'shipyard': drawShipyard(g, e, x0, y0, t); break;
+    case 'shipyard': case 'starport': drawShipyard(g, e, x0, y0, t); break;
+
+    case 'purifier': {
+      const s = TILE * 2, mx = x0 + s / 2, my = y0 + s / 2;
+      box(g, x0, y0, '#2f5d55', '#7fd1b5', 2, s);
+      // Rejilla y ventilador que gira cuando limpia
+      g.fillStyle = '#1b2f2b';
+      g.beginPath(); g.arc(mx, my, 20, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(mx, my); g.rotate(e.active ? t * 9 : 0.3);
+      g.fillStyle = '#bfe9dc';
+      for (let k = 0; k < 5; k++) { g.rotate(Math.PI * 2 / 5); g.beginPath(); g.ellipse(9, 0, 9, 3.5, 0.4, 0, Math.PI * 2); g.fill(); }
+      g.restore();
+      g.fillStyle = '#e8fff6'; g.beginPath(); g.arc(mx, my, 4, 0, Math.PI * 2); g.fill();
+      // Hojita: limpia el aire
+      g.fillStyle = e.active ? '#7ee07a' : '#4c7a4a';
+      g.beginPath(); g.ellipse(x0 + s - 11, y0 + 11, 6, 3.5, -0.7, 0, Math.PI * 2); g.fill();
+      if (e.filters !== undefined) drawProgress(g, x0, y0 + TILE, Math.min(1, e.filters / 20), '#7fd1b5');
+      break;
+    }
+
+    case 'uplink': {
+      const s = TILE * 3, mx = x0 + s / 2, my = y0 + s / 2;
+      box(g, x0, y0, '#3a3f4a', '#ff8a5c', 2, s);
+      g.strokeStyle = 'rgba(255,138,92,0.35)'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(mx, my, 36, 0, Math.PI * 2); g.stroke();
+      // Antena parabólica que apunta al blanco
+      g.save(); g.translate(mx, my); g.rotate((e.aim ?? -Math.PI / 2) + Math.PI / 2);
+      g.fillStyle = '#d8dee6';
+      g.beginPath(); g.ellipse(0, -4, 22, 12, 0, Math.PI, 0); g.closePath(); g.fill();
+      g.fillStyle = '#9aa3ad'; g.fillRect(-2, -16, 4, 14);
+      g.fillStyle = e.cd > 0 ? '#ff8a5c' : '#5cc47a';
+      g.beginPath(); g.arc(0, -18, 3.5, 0, Math.PI * 2); g.fill();
+      g.restore();
+      // Luces de las cargas
+      for (let k = 0; k < 10; k++) {
+        g.fillStyle = k < (e.charges || 0) ? '#ff6a3d' : 'rgba(0,0,0,0.4)';
+        g.fillRect(x0 + 10 + k * 7.6, y0 + s - 11, 5, 4);
+      }
+      break;
+    }
+
+    case 'fusion_plant': {
+      const s = TILE * 3, mx = x0 + s / 2, my = y0 + s / 2;
+      box(g, x0, y0, '#3b3a46', '#ffd166', 2, s);
+      const pulse = 0.7 + 0.3 * Math.sin(t * 4 + e.x);
+      const grd = g.createRadialGradient(mx, my, 2, mx, my, 30);
+      grd.addColorStop(0, `rgba(255,250,220,${pulse})`); grd.addColorStop(0.45, `rgba(255,190,80,${0.7 * pulse})`); grd.addColorStop(1, 'rgba(255,120,40,0)');
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(mx, my, 30, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#c9cfd6'; g.lineWidth = 5;
+      g.beginPath(); g.ellipse(mx, my, 30, 13, t * 0.6, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = '#8a929c'; g.lineWidth = 2;
+      g.beginPath(); g.ellipse(mx, my, 30, 13, t * 0.6 + Math.PI / 2, 0, Math.PI * 2); g.stroke();
+      break;
+    }
   }
 
   // Aviso de falta de energía
@@ -672,11 +727,25 @@ function drawBuilding(g, e, x0, y0, t) {
 }
 
 // La nave: se dibuja una silueta y se va "llenando" a medida que llegan las piezas
-function drawShip(g, cx, baseY, scale, frac, flame, t) {
+function drawShip(g, cx, baseY, scale, frac, flame, t, ark = false) {
   g.save();
   g.translate(cx, baseY);
   g.scale(scale, scale);
-  const path = () => {
+  // El arca: un casco ancho con anillo de hábitat y tres motores
+  const arkPath = () => {
+    g.beginPath();
+    g.moveTo(0, -190);
+    g.quadraticCurveTo(30, -170, 34, -120);
+    g.lineTo(70, -110); g.quadraticCurveTo(84, -95, 70, -80); g.lineTo(34, -70);
+    g.lineTo(34, -10);
+    g.lineTo(62, 4); g.lineTo(62, 18); g.lineTo(34, 10);
+    g.lineTo(-34, 10);
+    g.lineTo(-62, 18); g.lineTo(-62, 4); g.lineTo(-34, -10);
+    g.lineTo(-34, -70); g.lineTo(-70, -80); g.quadraticCurveTo(-84, -95, -70, -110); g.lineTo(-34, -120);
+    g.quadraticCurveTo(-30, -170, 0, -190);
+    g.closePath();
+  };
+  const path = ark ? arkPath : () => {
     g.beginPath();
     g.moveTo(0, -120);
     g.quadraticCurveTo(22, -95, 22, -55);
@@ -693,7 +762,7 @@ function drawShip(g, cx, baseY, scale, frac, flame, t) {
     const grd = g.createLinearGradient(0, 10, 0, 10 + f * 2);
     grd.addColorStop(0, '#fff6c0'); grd.addColorStop(0.3, '#ffb03a'); grd.addColorStop(1, 'rgba(255,60,20,0)');
     g.fillStyle = grd;
-    for (const ex of [-12, 0, 12]) {
+    for (const ex of ark ? [-46, -20, 0, 20, 46] : [-12, 0, 12]) {
       g.beginPath();
       g.moveTo(ex - 6, 10); g.lineTo(ex + 6, 10); g.lineTo(ex, 10 + f * 2 + (ex ? -10 : 0));
       g.closePath(); g.fill();
@@ -713,13 +782,21 @@ function drawShip(g, cx, baseY, scale, frac, flame, t) {
     g.save();
     path();
     g.clip();
-    const top = 18 - frac * 138;
-    g.fillStyle = '#d7dde3';
-    g.fillRect(-40, top, 80, 140);
-    g.fillStyle = '#e5533d';
-    g.fillRect(-40, Math.max(top, -10), 80, 30);
-    g.fillStyle = '#3d8fd6';
-    if (top < -70) { g.beginPath(); g.arc(0, -70, 8, 0, Math.PI * 2); g.fill(); }
+    const h = ark ? 208 : 138;
+    const top = 18 - frac * h;
+    g.fillStyle = ark ? '#e4e8ee' : '#d7dde3';
+    g.fillRect(-90, top, 180, h + 2);
+    g.fillStyle = ark ? '#8a7dff' : '#e5533d';
+    g.fillRect(-90, Math.max(top, -10), 180, 30);
+    if (ark) {
+      g.fillStyle = '#9ad17f';
+      if (top < -80) g.fillRect(-90, Math.max(top, -112), 180, 34);
+      g.fillStyle = '#59c3ff';
+      for (const wy of [-40, -140]) if (top < wy) { g.beginPath(); g.arc(0, wy, 9, 0, Math.PI * 2); g.fill(); }
+    } else {
+      g.fillStyle = '#3d8fd6';
+      if (top < -70) { g.beginPath(); g.arc(0, -70, 8, 0, Math.PI * 2); g.fill(); }
+    }
     g.restore();
     path();
     g.strokeStyle = '#8b96a1';
@@ -730,7 +807,8 @@ function drawShip(g, cx, baseY, scale, frac, flame, t) {
 }
 
 function drawShipyard(g, e, x0, y0, t) {
-  const s = TILE * 5;
+  const ark = e.type === 'starport';
+  const s = TILE * sizeOf(e.type);
   g.fillStyle = '#4b5159';
   g.fillRect(x0 + 2, y0 + 2, s - 4, s - 4);
   // Franjas de peligro en el borde
@@ -748,13 +826,14 @@ function drawShipyard(g, e, x0, y0, t) {
   g.restore();
   if (!launchAnim || launchAnim.yard !== e) {
     const frac = shipProgressOf(e);
-    drawShip(g, x0 + s / 2, y0 + s - 26, 0.95, frac, false, t);
+    drawShip(g, x0 + s / 2, y0 + s - 26, ark ? 0.95 : 0.95, frac, false, t, ark);
   }
 }
 
 function shipProgressOf(e) {
   let have = 0, need = 0;
-  for (const k in SHIP) { need += SHIP[k]; have += Math.min(SHIP[k], e.parts?.[k] || 0); }
+  const needs = shipNeeds(e);
+  for (const k in needs) { need += needs[k]; have += Math.min(needs[k], e.parts?.[k] || 0); }
   return have / need;
 }
 
@@ -943,6 +1022,9 @@ const effects = []; // { x, y, t, life, kind, scale, color }
 function spawnExplosion(x, y, scale = 1) {
   effects.push({ x, y, t: 0, life: 0.6, kind: 'boom', scale });
 }
+function spawnStrike(x, y) {
+  effects.push({ x, y, t: 0, life: 1.4, kind: 'strike', scale: 3 });
+}
 function spawnSplat(x, y, color) {
   effects.push({ x, y, t: 0, life: 4, kind: 'splat', scale: 1, color });
 }
@@ -951,7 +1033,16 @@ function drawEffects(g, dt) {
   for (const f of effects) {
     f.t += dt;
     const k = f.t / f.life;
-    if (f.kind === 'boom') {
+    if (f.kind === 'strike') {
+      // Rayo desde el cielo y una explosión grande
+      const px = f.x * TILE, py = f.y * TILE, a = Math.max(0, 1 - k);
+      g.fillStyle = `rgba(255,240,200,${a * 0.85})`;
+      g.fillRect(px - 10 * a - 2, py - 900, 20 * a + 4, 900);
+      g.fillStyle = `rgba(255,${200 - k * 140},80,${a})`;
+      g.beginPath(); g.arc(px, py, (20 + k * 220), 0, Math.PI * 2); g.fill();
+      g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 4;
+      g.beginPath(); g.arc(px, py, 30 + k * 260, 0, Math.PI * 2); g.stroke();
+    } else if (f.kind === 'boom') {
       g.fillStyle = `rgba(255,${180 - k * 120},60,${1 - k})`;
       g.beginPath(); g.arc(f.x * TILE, f.y * TILE, (10 + k * 30) * f.scale, 0, Math.PI * 2); g.fill();
     } else {
@@ -984,6 +1075,9 @@ function lightRadius(e) {
     case 'lamp': return e.lit ? 7 : 0;
     case 'hub': return 6;
     case 'shipyard': return 5;
+    case 'starport': return 7;
+    case 'fusion_plant': return 4;
+    case 'uplink': return 2;
     case 'furnace': case 'efurnace': case 'generator': case 'boiler': return e.active ? 1.6 : 0;
     case 'radar': return 1.5;
     case 'laser': case 'turret': return 1.2;
@@ -1004,11 +1098,11 @@ function drawNight(ctx2, visible) {
   g.fillRect(0, 0, lw, lh);
   g.globalCompositeOperation = 'destination-out';
   const k = view.zoom * dpr * scale;
-  for (const e of visible) {
+  for (const [e, ox, oy] of visible) {
     const r = lightRadius(e);
     if (!r) continue;
     const s = sizeOf(e.type) / 2;
-    const sx = ((e.x + s) * TILE - view.x) * k + lw / 2, sy = ((e.y + s) * TILE - view.y) * k + lh / 2;
+    const sx = ((e.x + s) * TILE + ox - view.x) * k + lw / 2, sy = ((e.y + s) * TILE + oy - view.y) * k + lh / 2;
     const rad = r * TILE * k;
     const grd = g.createRadialGradient(sx, sy, 0, sx, sy, rad);
     grd.addColorStop(0, 'rgba(0,0,0,1)');
@@ -1136,12 +1230,43 @@ function render(ctx) {
   }
   const z = view.zoom * dpr;
   const worldTransform = () => ctx.setTransform(z, 0, 0, z, dpr * (cw / 2 - view.x * view.zoom + shakeX), dpr * (ch / 2 - view.y * view.zoom + shakeY));
-  worldTransform();
 
-  const vx0 = view.x - cw / 2 / view.zoom, vx1 = view.x + cw / 2 / view.zoom;
-  const vy0 = view.y - ch / 2 / view.zoom, vy1 = view.y + ch / 2 / view.zoom;
+  const gx0 = view.x - cw / 2 / view.zoom, gx1 = view.x + cw / 2 / view.zoom;
+  const gy0 = view.y - ch / 2 / view.zoom, gy1 = view.y + ch / 2 / view.zoom;
   const lod = view.zoom < LOD_ZOOM;
+  const mw = W * TILE, mh = H * TILE;
 
+  // El mapa da la vuelta: se dibuja cada copia del mapa que entra en pantalla (como mucho 4)
+  const passes = [];
+  for (let ky = Math.floor(gy0 / mh); ky <= Math.floor(gy1 / mh); ky++) {
+    for (let kx = Math.floor(gx0 / mw); kx <= Math.floor(gx1 / mw); kx++) passes.push([kx * mw, ky * mh]);
+  }
+  const lights = [];
+  const seen = new Set();
+  activeOnScreen = 0;
+  passes.forEach(([ox, oy], pi) => {
+    worldTransform();
+    ctx.translate(ox, oy);
+    const vis = drawWorld(ctx, gx0 - ox, gy0 - oy, gx1 - ox, gy1 - oy, lod, pi === 0 ? rdt : 0);
+    for (const e of vis) {
+      lights.push([e, ox, oy]);
+      if (!seen.has(e)) { seen.add(e); if (e.active) activeOnScreen++; }
+    }
+  });
+  updateSmoke(lod ? [] : [...seen], rdt);
+
+  drawNight(ctx, lights);
+  for (const [ox, oy] of passes) {
+    worldTransform();
+    ctx.translate(ox, oy);
+    if (!lod) drawSmoke(ctx);
+    drawOverlays(ctx);
+    drawLaunch(ctx);
+  }
+}
+
+// Una copia del mapa: suelo, edificios, bichos, trenes, personaje, cables, polución y niebla
+function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   // Suelo
   if (lod) {
     ctx.imageSmoothingEnabled = false;
@@ -1176,8 +1301,6 @@ function render(ctx) {
   }
   const biterVisible = (b) => tileExplored(Math.floor(b.x), Math.floor(b.y));
 
-  activeOnScreen = 0;
-  for (const e of visible) if (e.active) activeOnScreen++;
   if (lod) {
     for (const e of visible) {
       const s = sizeOf(e.type);
@@ -1200,8 +1323,6 @@ function render(ctx) {
   if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);
   drawEffects(ctx, rdt);
   drawShots(ctx);
-  updateSmoke(lod ? [] : visible, rdt);
-  if (!lod) drawSmoke(ctx);
 
   // Cables de los postes
   ctx.lineWidth = lod ? 2 : 1.2;
@@ -1219,11 +1340,7 @@ function render(ctx) {
 
   if (showPollution) drawPollution(ctx, vx0, vy0, vx1, vy1);
   drawFog(ctx, vx0, vy0, vx1, vy1);
-
-  drawNight(ctx, visible);
-  worldTransform();
-  drawOverlays(ctx);
-  drawLaunch(ctx);
+  return visible;
 }
 
 // Niebla: las celdas sin explorar se tapan, con un borde difuso
@@ -1347,8 +1464,9 @@ function g_reach(g, p) {
 function startLaunch(yard) {
   launchAnim = { yard, t: 0 };
   sfx('launch');
-  view.x = (yard.x + 2.5) * TILE;
-  view.y = (yard.y + 2.5) * TILE;
+  const h = sizeOf(yard.type) / 2;
+  view.x = (yard.x + h) * TILE;
+  view.y = (yard.y + h) * TILE;
   view.zoom = Math.max(view.zoom, 0.8);
 }
 
@@ -1357,7 +1475,8 @@ function updateLaunch(dt) {
   launchAnim.t += dt;
   const a = launchAnim, y = a.yard;
   const lift = a.t > 2 ? Math.pow(a.t - 2, 2.2) * 40 : 0;
-  const bx = (y.x + 2.5) * TILE, by = (y.y + 5) * TILE - 26 - lift;
+  const hs = sizeOf(y.type);
+  const bx = (y.x + hs / 2) * TILE, by = (y.y + hs) * TILE - 26 - lift;
   if (a.t > 0.5) {
     for (let i = 0; i < 4; i++) {
       particles.push({ x: bx + (Math.random() - 0.5) * 30, y: by + 20, vx: (Math.random() - 0.5) * 120, vy: 40 + Math.random() * 80, life: 1.5 + Math.random() });
@@ -1365,15 +1484,22 @@ function updateLaunch(dt) {
   }
   for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.98; p.life -= dt; }
   while (particles.length && particles[0].life <= 0) particles.shift();
-  if (a.t > 2) view.y = Math.max(by - 60, (y.y + 2.5) * TILE - 400);
+  if (a.t > 2) view.y = Math.max(by - 60, (y.y + hs / 2) * TILE - 400);
   if (a.t > 8) {
     launchAnim = null;
     particles.length = 0;
-    S.launched = (S.launched || 0) + 1;
-    if (!S.launchTime) S.launchTime = S.playTime;
-    for (const k in SHIP) y.parts[k] = 0;
-    save();
-    showWin();
+    for (const k in y.parts) y.parts[k] = 0;
+    if (y.type === 'starport') {
+      S.arkLaunched = (S.arkLaunched || 0) + 1;
+      if (stageOf() < 4) { S.stage = 4; S.stageTimes = S.stageTimes || {}; S.stageTimes[3] = S.playTime; }
+      save();
+      showWin(true);
+    } else {
+      S.launched = (S.launched || 0) + 1;
+      if (!S.launchTime) S.launchTime = S.playTime;
+      if (stageOf() === 1) advanceStage(2); else showWin(false);
+      save();
+    }
   }
 }
 
@@ -1385,7 +1511,8 @@ function drawLaunch(ctx) {
     ctx.beginPath(); ctx.arc(p.x, p.y, 6 + (2.5 - p.life) * 10, 0, Math.PI * 2); ctx.fill();
   }
   const lift = a.t > 2 ? Math.pow(a.t - 2, 2.2) * 40 : 0;
-  drawShip(ctx, (y.x + 2.5) * TILE, (y.y + 5) * TILE - 26 - lift, 0.95, 1, a.t > 0.5, time);
+  const hs = sizeOf(y.type);
+  drawShip(ctx, (y.x + hs / 2) * TILE, (y.y + hs) * TILE - 26 - lift, 0.95, 1, a.t > 0.5, time, y.type === 'starport');
   if (a.t > 6.5) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = `rgba(255,255,255,${Math.min(1, (a.t - 6.5) / 1.5)})`;
@@ -1426,5 +1553,9 @@ function renderMinimap(mc) {
   const vw = cw / view.zoom / TILE, vh = ch / view.zoom / TILE;
   g.strokeStyle = '#fff';
   g.lineWidth = 1;
-  g.strokeRect((view.x / TILE - vw / 2) * sx + 0.5, (view.y / TILE - vh / 2) * sy + 0.5, vw * sx, vh * sy);
+  // El recuadro de la vista puede cruzar el borde: se dibuja también del otro lado
+  const rx = (wrapX(view.x / TILE) - vw / 2) * sx, ry = (wrapY(view.y / TILE) - vh / 2) * sy;
+  for (const ox of [-mc.width, 0, mc.width]) for (const oy of [-mc.height, 0, mc.height]) {
+    g.strokeRect(rx + ox + 0.5, ry + oy + 0.5, vw * sx, vh * sy);
+  }
 }

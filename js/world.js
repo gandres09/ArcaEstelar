@@ -25,23 +25,33 @@ function hash(x, y, k) {
   return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
 }
 
-const inBounds = (x, y) => x >= 0 && y >= 0 && x < W && y < H;
-const oreAt = (x, y) => (inBounds(x, y) ? ORE_IDS[oreType[y * W + x]] : null);
-const oreAmountAt = (x, y) => (inBounds(x, y) ? oreAmt[y * W + x] : 0);
+// El mapa da la vuelta: saliendo por un borde se entra por el opuesto
+const wrapX = (x) => { x %= W; return x < 0 ? x + W : x; };
+const wrapY = (y) => { y %= H; return y < 0 ? y + H : y; };
+const wdx = (d) => d - W * Math.round(d / W);   // diferencia más corta en x
+const wdy = (d) => d - H * Math.round(d / H);
+const wdist = (ax, ay, bx, by) => Math.hypot(wdx(bx - ax), wdy(by - ay));
+const tIdx = (x, y) => wrapY(y) * W + wrapX(x);
+const inBounds = () => true;
+const oreAt = (x, y) => ORE_IDS[oreType[tIdx(x, y)]];
+const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 
 function generateMap(seed) {
   oreType = new Uint8Array(W * H);
   oreAmt = new Uint16Array(W * H);
   const rnd = mulberry32(seed);
   const cx = W >> 1, cy = H >> 1;
+  const K = (W * H) / (320 * 240); // cantidad de cosas según el tamaño del mapa
+  const legacy = K === 1;          // partidas viejas de 320×240: se generan igual que antes
+  const outside = (x, y) => legacy && (x < 0 || y < 0 || x >= W || y >= H);
 
   const patch = (px, py, rad, id, richness) => {
     for (let y = Math.floor(py - rad - 2); y <= py + rad + 2; y++) {
       for (let x = Math.floor(px - rad - 2); x <= px + rad + 2; x++) {
-        if (!inBounds(x, y)) continue;
+        if (outside(x, y)) continue;
         const d = Math.hypot(x - px, y - py);
         if (d < rad + (rnd() - 0.5) * 2) {
-          const i = y * W + x;
+          const i = tIdx(x, y);
           oreType[i] = id;
           // Más rico en el centro del yacimiento
           oreAmt[i] = Math.min(65000, Math.round(richness * (1.4 - 0.8 * d / (rad + 1)) * (0.8 + rnd() * 0.4)));
@@ -54,14 +64,15 @@ function generateMap(seed) {
   const lake = (px, py, rad) => {
     for (let y = Math.floor(py - rad - 3); y <= py + rad + 3; y++) {
       for (let x = Math.floor(px - rad - 3); x <= px + rad + 3; x++) {
-        if (!inBounds(x, y)) continue;
+        if (outside(x, y)) continue;
         const d = Math.hypot(x - px, (y - py) * 1.2);
-        const wobble = Math.sin(x * 0.7 + seed) * 0.8 + Math.cos(y * 0.6 + seed) * 0.8;
-        if (d < rad + wobble) { oreType[y * W + x] = 8; oreAmt[y * W + x] = 65000; }
+        const wobble = legacy ? Math.sin(x * 0.7 + seed) * 0.8 + Math.cos(y * 0.6 + seed) * 0.8
+          : Math.sin((x - px) * 0.7 + seed) * 0.8 + Math.cos((y - py) * 0.6 + seed) * 0.8;
+        if (d < rad + wobble) { oreType[tIdx(x, y)] = 8; oreAmt[tIdx(x, y)] = 65000; }
       }
     }
   };
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 26 * K; i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     if (Math.hypot(px - cx, py - cy) < 30) continue;
     lake(px, py, 3 + rnd() * 9);
@@ -81,34 +92,38 @@ function generateMap(seed) {
     while (placed < count && tries++ < 800) {
       const a = rnd() * Math.PI * 2, d = dmin + rnd() * (dmax - dmin);
       const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
-      if (px < 4 || py < 4 || px > W - 5 || py > H - 5) continue;
+      if (legacy && (px < 4 || py < 4 || px > W - 5 || py > H - 5)) continue;
       patch(px, py, rmin + rnd() * (rmax - rmin), id, rich * (1 + d / 50));
       placed++;
     }
   };
   ring(5, 28, 50, 4, 3, 5, 450);
   ring(6, 60, 130, 7, 3.5, 6.5, 500);
+  if (K > 1) {
+    ring(5, 50, W / 2, Math.round(6 * K), 3, 6, 450);
+    ring(6, 130, W / 2, Math.round(6 * K), 4, 7, 500);
+  }
 
   // Pozos de petróleo: grupos de casillas sueltas
   const oilField = (px, py) => {
     for (let k = 0; k < 4 + Math.floor(rnd() * 4); k++) {
       const x = Math.round(px + (rnd() - 0.5) * 9), y = Math.round(py + (rnd() - 0.5) * 9);
-      if (!inBounds(x, y)) continue;
-      oreType[y * W + x] = 7;
-      oreAmt[y * W + x] = 30000 + Math.floor(rnd() * 30000);
+      if (outside(x, y)) continue;
+      oreType[tIdx(x, y)] = 7;
+      oreAmt[tIdx(x, y)] = 30000 + Math.floor(rnd() * 30000);
     }
   };
   let fields = 0, tries = 0;
-  while (fields < 9 && tries++ < 500) {
-    const a = rnd() * Math.PI * 2, d = 32 + rnd() * 100;
+  while (fields < 9 * K && tries++ < 500 * K) {
+    const a = rnd() * Math.PI * 2, d = 32 + rnd() * (fields < 9 ? 100 : W / 2 - 32);
     const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
-    if (px < 6 || py < 6 || px > W - 7 || py > H - 7) continue;
+    if (legacy && (px < 6 || py < 6 || px > W - 7 || py > H - 7)) continue;
     oilField(px, py);
     fields++;
   }
 
   // Yacimientos comunes por todo el mapa
-  for (let i = 0; i < 220; i++) {
+  for (let i = 0; i < 220 * K; i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
     if (d < 26) continue;
@@ -123,12 +138,14 @@ function generateMap(seed) {
 
   // Despejar la zona del Núcleo
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
+  oreBase = oreAmt.slice();
+  computeForest();
   resetMapGraphics();
 }
 
 // Saca una unidad de mineral de la casilla; devuelve el mineral o null si no queda
 function mineOre(x, y) {
-  const i = y * W + x;
+  const i = tIdx(x, y);
   const id = oreType[i];
   if (!id) return null;
   if (id === 8) return 'water';
@@ -144,11 +161,14 @@ function mineOre(x, y) {
 
 // Ruido suave (interpolado) para que el pasto varíe sin que se note la grilla
 function vnoise(x, y, scale, k) {
-  const fx = x / scale, fy = y / scale;
+  // Periódico: la red de puntos encaja justo con el tamaño del mapa, así no hay costura en los bordes
+  const nx = Math.max(1, Math.round(W / scale)), ny = Math.max(1, Math.round(H / scale));
+  const fx = x * nx / W, fy = y * ny / H;
   const x0 = Math.floor(fx), y0 = Math.floor(fy);
   const tx = fx - x0, ty = fy - y0;
   const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
-  const a = hash(x0, y0, k), b = hash(x0 + 1, y0, k), c = hash(x0, y0 + 1, k), d = hash(x0 + 1, y0 + 1, k);
+  const X0 = ((x0 % nx) + nx) % nx, X1 = (X0 + 1) % nx, Y0 = ((y0 % ny) + ny) % ny, Y1 = (Y0 + 1) % ny;
+  const a = hash(X0, Y0, k), b = hash(X1, Y0, k), c = hash(X0, Y1, k), d = hash(X1, Y1, k);
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
@@ -176,7 +196,7 @@ function terrainAt(x, y) {
   return c;
 }
 
-const isWaterT = (x, y) => inBounds(x, y) && oreType[y * W + x] === 8;
+const isWaterT = (x, y) => oreType[tIdx(x, y)] === 8;
 
 // Distancia (0, 1 o 2+) del agua a la tierra más cercana: define lo profundo
 function waterDepth(x, y) {
@@ -213,9 +233,10 @@ function resetMapGraphics() {
 }
 
 function invalidateTile(x, y) {
+  x = wrapX(x); y = wrapY(y);
   // El relleno cambia la orilla: se redibujan también los bloques vecinos
   for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
-    chunkCache.delete(Math.floor((x + dx) / CHUNK) + ',' + Math.floor((y + dy) / CHUNK));
+    chunkCache.delete(Math.floor(wrapX(x + dx) / CHUNK) + ',' + Math.floor(wrapY(y + dy) / CHUNK));
   }
   const g = pixelMap.getContext('2d');
   g.fillStyle = rgbStr(tilePixel(x, y));
@@ -365,7 +386,7 @@ function drawTile(g, x, y, px, py) {
   }
 
   // Minerales: rocas con volumen (la tierra ya se tiñó en bloques suaves)
-  const amt = oreAmt[y * W + x];
+  const amt = oreAmt[tIdx(x, y)];
   const count = amt > 500 ? 5 : amt > 200 ? 4 : amt > 60 ? 3 : 2;
   for (let k = 0; k < count; k++) {
     const ox = px + 6 + hash(x, y, 10 + k) * 20, oy = py + 7 + hash(x, y, 20 + k) * 19;
@@ -378,6 +399,20 @@ function drawTile(g, x, y, px, py) {
 // Densidad de bosque (los árboles se dibujan aparte, ver render.js)
 function treeDensity(x, y) {
   return vnoise(x, y, 17, 9) * 0.75 + vnoise(x, y, 5, 10) * 0.25;
+}
+
+// Cuánto bosque hay en cada celda de polución (los árboles absorben polución)
+let forestCell = new Float32Array(0);
+function computeForest() {
+  forestCell = new Float32Array(PW * PH);
+  for (let cy = 0; cy < PH; cy++) for (let cx = 0; cx < PW; cx++) {
+    let n = 0, k = 0;
+    for (let y = cy * POLL_CELL; y < (cy + 1) * POLL_CELL; y += 2) for (let x = cx * POLL_CELL; x < (cx + 1) * POLL_CELL; x += 2) {
+      k++;
+      if (oreType[tIdx(x, y)] === 0 && treeDensity(x, y) > 0.5) n++;
+    }
+    forestCell[cy * PW + cx] = n / k;
+  }
 }
 
 // Árboles de cada chunk (solo decoración): [x, y, variante, escala, dx, dy]
@@ -425,20 +460,27 @@ function getChunk(cx, cy) {
   return c;
 }
 
-// Guardado del mapa: solo se guardan las cantidades (el tipo se recalcula con la semilla)
+// Guardado del mapa: el mapa se rearma con la semilla y solo se guardan las casillas que cambiaron
+let oreBase = null;
 function encodeOre() {
-  const bytes = new Uint8Array(oreAmt.buffer);
+  const diff = [];
+  for (let i = 0; i < oreAmt.length; i++) if (oreAmt[i] !== oreBase[i]) diff.push(i, oreAmt[i]);
+  const bytes = new Uint8Array(new Uint32Array(diff).buffer);
   let s = '';
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(s);
+  return 'd:' + btoa(s);
 }
 
 function decodeOre(b64) {
-  const s = atob(b64);
-  if (s.length !== W * H * 2) return;
+  const delta = b64.startsWith('d:');
+  const s = atob(delta ? b64.slice(2) : b64);
+  if (!delta && s.length !== W * H * 2) return;
   const bytes = new Uint8Array(s.length);
   for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
-  oreAmt = new Uint16Array(bytes.buffer);
+  if (delta) {
+    const d = new Uint32Array(bytes.buffer, 0, bytes.length >> 2);
+    for (let k = 0; k + 1 < d.length; k += 2) if (d[k] < oreAmt.length) oreAmt[d[k]] = d[k + 1];
+  } else oreAmt = new Uint16Array(bytes.buffer);
   for (let i = 0; i < W * H; i++) if (!oreAmt[i]) oreType[i] = 0;
   resetMapGraphics();
 }
@@ -449,7 +491,7 @@ function decodeOre(b64) {
 let explored = new Uint8Array(PW * PH);
 let fogDirty = true;
 
-const cellExplored = (cx, cy) => cx >= 0 && cy >= 0 && cx < PW && cy < PH && explored[cy * PW + cx] === 1;
+const cellExplored = (cx, cy) => explored[(((cy % PH) + PH) % PH) * PW + (((cx % PW) + PW) % PW)] === 1;
 const tileExplored = (x, y) => cellExplored(Math.floor(x / POLL_CELL), Math.floor(y / POLL_CELL));
 
 // Revela las celdas dentro de un radio (en casillas) alrededor de un punto
@@ -457,10 +499,11 @@ function reveal(x, y, radius) {
   const c0x = Math.floor((x - radius) / POLL_CELL), c1x = Math.floor((x + radius) / POLL_CELL);
   const c0y = Math.floor((y - radius) / POLL_CELL), c1y = Math.floor((y + radius) / POLL_CELL);
   let n = 0;
-  for (let cy = Math.max(0, c0y); cy <= Math.min(PH - 1, c1y); cy++) {
-    for (let cx = Math.max(0, c0x); cx <= Math.min(PW - 1, c1x); cx++) {
+  for (let cy = c0y; cy <= c1y; cy++) {
+    for (let cx = c0x; cx <= c1x; cx++) {
       const mx = (cx + 0.5) * POLL_CELL, my = (cy + 0.5) * POLL_CELL;
-      if (Math.hypot(mx - x, my - y) <= radius + POLL_CELL * 0.5 && !explored[cy * PW + cx]) { explored[cy * PW + cx] = 1; n++; }
+      const i = (((cy % PH) + PH) % PH) * PW + (((cx % PW) + PW) % PW);
+      if (Math.hypot(mx - x, my - y) <= radius + POLL_CELL * 0.5 && !explored[i]) { explored[i] = 1; n++; }
     }
   }
   if (n) fogDirty = true;

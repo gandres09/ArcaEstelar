@@ -28,9 +28,9 @@ function nearStorage() {
   if (!usePocket()) return true;
   const p = S.player;
   const hub = S.entities.find((e) => e.type === 'hub');
-  if (hub && Math.hypot(hub.x + 1.5 - p.x, hub.y + 1.5 - p.y) <= STORAGE_REACH) return true;
+  if (hub && wdist(p.x, p.y, hub.x + 1.5, hub.y + 1.5) <= STORAGE_REACH) return true;
   if (S.techs.logistic_network) {
-    for (const e of S.entities) if (e.type === 'receiver' && Math.hypot(e.x + 0.5 - p.x, e.y + 0.5 - p.y) <= 4) return true;
+    for (const e of S.entities) if (e.type === 'receiver' && wdist(p.x, p.y, e.x + 0.5, e.y + 0.5) <= 4) return true;
   }
   return false;
 }
@@ -57,7 +57,7 @@ function giveItem(k, n = 1) {
 
 const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station']);
 function walkable(x, y) {
-  if (!inBounds(x, y) || oreAt(x, y) === 'water') return false;
+  if (oreAt(x, y) === 'water') return false;
   const e = at(x, y);
   return !e || PASSABLE.has(e.type);
 }
@@ -71,7 +71,7 @@ function canStand(x, y) {
 function inReach(x, y, r = REACH) {
   if (!playerOn()) return true;
   const p = S.player;
-  return Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y) <= r;
+  return wdist(p.x, p.y, x + 0.5, y + 0.5) <= r;
 }
 
 function newPlayer(x, y) {
@@ -91,7 +91,8 @@ function unstick(p) {
 
 // Camino a pie (A*), hasta quedar a `near` casillas del destino
 function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
-  const idx = (x, y) => y * W + x;
+  const idx = (x, y) => tIdx(x, y);
+  sx = wrapX(sx); sy = wrapY(sy); tx = wrapX(tx); ty = wrapY(ty);
   const heap = [];
   const push = (n, f) => { heap.push([f, n]); let i = heap.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (heap[q][0] <= heap[i][0]) break; [heap[q], heap[i]] = [heap[i], heap[q]]; i = q; } };
   const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top[1]; };
@@ -103,7 +104,7 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
   while (heap.length && n++ < maxNodes) {
     const cur = pop();
     const cx = cur % W, cy = (cur / W) | 0;
-    if (Math.hypot(cx + 0.5 - (tx + 0.5), cy + 0.5 - (ty + 0.5)) <= near) {
+    if (wdist(cx, cy, tx, ty) <= near) {
       const path = [];
       let k = cur;
       while (k !== start) { path.push({ x: k % W + 0.5, y: ((k / W) | 0) + 0.5 }); k = from.get(k); }
@@ -112,11 +113,11 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
     const gc = g.get(cur);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
-      const x = cx + dx, y = cy + dy;
+      const x = wrapX(cx + dx), y = wrapY(cy + dy);
       if (!walkable(x, y)) continue;
       if (dx && dy && (!walkable(cx + dx, cy) || !walkable(cx, cy + dy))) continue;
       const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1);
-      if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + Math.hypot(x - tx, y - ty)); }
+      if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + wdist(x, y, tx, ty)); }
     }
   }
   return null;
@@ -145,7 +146,7 @@ function userPlace(type, x, y, dir, extra) {
   if (!S.player.queue.length && inReach(x + (s - 1) / 2, y + (s - 1) / 2)) return place(type, x, y, dir);
   const res = canPlace(type, x, y);
   if (!res.ok && res.why !== 'Faltan materiales') return null;
-  S.player.queue.push({ kind: 'place', type, x, y, dir, extra: extra || null });
+  S.player.queue.push({ kind: 'place', type, x: wrapX(x), y: wrapY(y), dir, extra: extra || null });
   return { queued: true };
 }
 
@@ -184,7 +185,7 @@ function processQueue() {
   // Ir hacia lo más cercano que falta
   if (p.queue.length && !p.path) {
     let best = null, bd = Infinity;
-    for (const q of p.queue) { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = q; } }
+    for (const q of p.queue) { const d = wdist(p.x, p.y, q.x, q.y); if (d < bd) { bd = d; best = q; } }
     if (!walkTo(best.x, best.y, REACH - 1.5)) p.queue.length = 0;
   }
 }
@@ -192,7 +193,7 @@ function processQueue() {
 // Tocar un mineral: ir y extraerlo hasta que se mande otra cosa
 function startMining(x, y) {
   const p = S.player;
-  p.mine = { x, y };
+  p.mine = { x: wrapX(x), y: wrapY(y) };
   p.mineT = 0;
   if (!inReach(x, y, MINE_REACH)) walkTo(x, y, MINE_REACH - 0.6);
 }
@@ -247,7 +248,7 @@ function updatePlayer(dt) {
     let budget = PLAYER_SPEED * dt;
     while (budget > 0 && p.path && p.path.length) {
       const wp = p.path[0];
-      const dx = wp.x - p.x, dy = wp.y - p.y, d = Math.hypot(dx, dy);
+      const dx = wdx(wp.x - p.x), dy = wdy(wp.y - p.y), d = Math.hypot(dx, dy);
       if (d <= budget) {
         if (canStand(wp.x, wp.y)) { p.x = wp.x; p.y = wp.y; }
         budget -= d;
@@ -277,6 +278,7 @@ function updatePlayer(dt) {
     if (Math.hypot(p.x - bx, p.y - by) < PLAYER_SPEED * dt * 0.2) { if ((p.stuck += dt) > 0.6) { p.path = null; p.stuck = 0; } }
     else p.stuck = 0;
   }
+  p.x = wrapX(p.x); p.y = wrapY(p.y);
   p.moving = !!(vx || vy) || (p.path && p.path.length > 0);
   revealTimer += dt;
   if (revealTimer > 0.4) { revealTimer = 0; reveal(p.x, p.y, REVEAL_RADIUS); }
@@ -288,7 +290,7 @@ function updatePlayer(dt) {
     if (!o || o === 'water' || o === 'oil' || at(p.mine.x, p.mine.y)) p.mine = null;
     else if (inReach(p.mine.x, p.mine.y, MINE_REACH)) {
       p.mining = true;
-      p.ang = Math.atan2(p.mine.y + 0.5 - p.y, p.mine.x + 0.5 - p.x);
+      p.ang = Math.atan2(wdy(p.mine.y + 0.5 - p.y), wdx(p.mine.x + 0.5 - p.x));
       p.mineT += dt;
       if (p.mineT >= HAND_MINE_TIME) {
         p.mineT = 0;

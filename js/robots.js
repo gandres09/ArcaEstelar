@@ -7,7 +7,7 @@ const ROBOT_SPEED = 7;   // casillas por segundo
 const robotsOn = () => hasTech('construction_robots');
 
 function ghostAt(x, y) {
-  return S.ghosts.find((g) => g.x <= x && x < g.x + sizeOf(g.type) && g.y <= y && y < g.y + sizeOf(g.type));
+  return S.ghosts.find((g) => wrapX(x - g.x) < sizeOf(g.type) && wrapY(y - g.y) < sizeOf(g.type));
 }
 
 // ¿Se podría construir sin contar los materiales?
@@ -21,6 +21,7 @@ function placeableIgnoringCost(type, x, y) {
 
 function addGhost(type, x, y, dir, extra = {}) {
   if (!robotsOn() || type === 'train' || type === 'landfill') return null;
+  x = wrapX(x); y = wrapY(y);
   if (ghostAt(x, y)) return null;
   if (!placeableIgnoringCost(type, x, y).ok) return null;
   const g = { id: S.nextId++, type, x, y, dir, recipe: extra.recipe || null, filter: extra.filter || null };
@@ -40,12 +41,12 @@ function placeOrGhost(type, x, y, dir, extra = {}) {
 
 function removeGhostsIn(r) {
   const before = S.ghosts.length;
-  S.ghosts = S.ghosts.filter((g) => g.x < r.x0 || g.x > r.x1 || g.y < r.y0 || g.y > r.y1);
+  S.ghosts = S.ghosts.filter((g) => wrapX(g.x - r.x0) > r.x1 - r.x0 || wrapY(g.y - r.y0) > r.y1 - r.y0);
   return before - S.ghosts.length;
 }
 
 function portsCovering(x, y) {
-  return S.entities.filter((p) => p.type === 'roboport' && p.powered && Math.max(Math.abs(p.x - x), Math.abs(p.y - y)) <= BUILDINGS.roboport.range);
+  return S.entities.filter((p) => p.type === 'roboport' && p.powered && Math.max(Math.abs(wdx(p.x - x)), Math.abs(wdy(p.y - y))) <= BUILDINGS.roboport.range);
 }
 
 function updateRobots(dt) {
@@ -53,13 +54,13 @@ function updateRobots(dt) {
   // Vuelos en curso
   for (const f of S.flights) {
     const tx = f.back ? f.px : f.tx, ty = f.back ? f.py : f.ty;
-    const dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy);
+    const dx = wdx(tx - f.x), dy = wdy(ty - f.y), d = Math.hypot(dx, dy);
     const step = ROBOT_SPEED * dt;
     if (d <= step) {
       f.x = tx; f.y = ty;
       if (!f.back) { finishJob(f); f.back = true; }
       else f.done = true;
-    } else { f.x += dx / d * step; f.y += dy / d * step; }
+    } else { f.x = wrapX(f.x + dx / d * step); f.y = wrapY(f.y + dy / d * step); }
   }
   for (const f of S.flights) if (f.done) { const p = S.entities.find((e) => e.id === f.port); if (p) p.busy = Math.max(0, (p.busy || 0) - 1); }
   S.flights = S.flights.filter((f) => !f.done);
@@ -83,7 +84,7 @@ function updateRobots(dt) {
   }
   for (const job of jobs) {
     const port = portsCovering(job.x, job.y).filter((p) => p.busy < BUILDINGS.roboport.bots)
-      .sort((a, b) => Math.hypot(a.x - job.x, a.y - job.y) - Math.hypot(b.x - job.x, b.y - job.y))[0];
+      .sort((a, b) => wdist(a.x, a.y, job.x, job.y) - wdist(b.x, b.y, job.x, job.y))[0];
     if (!port) continue;
     // Los materiales salen del inventario al despegar
     if (job.ghost) {

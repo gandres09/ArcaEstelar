@@ -37,12 +37,13 @@ function newState(seed, peaceful, character = false) {
     day: 1,
     playTime: 0,
     launched: 0,
+    mapW: W, mapH: H,
     nextId: 1,
   };
 }
 
 const add = (obj, k, n) => { obj[k] = (obj[k] || 0) + n; };
-const at = (x, y) => (inBounds(x, y) ? grid[y * W + x] : null);
+const at = (x, y) => grid[tIdx(x, y)];
 const sizeOf = (type) => (type === 'hub' ? 3 : type === 'nest' ? 2 : BUILDINGS[type]?.size || 1);
 const isBelt = (type) => BELTS.has(type);
 const hasTech = (id) => !id || !!S.techs[id];
@@ -135,7 +136,9 @@ function makeEntity(type, x, y, dir = 0) {
     case 'accumulator': e.stored = 0; break;
     case 'turret': e.ammo = 0; e.shots = 0; e.cd = 0; break;
     case 'laser': e.cd = 0; break;
-    case 'shipyard': e.parts = {}; break;
+    case 'shipyard': case 'starport': e.parts = {}; break;
+    case 'purifier': e.filters = 0; e.left = 0; e.rate = 0; break;
+    case 'uplink': e.charges = 0; e.cd = 0; e.aim = -Math.PI / 2; break;
     case 'nest': e.anger = 0; e.group = 0; e.groupTimer = 0; break;
   }
   return e;
@@ -143,7 +146,7 @@ function makeEntity(type, x, y, dir = 0) {
 
 function occupy(e, value) {
   const s = sizeOf(e.type);
-  for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) grid[(e.y + dy) * W + e.x + dx] = value;
+  for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) grid[tIdx(e.x + dx, e.y + dy)] = value;
 }
 
 function rebuildGrid() {
@@ -168,6 +171,8 @@ function contents(e) {
   if (e.fuelType) add(c, e.fuelType, e.fuel);
   if (e.store) for (const k in e.store) add(c, k, e.store[k]);
   if (e.parts) for (const k in e.parts) add(c, k, e.parts[k]);
+  if (e.type === 'purifier' && e.filters) add(c, 'air_filter', e.filters);
+  if (e.type === 'uplink' && e.charges) add(c, 'orbital_charge', e.charges);
   if (e.packs) for (const k in e.packs) add(c, k, e.packs[k]);
   if (e.type === 'turret' && e.ammo) add(c, 'ammo', e.ammo);
   if (e.modules) for (const m of e.modules) add(c, m, 1);
@@ -181,7 +186,6 @@ function contents(e) {
 function canPlace(type, x, y) {
   if (type === 'train') return canPlaceTrain(x, y);
   const s = sizeOf(type);
-  if (!inBounds(x, y) || !inBounds(x + s - 1, y + s - 1)) return { ok: false, why: 'Fuera del mapa' };
   if (s === 1) {
     const existing = at(x, y);
     if (existing) {
@@ -278,6 +282,7 @@ function undo() {
 // --------------------------- Construir y desarmar ---------------------------
 
 function place(type, x, y, dir, opts = {}) {
+  x = wrapX(x); y = wrapY(y);
   const res = canPlace(type, x, y);
   if (!res.ok) return null;
   if (res.rotate) {
@@ -291,8 +296,8 @@ function place(type, x, y, dir, opts = {}) {
   pay(BUILDINGS[type].cost);
   if (type === 'landfill') {
     // El relleno no es un edificio: convierte el agua en tierra
-    oreType[y * W + x] = 0;
-    oreAmt[y * W + x] = 0;
+    oreType[tIdx(x, y)] = 0;
+    oreAmt[tIdx(x, y)] = 0;
     invalidateTile(x, y);
     return { type: 'landfill' };
   }
@@ -357,15 +362,15 @@ function damageEntity(e, dmg) {
   }
 }
 
-function removeNest(e) {
+function removeNest(e, quiet) {
   occupy(e, null);
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
-  S.evo = Math.min(1, S.evo + 0.002);
+  if (!quiet) S.evo = Math.min(1, S.evo + 0.002);   // los ataques orbitales no los hacen evolucionar
   S.nestsKilled = (S.nestsKilled || 0) + 1;
   spawnExplosion(e.x + 1, e.y + 1, 1.6);
   sfx('boom', e.x, e.y);
-  toast('💥 Destruiste un nido');
+  if (!quiet) toast('💥 Destruiste un nido');
 }
 
 // --------------------------- Cintas subterráneas ---------------------------
@@ -419,7 +424,7 @@ function rebuildPower() {
       const q = stack.pop();
       nets[id].poles++;
       for (const r of poles) {
-        if (r._net < 0 && Math.hypot(r.x - q.x, r.y - q.y) <= reach(q, r)) { r._net = id; stack.push(r); }
+        if (r._net < 0 && wdist(q.x, q.y, r.x, r.y) <= reach(q, r)) { r._net = id; stack.push(r); }
       }
     }
   }
@@ -427,7 +432,7 @@ function rebuildPower() {
   for (let i = 0; i < poles.length; i++) {
     for (let j = i + 1; j < poles.length; j++) {
       const a = poles[i], b = poles[j];
-      if (Math.hypot(a.x - b.x, a.y - b.y) <= reach(a, b)) wires.push([a.x, a.y, b.x, b.y, a.type === 'bigpole' && b.type === 'bigpole']);
+      if (wdist(a.x, a.y, b.x, b.y) <= reach(a, b)) wires.push([a.x, a.y, a.x + wdx(b.x - a.x), a.y + wdy(b.y - a.y), a.type === 'bigpole' && b.type === 'bigpole']);
     }
   }
   for (const e of S.entities) {
@@ -438,7 +443,8 @@ function rebuildPower() {
     // Buscar un poste cuya zona de alimentación toque el edificio
     for (const p of poles) {
       const sup = BUILDINGS[p.type].supply;
-      if (p.x + sup >= e.x && p.x - sup <= e.x + s - 1 && p.y + sup >= e.y && p.y - sup <= e.y + s - 1) { e._net = p._net; break; }
+      const ex = wdx(e.x - p.x), ey = wdy(e.y - p.y);
+      if (ex <= sup && ex + s - 1 >= -sup && ey <= sup && ey + s - 1 >= -sup) { e._net = p._net; break; }
     }
   }
   for (const n of nets) n.accCount = 0;
@@ -549,9 +555,17 @@ function accept(t, item, src, dry = false) {
     case 'turret':
       if (item !== 'ammo' || t.ammo >= 20) return false;
       return ok(() => { t.ammo++; });
-    case 'shipyard':
-      if (!SHIP[item] || (t.parts[item] || 0) >= SHIP[item]) return false;
+    case 'shipyard': case 'starport': {
+      const need = shipNeeds(t);
+      if (!need[item] || (t.parts[item] || 0) >= need[item]) return false;
       return ok(() => add(t.parts, item, 1));
+    }
+    case 'purifier':
+      if (item !== 'air_filter' || t.filters >= 20) return false;
+      return ok(() => { t.filters++; });
+    case 'uplink':
+      if (item !== 'orbital_charge' || t.charges >= 10) return false;
+      return ok(() => { t.charges++; });
   }
   return false;
 }
@@ -566,7 +580,9 @@ function wantedBy(dst) {
     case 'turret': return ['ammo'];
     case 'boiler': return ['water', 'coal', 'solid_fuel'];
     case 'generator': return ['coal', 'solid_fuel'];
-    case 'shipyard': return Object.keys(SHIP);
+    case 'shipyard': case 'starport': return Object.keys(shipNeeds(dst));
+    case 'purifier': return ['air_filter'];
+    case 'uplink': return ['orbital_charge'];
     default: return [];
   }
 }
@@ -621,7 +637,7 @@ function techName(id) {
   return t.infinite ? `${t.name} ${infLevel(id) + 1}` : t.name;
 }
 function techAvailable(id) {
-  return (TECHS[id].infinite || !S.techs[id]) && TECHS[id].req.every((r) => S.techs[r]);
+  return (TECHS[id].infinite || !S.techs[id]) && TECHS[id].req.every((r) => S.techs[r]) && stageOf() >= (TECHS[id].stage || 1);
 }
 function labSpeedMult() { return 1 + 0.1 * infLevel('inf_lab'); }
 
@@ -969,6 +985,42 @@ function update(dt) {
       case 'lamp':
         e.lit = darkness() > 0.15 && drawPower(e, def.power) > 0.5;
         break;
+
+      case 'fusion_plant': {
+        const net = nets[e._net];
+        e.out = def.output;
+        if (net) net.solar += e.out;   // energía directa, como la solar pero sin sol
+        e.active = true;
+        break;
+      }
+
+      case 'purifier': {
+        e.rate = 0;
+        e.active = false;
+        if (e.filters <= 0 && e.left <= 0) break;
+        const sp = drawPower(e, def.power);
+        if (sp < 0.1) break;
+        e.rate = purify(e.x + 1, e.y + 1, def.absorb * sp * dt) / dt;
+        e.left -= e.rate * dt;
+        if (e.left <= 0 && e.filters > 0) { e.filters--; e.left += FILTER_LIFE; }
+        e.active = e.rate > 0.05;
+        break;
+      }
+
+      case 'uplink': {
+        const sp = drawPower(e, def.power);
+        e.active = sp > 0.3;
+        if (!e.active) break;
+        e.cd = Math.max(0, e.cd - dt * sp);
+        if (e.cd > 0 || e.charges <= 0) break;
+        const target = nearestNest(e.x + 1.5, e.y + 1.5);
+        if (!target) break;
+        e.charges--;
+        e.cd = def.reload;
+        e.aim = Math.atan2(wdy(target.y + 1 - e.y - 1.5), wdx(target.x + 1 - e.x - 1.5));
+        orbitalStrike(target.x + 1, target.y + 1, def.blast);
+        break;
+      }
     }
 
     // Los edificios dañados se reparan solos si no los atacan por un rato
@@ -979,6 +1031,8 @@ function update(dt) {
   }
 
   if (researchDone) finishResearch();
+  S.stageTimer = (S.stageTimer || 0) + dt;
+  if (S.stageTimer >= 1) { S.stageTimer -= 1; stageTick(); }
   updateFluids();
   updatePlayer(dt);
   updateTrains(dt);
@@ -988,16 +1042,99 @@ function update(dt) {
 
 // ¿Están todas las piezas de la nave?
 function shipReady(e) {
-  for (const k in SHIP) if ((e.parts[k] || 0) < SHIP[k]) return false;
+  const need = shipNeeds(e);
+  for (const k in need) if ((e.parts[k] || 0) < need[k]) return false;
   return true;
 }
 
-function shipProgress() {
-  const yard = S.entities.find((e) => e.type === 'shipyard');
+// Avance de la nave (etapa 1) o del arca (etapa 3)
+function shipProgress(type = stageOf() >= 3 ? 'starport' : 'shipyard') {
+  const yard = S.entities.find((e) => e.type === type);
+  const needs = type === 'starport' ? ARK : SHIP;
   let have = 0, need = 0;
-  for (const k in SHIP) {
-    need += SHIP[k];
-    if (yard) have += Math.min(SHIP[k], yard.parts[k] || 0);
+  for (const k in needs) {
+    need += needs[k];
+    if (yard) have += Math.min(needs[k], yard.parts[k] || 0);
   }
   return { yard, have, need, frac: have / need };
+}
+
+// --------------------------- Etapas ---------------------------
+
+const stageOf = () => S.stage || 1;
+const FILTER_LIFE = 60;   // polución que limpia cada filtro
+
+// Objetivo de la etapa 2: sin nidos y con el aire limpio un rato
+function cleanupProgress() {
+  const nests = S.entities.filter((e) => e.type === 'nest').length;
+  const start = Math.max(1, S.nestsAtStage2 || nests);
+  const nestFrac = S.peaceful ? 1 : 1 - Math.min(1, nests / start);
+  const airFrac = Math.min(1, (S.cleanTime || 0) / CLEAN_TIME);
+  return { nests, nestFrac, airFrac, poll: totalPollution(), frac: S.peaceful ? airFrac : (nestFrac + airFrac) / 2 };
+}
+
+function stageProgress() {
+  const st = stageOf();
+  if (st === 2) return cleanupProgress().frac;
+  if (st >= 4) return 1;
+  return shipProgress().frac;
+}
+
+function stageTick() {
+  if (stageOf() !== 2) return;
+  S.cleanTime = totalPollution() < CLEAN_TARGET ? (S.cleanTime || 0) + 1 : 0;
+  const c = cleanupProgress();
+  if (c.nests === 0 && c.airFrac >= 1) advanceStage(3);
+}
+
+// Pasa a la etapa siguiente (lo llama el despegue y la limpieza)
+function advanceStage(n) {
+  if (stageOf() >= n) return;
+  S.stage = n;
+  S.stageTimes = S.stageTimes || {};
+  S.stageTimes[n - 1] = S.playTime;
+  if (n === 2) {
+    // Desde la órbita se ve todo el planeta
+    explored.fill(1);
+    fogDirty = true;
+    S.nestsAtStage2 = S.entities.filter((e) => e.type === 'nest').length;
+    S.cleanTime = 0;
+  }
+  if (typeof showStage === 'function') showStage(n);
+}
+
+// Absorbe polución alrededor de un punto (3×3 celdas); devuelve cuánto sacó
+function purify(x, y, amount) {
+  const c = cellOf(x, y), cx = c % PW, cy = (c / PW) | 0;
+  const cells = [];
+  let total = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const i = (((cy + dy) % PH + PH) % PH) * PW + (((cx + dx) % PW + PW) % PW);
+    if (pollution[i] > 0) { cells.push(i); total += pollution[i]; }
+  }
+  if (total <= 0) return 0;
+  const take = Math.min(amount, total);
+  for (const i of cells) pollution[i] = Math.max(0, pollution[i] - take * pollution[i] / total);
+  return take;
+}
+
+function nearestNest(x, y) {
+  let best = null, bd = Infinity;
+  for (const e of S.entities) {
+    if (e.type !== 'nest') continue;
+    const d = wdist(x, y, e.x + 1, e.y + 1);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+
+// Rayo desde la órbita: borra los nidos y bichos de la zona
+function orbitalStrike(x, y, r) {
+  const hit = S.entities.filter((e) => e.type === 'nest' && wdist(x, y, e.x + 1, e.y + 1) <= r);
+  for (const n of hit) removeNest(n, true);
+  if (typeof toast === 'function') toast(`☄️ Ataque orbital: ${hit.length} nido${hit.length === 1 ? '' : 's'} menos.`);
+  for (const b of S.biters) if (wdist(x, y, b.x, b.y) <= r) b.dead = true;
+  if (typeof spawnStrike === 'function') spawnStrike(x, y);
+  sfx('boom', x, y);
+  S.strikes = (S.strikes || 0) + 1;
 }

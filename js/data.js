@@ -5,7 +5,8 @@
 // =====================================================================
 
 const TILE = 32;
-const W = 320, H = 240;                           // tamaño del mapa en casillas
+let W = 640, H = 480;                             // tamaño del mapa en casillas (da la vuelta en los bordes)
+const MAP_SIZE = [640, 480];                      // tamaño de las partidas nuevas
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];  // derecha, abajo, izquierda, arriba
 const DIR_ARROWS = ['→', '↓', '←', '↑'];
 const SAVE_KEY = 'mini-fabrica-v4';
@@ -58,9 +59,22 @@ const ITEMS = {
   thruster:       { name: 'Propulsor',          color: '#e5533d', shape: 'part' },
   nav_computer:   { name: 'Computadora de navegación', color: '#3d8fd6', shape: 'chip' },
   life_support:   { name: 'Soporte vital',      color: '#3cc47c', shape: 'part' },
+
+  // Etapa 2: limpiar el planeta
+  explosives:     { name: 'Explosivos',         color: '#d9534f', shape: 'fuel' },
+  orbital_charge: { name: 'Carga orbital',      color: '#ff6a3d', shape: 'part' },
+  air_filter:     { name: 'Filtro de aire',     color: '#9fd9c8', shape: 'plate' },
+  // Etapa 3: el arca estelar
+  superconductor: { name: 'Superconductor',     color: '#7fd1ff', shape: 'cable' },
+  quantum_processor: { name: 'Procesador cuántico', color: '#b98cff', shape: 'chip' },
+  sci_star:       { name: 'Ciencia estelar',    color: '#f4f1e1', shape: 'flask' },
+  fusion_core:    { name: 'Núcleo de fusión',   color: '#ffd166', shape: 'battery' },
+  warp_drive:     { name: 'Motor de curvatura', color: '#8a7dff', shape: 'part' },
+  habitat:        { name: 'Módulo de hábitat',  color: '#9ad17f', shape: 'part' },
+  shield:         { name: 'Escudo deflector',   color: '#59c3ff', shape: 'module' },
 };
 const ITEM_ORDER = Object.keys(ITEMS);
-const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'];
+const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
 
 // Recursos del mapa (el índice es el id guardado en el mapa)
 const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water'];
@@ -114,6 +128,18 @@ const RECIPES = {
   lubricant:    { machine: 'chem', tier: 1, in: { oil: 1, water: 1 },                       out: 'lubricant',    n: 1, time: 1,   tech: 'electric_engines' },
   battery:      { machine: 'chem', tier: 1, in: { sulfur: 1, iron_plate: 1, copper_plate: 1 }, out: 'battery',  n: 1, time: 4,   tech: 'batteries' },
   rocket_fuel:  { machine: 'chem', tier: 1, in: { solid_fuel: 4, oil: 2 },                  out: 'rocket_fuel',  n: 1, time: 8,   tech: 'rocketry' },
+  // Etapa 2
+  air_filter:   { machine: 'asm',  tier: 1, in: { coal: 2, plastic: 1, steel: 1 },          out: 'air_filter',   n: 2, time: 5,   tech: 'air_purification' },
+  explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'orbital_strike' },
+  orbital_charge: { machine: 'asm', tier: 2, in: { rocket_fuel: 1, explosives: 5, control_unit: 1 }, out: 'orbital_charge', n: 1, time: 15, tech: 'orbital_strike' },
+  // Etapa 3
+  superconductor: { machine: 'chem', tier: 1, in: { copper_plate: 2, titanium_plate: 1, lubricant: 2 }, out: 'superconductor', n: 1, time: 5, tech: 'superconductors' },
+  quantum_processor: { machine: 'asm', tier: 2, in: { processor: 2, superconductor: 2, control_unit: 1 }, out: 'quantum_processor', n: 1, time: 12, tech: 'superconductors' },
+  sci_star:     { machine: 'asm',  tier: 2, in: { quantum_processor: 1, superconductor: 2, low_density: 1 }, out: 'sci_star', n: 2, time: 20, tech: 'star_science' },
+  fusion_core:  { machine: 'asm',  tier: 2, in: { superconductor: 10, quantum_processor: 3, steel: 20, titanium_plate: 10 }, out: 'fusion_core', n: 1, time: 30, tech: 'fusion' },
+  warp_drive:   { machine: 'asm',  tier: 2, in: { fusion_core: 1, thruster: 2, quantum_processor: 4 }, out: 'warp_drive', n: 1, time: 30, tech: 'warp_drive' },
+  habitat:      { machine: 'asm',  tier: 2, in: { hull: 3, life_support: 2, plastic: 20 },  out: 'habitat',      n: 1, time: 20,  tech: 'starship' },
+  shield:       { machine: 'asm',  tier: 2, in: { superconductor: 6, battery: 10, quantum_processor: 2 }, out: 'shield', n: 1, time: 20, tech: 'starship' },
 };
 const RECIPE_ORDER = Object.keys(RECIPES);
 
@@ -197,6 +223,14 @@ const BUILDINGS = {
 
   shipyard:    { name: 'Astillero',           cat: 'nave', size: 5, hp: 3000, cost: { steel: 200, brick: 200, processor: 50 }, tech: 'rocketry',
                  desc: 'Acá se arma la nave. Recibe las piezas por cinta o desde el inventario.' },
+  purifier:    { name: 'Purificador de aire', cat: 'planeta', size: 2, power: 300, absorb: 4, hp: 300, cost: { steel: 20, circuit: 15, plastic: 20 }, tech: 'air_purification',
+                 desc: 'Limpia la polución de su zona (hasta 4 por segundo) gastando filtros de aire. Usa 300 kW.' },
+  uplink:      { name: 'Enlace orbital',      cat: 'planeta', size: 3, power: 1000, reload: 12, blast: 10, hp: 800, cost: { steel: 100, control_unit: 20, processor: 30 }, tech: 'orbital_strike',
+                 desc: 'Desde la estación en órbita, borra el grupo de nidos más cercano de todo el planeta. Gasta 1 carga orbital por disparo. Usa 1 MW.' },
+  fusion_plant:{ name: 'Planta de fusión',    cat: 'energía', size: 3, output: 8000, hp: 1000, cost: { fusion_core: 2, steel: 100, superconductor: 40 }, tech: 'fusion',
+                 desc: 'Genera 8 MW sin combustible y sin contaminar.' },
+  starport:    { name: 'Dique estelar',       cat: 'nave', size: 7, hp: 6000, cost: { steel: 1000, low_density: 200, quantum_processor: 50, brick: 500 }, tech: 'starship',
+                 desc: 'Acá se arma el Arca estelar para salir del sistema solar. Recibe las piezas por cinta o desde el inventario.' },
   roboport:    { name: 'Puerto de robots',    cat: 'robots', power: 200, range: 25, bots: 5, hp: 400, cost: { steel: 30, circuit: 30, electric_engine: 10, battery: 10 }, tech: 'construction_robots',
                  desc: 'Trae 5 robots que construyen los fantasmas, reconstruyen lo destruido y reparan en 25 casillas a la redonda. Usa 200 kW.' },
   rail:        { name: 'Vía',                 cat: 'trenes', hp: 100, cost: { stone: 1, steel: 1 }, tech: 'railway',
@@ -209,7 +243,7 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const UNDERGROUND_REACH = 5;
 
@@ -283,6 +317,22 @@ const TECHS = {
                        desc: 'Receta del pack de ciencia espacial.' },
   rocketry:          { name: 'Cohetería',            packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 300, time: 30, req: ['space_science', 'electric_engines'],
                        desc: 'Astillero, propulsores, navegación, soporte vital y combustible de cohete.' },
+  // Etapa 2: limpiar el planeta (se desbloquea al llegar al espacio)
+  air_purification:  { name: 'Purificación del aire', stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['chemical_science'],
+                       desc: 'Purificadores y filtros de aire para limpiar la polución.' },
+  orbital_strike:    { name: 'Ataque orbital',       stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 250, time: 25, req: ['rocketry'],
+                       desc: 'Explosivos, cargas orbitales y el Enlace orbital que borra nidos en cualquier lugar del planeta.' },
+  // Etapa 3: escapar del sistema solar (se desbloquea con el planeta limpio)
+  superconductors:   { name: 'Superconductores',     stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 400, time: 30, req: ['rocketry'],
+                       desc: 'Superconductores (cobre + titanio + lubricante) y procesadores cuánticos.' },
+  star_science:      { name: 'Ciencia estelar',      stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 500, time: 30, req: ['superconductors'],
+                       desc: 'Receta del pack de ciencia estelar.' },
+  fusion:            { name: 'Fusión',               stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'], units: 300, time: 35, req: ['star_science'],
+                       desc: 'Núcleos de fusión y la Planta de fusión: 8 MW limpios.' },
+  warp_drive:        { name: 'Motor de curvatura',   stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'], units: 400, time: 35, req: ['fusion'],
+                       desc: 'El motor que dobla el espacio para salir del sistema solar.' },
+  starship:          { name: 'Arca estelar',         stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'], units: 500, time: 40, req: ['warp_drive'],
+                       desc: 'Dique estelar, módulos de hábitat y escudos deflectores.' },
   // Infinitas: cada nivel cuesta 1,5 veces más que el anterior
   inf_lab:           { name: 'Velocidad de investigación', infinite: true, packs: ['sci_red', 'sci_green', 'sci_blue'], units: 80, time: 20, req: ['chemical_science'],
                        desc: '+10 % de velocidad de los laboratorios por nivel.' },
@@ -309,10 +359,23 @@ const ERAS = [
   { name: 'Era eléctrica', tech: 'electricity' },
   { name: 'Era química',   tech: 'oil' },
   { name: 'Era espacial',  tech: 'space_science' },
+  { name: 'Era estelar',   tech: 'superconductors' },
 ];
 
 // Lo que necesita la nave para despegar
 const SHIP = { hull: 120, thruster: 40, nav_computer: 20, life_support: 25, rocket_fuel: 300 };
+// Y el Arca estelar, para la etapa final
+const ARK = { hull: 400, warp_drive: 24, fusion_core: 30, habitat: 40, shield: 40, nav_computer: 60, rocket_fuel: 800 };
+const shipNeeds = (e) => (e.type === 'starport' ? ARK : SHIP);
+
+// Las tres etapas del juego
+const STAGES = [
+  { name: 'Llegar al espacio',         icon: '🚀', desc: 'Armá la nave en el Astillero y lanzala a la órbita.' },
+  { name: 'Limpiar el planeta',        icon: '🌱', desc: 'Borrá todos los nidos y dejá el aire limpio durante 5 minutos.' },
+  { name: 'Escapar del sistema solar', icon: '🌌', desc: 'Armá el Arca estelar en el Dique estelar y despegá.' },
+];
+const CLEAN_TARGET = 30;   // polución total máxima para considerar el aire limpio
+const CLEAN_TIME = 300;    // segundos seguidos de aire limpio
 
 // Día y noche: duración del ciclo y luz solar por tramo
 const DAY_LENGTH = 480; // segundos
@@ -325,7 +388,11 @@ const DAY_PHASES = [
 
 // Enemigos
 const POLL_CELL = 8;                               // casillas por celda de polución
-const PW = Math.ceil(W / POLL_CELL), PH = Math.ceil(H / POLL_CELL);
+let PW = Math.ceil(W / POLL_CELL), PH = Math.ceil(H / POLL_CELL);
+function setMapSize(w, h) {
+  W = w; H = h;
+  PW = Math.ceil(W / POLL_CELL); PH = Math.ceil(H / POLL_CELL);
+}
 const BITERS = {
   small:  { name: 'Bicho chico',   hp: 15,  dmg: 7,  speed: 1.6, cost: 4,  size: 5,  color: '#b5803a' },
   medium: { name: 'Bicho mediano', hp: 80,  dmg: 15, speed: 1.4, cost: 20, size: 7,  color: '#8b4f9e' },

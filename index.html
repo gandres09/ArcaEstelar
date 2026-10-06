@@ -20,8 +20,8 @@
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
     </div>
-    <div id="ship-mini" title="Progreso de la nave">
-      <span>🚀</span>
+    <div id="ship-mini" title="Progreso de la etapa">
+      <span id="stage-icon">🚀</span>
       <div class="bar"><div id="ship-mini-bar"></div></div>
       <span id="ship-mini-pct">0%</span>
     </div>
@@ -131,6 +131,12 @@
         <button type="button" class="close" data-close>✕</button>
       </div>
       <p>Te estrellaste en un planeta desconocido. Para salir vas a tener que levantar una fábrica cada vez más grande, investigar y armar una <b>nave espacial</b>.</p>
+      <h3>Tres etapas</h3>
+      <ol>
+        <li>🚀 <b>Llegar al espacio:</b> armá la nave en el Astillero y lanzala. Queda en órbita como estación y desde ahí ves todo el planeta.</li>
+        <li>🌱 <b>Limpiar el planeta:</b> borrá todos los nidos con el <b>Enlace orbital</b> y dejá el aire limpio con <b>Purificadores</b> (polución total menor a 30 durante 5 minutos).</li>
+        <li>🌌 <b>Escapar del sistema solar:</b> superconductores, ciencia estelar, fusión y motores de curvatura para el <b>Arca estelar</b>.</li>
+      </ol>
       <h3>Cómo empezar</h3>
       <ol>
         <li>Arrancás <b>sin nada</b>, con tu personaje junto al <b>Núcleo</b>. Con la <b>Mano</b>, tocá un mineral para que lo extraiga (tiene que estar cerca: camina solo).</li>
@@ -162,9 +168,10 @@
       </ul>
       <h3>Para tener en cuenta</h3>
       <ul>
+        <li>El mapa es enorme y <b>da la vuelta</b>: si salís por el norte, volvés por el sur (y lo mismo de este a oeste).</li>
         <li>Los yacimientos se agotan. El cuarzo, el titanio y el petróleo están más lejos: buscalos en el mapa.</li>
         <li>Hay día y noche. Los paneles solares no generan de noche y rinden la mitad al atardecer y al amanecer.</li>
-        <li>Las máquinas contaminan. Cuando la polución llega a los <b>nidos</b>, los bichos atacan. Defendete con muros y torretas.</li>
+        <li>Las máquinas contaminan. Cuando la polución llega a los <b>nidos</b>, los bichos atacan. Defendete con muros y torretas. Los <b>bosques</b> absorben polución.</li>
         <li>Las máquinas eléctricas tienen que estar cerca de un <b>poste</b> conectado a un generador.</li>
         <li>El mapa arranca cubierto de niebla: se descubre al construir y con el <b>radar</b>. No se puede construir en lo que no exploraste.</li>
         <li><b>Brazos</b>: toman de atrás y dejan adelante solo lo que el destino necesita. Un brazo pegado al Núcleo alimenta la máquina de enfrente.</li>
@@ -223,10 +230,9 @@
 
   <div id="win" class="modal" hidden>
     <div class="modal-box panel">
-      <h1>🚀 ¡Escapaste del planeta!</h1>
-      <p>La nave despegó y dejaste atrás el planeta. Tu fábrica lo hizo posible.</p>
+      <h1 id="win-title">🚀 ¡Llegaste al espacio!</h1>
+      <div id="win-text"></div>
       <div id="win-stats"></div>
-      <p class="muted">Podés seguir jugando, expandir la fábrica y armar otra nave.</p>
       <button id="btn-win-close" type="button" class="primary">Seguir jugando</button>
     </div>
   </div>
