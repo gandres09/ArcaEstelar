@@ -214,7 +214,7 @@ function netPlayerState() {
   if (!p) return null;
   const r = (v) => Math.round(v * 100) / 100;
   const d = p.pet;
-  const pet = d ? [r(d.x), r(d.y), r(d.ang), Math.max(0, PET_ANIMS.indexOf(d.anim)), d.color | 0, Math.round(d.food * 100)] : [];
+  const pet = d && !d.gone ? [r(d.x), r(d.y), r(d.ang), Math.max(0, PET_ANIMS.indexOf(d.anim)), d.color | 0, Math.round(d.food * 100), d.level || 1] : [];
   return [r(p.x), r(p.y), r(p.ang), p.moving ? 1 : 0, p.mining ? 1 : 0, r(p.step || 0), ...pet];
 }
 
@@ -535,11 +535,11 @@ function netUpdateAvatars(peers, dt) {
       if (!a.pet) a.pet = { x: pp[6], y: pp[7], step: 0 };
       const pet = a.pet;
       const anim = PET_ANIMS[pp[9]] || 'idle';
-      if ((anim === 'happy' || anim === 'eat') && pet.anim !== anim) spawnHearts(pet.x, pet.y, 3);
+      if ((anim === 'happy' || anim === 'eat' || anim === 'spin') && pet.anim !== anim && pet.anim !== 'spin' && pet.anim !== 'happy') spawnHearts(pet.x, pet.y, 3);
       const px = pet.x;
       pet.x = wrapX(pet.x + wdx(pp[6] - pet.x) * k); pet.y = wrapY(pet.y + wdy(pp[7] - pet.y) * k);
       pet.step += Math.abs(wdx(pet.x - px)) * 3 + dt * (anim === 'walk' ? 8 : 0);
-      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, name: cleanNick(p.presence.pn) || 'Perrito' });
+      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
     } else a.pet = null;
   }
   for (const k of NET.avatars.keys()) if (!seen.has(k)) NET.avatars.delete(k);

@@ -11,23 +11,58 @@ const PET_COLORS = [
   { name: 'Blanco', body: '#ece6da', dark: '#bdb4a3', ear: '#c9a27a' },
   { name: 'Dorado', body: '#d9a441', dark: '#a8772a', ear: '#a8772a' },
 ];
-const PET_HUNGER_TIME = 1200;   // segundos hasta tener hambre del todo
-const PET_ANIMS = ['idle', 'walk', 'sit', 'happy', 'eat', 'rest'];
+const PET_HUNGER_TIME = 1200;   // segundos de juego hasta tener la panza vacía
+const PET_STARVE_TIME = 600;    // segundos con la panza vacía hasta que se escapa
+const PET_MAX_LEVEL = 10;
+const PET_ANIMS = ['idle', 'walk', 'sit', 'happy', 'eat', 'rest', 'sad', 'spin'];
+// Cariño necesario para cada nivel (nivel 2: 40, nivel 5: 400, nivel 10: 1800)
+const petXpFor = (lv) => 20 * lv * (lv - 1);
+const PET_PERKS = { 2: 'un collar', 4: 'una medallita', 6: 'un pañuelo', 8: 'una vuelta de alegría cuando lo mimás', 10: 'una corona dorada' };
 const petHearts = [];           // corazoncitos que suben (solo se ven, no se guardan)
 
+function newPet(x, y, name = 'Firulais', color = 0) {
+  return { x, y, ang: 0, mode: 'follow', color, name, food: 1, anim: 'idle', step: 0, happyT: 0, eatT: 0, idleT: 0, xp: 0, level: 1, starve: 0, petCd: 0, warn: 0 };
+}
+
 function ensurePet(p) {
-  if (!p || p.pet) return;
-  p.pet = { x: p.x - 1.2, y: p.y + 0.6, ang: 0, mode: 'follow', color: 0, name: 'Firulais', food: 1, anim: 'idle', step: 0, happyT: 0, eatT: 0, idleT: 0 };
+  if (!p) return;
+  if (!p.pet) p.pet = newPet(p.x - 1.2, p.y + 0.6);
+  const d = p.pet;
+  if (d.level === undefined) Object.assign(d, { xp: 0, level: 1, starve: 0, petCd: 0, warn: 0 });   // perros de antes
+}
+
+function petGainXp(d, n) {
+  if (d.gone || d.level >= PET_MAX_LEVEL) return;
+  d.xp += n;
+  while (d.level < PET_MAX_LEVEL && d.xp >= petXpFor(d.level + 1)) {
+    d.level++;
+    spawnHearts(d.x, d.y, 8);
+    sfx('win');
+    const perk = PET_PERKS[d.level];
+    toast(`🐕 ¡${escapeHtml(d.name)} subió a nivel ${d.level}!${perk ? ` Ahora tiene ${perk}.` : ''}`);
+  }
 }
 
 function updatePet(p, dt) {
   ensurePet(p);
   const d = p.pet;
+  if (d.gone) return;
   d.food = Math.max(0, d.food - dt / PET_HUNGER_TIME);
   d.happyT = Math.max(0, d.happyT - dt);
   d.eatT = Math.max(0, d.eatT - dt);
+  d.petCd = Math.max(0, (d.petCd || 0) - dt);
+  // Compañía: un poquito de cariño por cada minuto juntos, si está bien comido
+  if (d.food > 0.25) petGainXp(d, dt / 60);
+  // Hambre: avisa, se pone triste y si nadie le da de comer, se escapa
+  if (d.food <= 0) {
+    d.starve += dt;
+    if (d.warn < 1) { d.warn = 1; toast(`🥺 <b>${escapeHtml(d.name)}</b> tiene mucha hambre. Tocalo y dale de comer.`); }
+    if (d.warn < 2 && d.starve > PET_STARVE_TIME * 0.6) { d.warn = 2; sfx('alarm'); toast(`😢 <b>${escapeHtml(d.name)}</b> está muy triste. Si no come pronto, se va a ir.`); }
+    if (d.starve >= PET_STARVE_TIME) { petRunAway(p); return; }
+  } else if (d.food > 0.25) { d.starve = 0; d.warn = 0; }
   if (d.eatT > 0) { d.anim = 'eat'; return; }
-  if (d.mode === 'sit') { d.anim = d.happyT > 0 ? 'happy' : 'sit'; return; }
+  if (d.food <= 0 && d.happyT <= 0) { d.anim = 'sad'; return; }
+  if (d.mode === 'sit') { d.anim = d.happyT > 0 ? (d.level >= 8 && d.happyT > 2 ? 'spin' : 'happy') : 'sit'; return; }
   // Sigue a su dueño: al costado y un poco atrás, para que no se pisen los carteles
   const side = p.ang + Math.PI * 0.62;
   const tx = p.x + Math.cos(side) * 1.4, ty = p.y + Math.sin(side) * 1.4;
@@ -42,7 +77,7 @@ function updatePet(p, dt) {
     d.idleT = 0;
   } else {
     d.idleT += dt;
-    d.anim = d.happyT > 0 ? 'happy' : d.idleT > 6 ? 'rest' : 'idle';
+    d.anim = d.happyT > 0 ? (d.level >= 8 && d.happyT > 2 ? 'spin' : 'happy') : d.idleT > 6 ? 'rest' : 'idle';
   }
 }
 
@@ -52,10 +87,30 @@ function spawnHearts(x, y, n = 3) {
 
 // --------------------------- Acciones ---------------------------
 
+// Se escapa: se pierde su nivel; se puede adoptar otro
+function petRunAway(p) {
+  const d = p.pet;
+  d.gone = true;
+  d.goneLevel = d.level;
+  sfx('alarm');
+  toast(`💔 <b>${escapeHtml(d.name)}</b> se escapó porque nadie le daba de comer. Podés adoptar otro perrito desde ☰ → Perrito.`);
+  if (!$('pet-panel').hidden) renderPetPanel();
+}
+
+function petAdopt() {
+  const p = S.player;
+  if (!p) return;
+  const old = p.pet;
+  p.pet = newPet(p.x - 1.2, p.y + 0.6, 'Firulais', old ? old.color : 0);
+  spawnHearts(p.pet.x, p.pet.y, 5);
+  toast('🐕 ¡Adoptaste un perrito! Ponele nombre y no te olvides de darle de comer.');
+}
+
 function petFeed() {
   const d = S.player && S.player.pet;
-  if (!d) return;
+  if (!d || d.gone) return;
   if (d.food > 0.9) { toast(`${escapeHtml(d.name)} no tiene hambre ahora.`); return; }
+  if (d.food <= 0.6) petGainXp(d, 20);   // comer con hambre: mucho cariño
   d.food = 1; d.eatT = 2.2; d.happyT = 3;
   spawnHearts(d.x, d.y, 4);
   sfx('click');
@@ -64,7 +119,8 @@ function petFeed() {
 
 function petPet() {
   const d = S.player && S.player.pet;
-  if (!d) return;
+  if (!d || d.gone) return;
+  if (!d.petCd) { petGainXp(d, 5); d.petCd = 30; }   // los mimos suman cariño cada 30 s
   d.happyT = 3; d.idleT = 0;
   spawnHearts(d.x, d.y, 3);
   sfx('research');
@@ -72,7 +128,7 @@ function petPet() {
 
 function petToggleSit() {
   const d = S.player && S.player.pet;
-  if (!d) return;
+  if (!d || d.gone) return;
   d.mode = d.mode === 'sit' ? 'follow' : 'sit';
   toast(d.mode === 'sit' ? `🐕 ${escapeHtml(d.name)} se queda acá esperándote.` : `🐕 ${escapeHtml(d.name)} te sigue.`);
 }
@@ -80,7 +136,7 @@ function petToggleSit() {
 // ¿Tocaron a mi perro?
 function petAt(t) {
   const d = S.player && S.player.pet;
-  return !!d && Math.abs(wdx(t.x + 0.5 - d.x)) < 0.8 && Math.abs(wdy(t.y + 0.5 - d.y)) < 0.8;
+  return !!d && !d.gone && Math.abs(wdx(t.x + 0.5 - d.x)) < 0.8 && Math.abs(wdy(t.y + 0.5 - d.y)) < 0.8;
 }
 
 // --------------------------- Panel ---------------------------
@@ -93,14 +149,28 @@ function openPetPanel() {
 
 function renderPetPanel() {
   const box = $('pet-panel');
-  const d = S.player && S.player.pet;
-  if (!d || box.hidden) return;
+  if (box.hidden) return;
+  if (!S.player) { box.innerHTML = '<div class="insp-head"><b>🐕 Perrito</b><button type="button" class="close" data-pet="close">✕</button></div><p>El perrito acompaña a tu personaje. Empezá un juego nuevo en modo personaje para tener uno.</p>'; return; }
+  ensurePet(S.player);
+  const d = S.player.pet;
+  if (d.gone) {
+    box.innerHTML = `<div class="insp-head"><b>🐕 Perrito</b><button type="button" class="close" data-pet="close">✕</button></div>
+      <p>💔 <b>${escapeHtml(d.name)}</b> (nivel ${d.goneLevel || 1}) se escapó porque pasó mucho tiempo sin comer.</p>
+      <p class="muted small">Podés adoptar otro. Arranca en nivel 1: alimentalo cuando tenga hambre y mimalo para que suba.</p>
+      <div class="actions"><button type="button" class="primary" data-pet="adopt">🐾 Adoptar un perrito</button></div>`;
+    return;
+  }
   const food = Math.round(d.food * 100);
-  const mood = d.food < 0.25 ? 'tiene hambre 🥺' : d.happyT > 0 ? 'está feliz 💛' : d.mode === 'sit' ? 'está sentado esperando' : 'te acompaña';
-  box.innerHTML = `<div class="insp-head"><b>🐕 Tu perro</b><button type="button" class="close" data-pet="close">✕</button></div>
+  const mood = d.food <= 0 ? 'está muy triste y con hambre 😢' : d.food < 0.25 ? 'tiene hambre 🥺' : d.happyT > 0 ? 'está feliz 💛' : d.mode === 'sit' ? 'está sentado esperando' : 'te acompaña';
+  const lvFrom = petXpFor(d.level), lvTo = petXpFor(d.level + 1);
+  const next = Object.keys(PET_PERKS).map(Number).find((l) => l > d.level);
+  box.innerHTML = `<div class="insp-head"><b>🐕 Tu perro · nivel ${d.level}</b><button type="button" class="close" data-pet="close">✕</button></div>
     <div class="net-nick"><input id="pet-name" type="text" maxlength="16" value="${escapeHtml(d.name)}" autocomplete="off" aria-label="Nombre"><button type="button" class="small-btn" data-pet="name">Llamarlo así</button></div>
     <p>${escapeHtml(d.name)} ${mood}.</p>
     <div class="row"><span>Panza</span><span>${food} %</span></div>${bar(d.food)}
+    ${d.food <= 0 ? `<p class="bad small">Si no come, se va a escapar (le quedan unos ${Math.max(1, Math.ceil((PET_STARVE_TIME - d.starve) / 60))} min de juego).</p>` : ''}
+    <div class="row"><span>Cariño</span><span>${d.level >= PET_MAX_LEVEL ? '¡nivel máximo!' : `${Math.floor(d.xp - lvFrom)} / ${lvTo - lvFrom}`}</span></div>${bar(d.level >= PET_MAX_LEVEL ? 1 : (d.xp - lvFrom) / (lvTo - lvFrom))}
+    ${next ? `<p class="muted small">En el nivel ${next} gana ${PET_PERKS[next]}. Suma cariño comiendo con hambre, con mimos y acompañándote.</p>` : ''}
     <div class="actions">
       <button type="button" class="primary" data-pet="feed">🦴 Alimentar</button>
       <button type="button" data-pet="pet">✋ Acariciar</button>
@@ -118,6 +188,7 @@ function initPet() {
     const d = S.player && S.player.pet;
     switch (b.dataset.pet) {
       case 'close': box.hidden = true; return;
+      case 'adopt': petAdopt(); break;
       case 'feed': petFeed(); break;
       case 'pet': petPet(); break;
       case 'sit': petToggleSit(); break;
@@ -144,13 +215,19 @@ function drawPet(g, st, showName) {
   const c = PET_COLORS[st.color] || PET_COLORS[0];
   const x = st.x * TILE, y = st.y * TILE;
   const anim = st.anim || 'idle';
-  const sitting = anim === 'sit' || anim === 'rest';
-  const wag = anim === 'happy' ? Math.sin(time * 26) * 0.9 : anim === 'walk' ? Math.sin(time * 12) * 0.4 : Math.sin(time * 4) * 0.2;
+  const sitting = anim === 'sit' || anim === 'rest' || anim === 'sad';
+  // Brillo dorado del nivel máximo
+  if ((st.level || 1) >= 10) {
+    const grd = g.createRadialGradient(x, y, 2, x, y, 18);
+    grd.addColorStop(0, 'rgba(255,215,90,0.35)'); grd.addColorStop(1, 'rgba(255,215,90,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.fill();
+  }
+  const wag = anim === 'happy' || anim === 'spin' ? Math.sin(time * 26) * 0.9 : anim === 'walk' ? Math.sin(time * 12) * 0.4 : anim === 'sad' ? 0.9 : Math.sin(time * 4) * 0.2;
   g.save();
   g.translate(x, y);
   g.fillStyle = 'rgba(0,0,0,0.28)';
   g.beginPath(); g.ellipse(2, 4, 9, 6, 0, 0, Math.PI * 2); g.fill();
-  g.rotate(st.ang || 0);
+  g.rotate((st.ang || 0) + (anim === 'spin' ? time * 9 : 0));
   // Cola
   g.save();
   g.translate(-8, 0); g.rotate(Math.PI + wag);
@@ -167,6 +244,11 @@ function drawPet(g, st, showName) {
   g.fillStyle = c.body;
   g.beginPath(); g.ellipse(sitting ? -2 : 0, 0, sitting ? 6.5 : 8.5, 5.2, 0, 0, Math.PI * 2); g.fill();
   g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1; g.stroke();
+  // Accesorios según el nivel: collar (2), medallita (4), pañuelo (6)
+  const lv = st.level || 1;
+  if (lv >= 6) { g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(4, -4.6); g.lineTo(4, 4.6); g.lineTo(0.5, 0); g.closePath(); g.fill(); }
+  else if (lv >= 2) { g.fillStyle = '#d64545'; g.fillRect(3.4, -4, 1.6, 8); }
+  if (lv >= 4) { g.fillStyle = '#f0c040'; g.beginPath(); g.arc(4.6, 0, 1.4, 0, Math.PI * 2); g.fill(); }
   // Cabeza (si come, baja la cabeza)
   const hx = anim === 'eat' ? 10 + Math.sin(time * 18) * 0.8 : 8;
   g.fillStyle = c.body;
@@ -179,8 +261,14 @@ function drawPet(g, st, showName) {
   g.beginPath(); g.ellipse(hx + 3.6, 0, 2.2, 1.9, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#111';
   g.beginPath(); g.arc(hx + 5.2, 0, 1.1, 0, Math.PI * 2); g.fill();
-  // Ojos
-  g.beginPath(); g.arc(hx + 1.6, -1.8, 0.8, 0, Math.PI * 2); g.arc(hx + 1.6, 1.8, 0.8, 0, Math.PI * 2); g.fill();
+  // Ojos (tristes: cerraditos)
+  if (anim === 'sad') { g.strokeStyle = '#111'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(hx + 1, -2.4); g.lineTo(hx + 2.2, -1.4); g.moveTo(hx + 1, 2.4); g.lineTo(hx + 2.2, 1.4); g.stroke(); }
+  else { g.beginPath(); g.arc(hx + 1.6, -1.8, 0.8, 0, Math.PI * 2); g.arc(hx + 1.6, 1.8, 0.8, 0, Math.PI * 2); g.fill(); }
+  // Corona (nivel 10)
+  if (lv >= 10) {
+    g.fillStyle = '#f5c518';
+    g.beginPath(); g.moveTo(hx - 3, -3); g.lineTo(hx - 3, 3); g.lineTo(hx - 6, 3); g.lineTo(hx - 4.5, 1); g.lineTo(hx - 6.5, 0); g.lineTo(hx - 4.5, -1); g.lineTo(hx - 6, -3); g.closePath(); g.fill();
+  }
   if (anim === 'eat') {
     g.fillStyle = '#c0392b';
     g.beginPath(); g.ellipse(hx + 7, 0, 3.5, 4.5, 0, 0, Math.PI * 2); g.fill();
@@ -189,15 +277,17 @@ function drawPet(g, st, showName) {
   g.restore();
   // Burbuja de hambre
   if ((st.food ?? 1) < 0.25 && anim !== 'eat') {
+    if (anim === 'sad' && Math.floor(time * 2) % 2) { g.fillStyle = 'rgba(120,180,255,0.9)'; g.beginPath(); g.arc(x + 4, y + 2, 1.5, 0, Math.PI * 2); g.fill(); }
     g.font = '12px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(x + 9, y - 13, 7.5, 0, Math.PI * 2); g.fill();
     g.fillText('🦴', x + 9, y - 12.5);
   }
   if (showName && st.name) {
+    const label = `${st.name} · ${lv}★`;
     g.font = '600 9.5px Barlow, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    const w = g.measureText(st.name).width + 8;
+    const w = g.measureText(label).width + 8;
     g.fillStyle = 'rgba(10,14,20,0.6)'; rrect(g, x - w / 2, y + 9, w, 12, 4); g.fill();
-    g.fillStyle = '#f3e7d3'; g.fillText(st.name, x, y + 15.5);
+    g.fillStyle = lv >= 10 ? '#ffd75a' : '#f3e7d3'; g.fillText(label, x, y + 15.5);
   }
 }
 

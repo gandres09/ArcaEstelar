@@ -221,6 +221,7 @@ function init() {
   $('btn-bp').addEventListener('click', () => openModal('planos'));
   initBlueprints();
   initPet();
+  $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
   netInit();
 

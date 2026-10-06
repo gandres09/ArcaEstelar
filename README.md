@@ -13,7 +13,9 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
   mandás a construir lejos, camina hasta ahí. Lleva una mochila y cerca del Núcleo usa también lo guardado ahí.
   El modo **Clásico** (sin personaje, con materiales iniciales) sigue disponible en Nuevo juego.
 - **Perrito de compañía**: te sigue o se queda sentado donde lo dejes; se lo alimenta, se lo acaricia, se le pone
-  nombre y se elige su color (marrón, negro, blanco o dorado). En línea, cada uno ve el perro de los demás.
+  nombre y se elige su color (marrón, negro, blanco o dorado). Sube hasta el nivel 10 con comida, mimos y compañía
+  (collar, medallita, pañuelo, vuelta de alegría y corona); si pasa mucho tiempo con la panza vacía, se escapa y se
+  puede adoptar otro. En línea, cada uno ve el perro de los demás con su nivel.
 - **Gráficos** con terreno orgánico (pasto, tierra, arena, agua con profundidad y espuma), bosques, yacimientos con
   rocas y cristales, edificios con relieve, cintas por nivel (amarilla, roja y azul), humo y luces de noche.
 - **Tres etapas**: 🚀 lanzar la nave a la órbita (desde ahí se ve todo el mapa) · 🌱 borrar todos los nidos con
