@@ -44,8 +44,13 @@ function generateMap(seed) {
   const K = (W * H) / (320 * 240); // cantidad de cosas según el tamaño del mapa
   const legacy = K === 1;          // partidas viejas de 320×240: se generan igual que antes
   const outside = (x, y) => legacy && (x < 0 || y < 0 || x >= W || y >= H);
+  // Generación 2 (partidas nuevas): yacimientos más chicos pero mucho más ricos,
+  // así cada uno dura más y no hay que mudar la fábrica tan seguido
+  const gen2 = ((S && S.mapGen) || 1) >= 2;
+  const RAD = gen2 ? 0.68 : 1, RICH = gen2 ? 4 : 1, MORE = gen2 ? 1.3 : 1;
 
-  const patch = (px, py, rad, id, richness) => {
+  const patch = (px, py, r0, id, rich0) => {
+    const rad = r0 * RAD, richness = rich0 * RICH;
     for (let y = Math.floor(py - rad - 2); y <= py + rad + 2; y++) {
       for (let x = Math.floor(px - rad - 2); x <= px + rad + 2; x++) {
         if (outside(x, y)) continue;
@@ -123,7 +128,7 @@ function generateMap(seed) {
   }
 
   // Yacimientos comunes por todo el mapa
-  for (let i = 0; i < 220 * K; i++) {
+  for (let i = 0; i < Math.round(220 * K * MORE); i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
     if (d < 26) continue;

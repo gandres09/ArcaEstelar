@@ -86,6 +86,12 @@ function loadFrom(raw) {
   }
   undoStack.length = 0;
   rebuildGrid();
+  // Partidas de antes de que las máquinas usaran energía
+  if (!S.powerRules) {
+    S.powerRules = 1;
+    if (S.entities.some((e) => e.type === 'assembler' || e.type === 'lab' || e.type === 'miner'))
+      setTimeout(() => toast('⚡ Cambio de reglas: el <b>taladro común</b> quema carbón (les regalé 5 a cada uno) y las <b>ensambladoras</b> y <b>laboratorios</b> necesitan electricidad. Poné un <b>Generador a carbón</b> y <b>Postes</b>.'), 1500);
+  }
 }
 
 function load() {
@@ -102,6 +108,8 @@ function load() {
 function startNewGame(seed, peaceful, character = true) {
   setMapSize(MAP_SIZE[0], MAP_SIZE[1]);
   S = newState(seed, peaceful, character);
+  S.powerRules = 1;
+  S.mapGen = 2;
   generateMap(seed);
   loadPollution(null);
   decodeFog(null);

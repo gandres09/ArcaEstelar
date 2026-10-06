@@ -89,6 +89,7 @@ const FUELS = { coal: 4000, solid_fuel: 12000, wood: 2000 };   // kJ por unidad
 const GENERATOR_EFFICIENCY = 0.5;                  // el generador a carbón desperdicia la mitad
 const STEAM_ENERGY = 1000;                         // kJ por unidad de vapor
 const FURNACE_FUEL = { coal: 12, solid_fuel: 36, wood: 6 };  // fundiciones por unidad (horno de piedra)
+const MINER_FUEL = { coal: 8, solid_fuel: 24, wood: 4 };      // extracciones por unidad (taladro común)
 
 // Horno: entra `n` del material y sale 1 producto
 const SMELT = {
@@ -174,7 +175,7 @@ const BUILDINGS = {
                  desc: 'Guarda hasta 800 objetos y los va soltando por la flecha.' },
 
   miner:       { name: 'Taladro',             cat: 'producción', time: 2, area: 1, hp: 150, poll: 12, cost: { iron_plate: 10, stone: 5 },
-                 desc: 'Va sobre mineral y extrae del área de 3×3 a su alrededor: 1 cada 2 s.' },
+                 desc: 'Va sobre mineral y extrae del área de 3×3 a su alrededor: 1 cada 2 s. Quema carbón o madera (1 carbón = 8 minerales).' },
   eminer:      { name: 'Taladro eléctrico',   cat: 'producción', time: 0.8, area: 2, power: 90, hp: 200, poll: 10, cost: { iron_plate: 10, gear: 5, circuit: 3 }, tech: 'electricity',
                  desc: 'Extrae del área de 5×5 a su alrededor: 1 cada 0,8 s. Usa 90 kW.' },
   pumpjack:    { name: 'Bomba de petróleo',   cat: 'producción', time: 1, power: 90, hp: 200, poll: 10, cost: { steel: 5, gear: 10, circuit: 5 }, tech: 'oil',
@@ -183,18 +184,18 @@ const BUILDINGS = {
                  desc: 'Funde minerales. Quema carbón o combustible sólido.' },
   efurnace:    { name: 'Horno eléctrico',     cat: 'producción', speed: 2, power: 180, hp: 300, poll: 1, cost: { steel: 10, circuit: 5, brick: 10 }, tech: 'electric_smelting',
                  desc: 'Funde al doble de velocidad y sin combustible. Usa 180 kW.' },
-  assembler:   { name: 'Ensambladora',        cat: 'producción', speed: 1, tier: 1, machine: 'asm', hp: 200, poll: 4, cost: { iron_plate: 15, copper_plate: 10 },
-                 desc: 'Fabrica piezas simples.' },
+  assembler:   { name: 'Ensambladora',        cat: 'producción', speed: 1, tier: 1, machine: 'asm', power: 75, hp: 200, poll: 4, cost: { iron_plate: 15, copper_plate: 10 },
+                 desc: 'Fabrica piezas simples. Usa 75 kW: conectala con postes a un generador.' },
   assembler2:  { name: 'Ensambladora avanzada', cat: 'producción', speed: 2, tier: 2, machine: 'asm', power: 200, hp: 300, poll: 3, cost: { steel: 10, circuit: 10, gear: 10 }, tech: 'advanced_assembly',
                  desc: 'Fabrica cualquier receta al doble de velocidad. Usa 200 kW.' },
   chem:        { name: 'Planta química',      cat: 'producción', speed: 1, tier: 1, machine: 'chem', power: 210, hp: 300, poll: 4, cost: { steel: 5, gear: 5, circuit: 5 }, tech: 'oil',
                  desc: 'Procesa petróleo: plástico, azufre, baterías y combustible de cohete. Usa 210 kW.' },
-  lab:         { name: 'Laboratorio',         cat: 'producción', speed: 1, hp: 150, cost: { iron_plate: 10, gear: 10, copper_plate: 10 },
-                 desc: 'Investiga usando packs de ciencia. Más laboratorios, más rápido.' },
+  lab:         { name: 'Laboratorio',         cat: 'producción', speed: 1, power: 60, hp: 150, cost: { iron_plate: 10, gear: 10, copper_plate: 10 },
+                 desc: 'Investiga usando packs de ciencia. Más laboratorios, más rápido. Usa 60 kW.' },
 
   sensor:      { name: 'Sensor',              cat: 'energía', hp: 80, cost: { iron_plate: 2, circuit: 5, cable: 5 }, tech: 'signal_network',
                  desc: 'Lee lo que hay en el edificio al que apunta (cofre, Núcleo, tanque, acumulador, cinta) y lo manda a un canal de la red de señales.' },
-  pole:        { name: 'Poste eléctrico',     cat: 'energía', reach: 7, supply: 2, hp: 80, cost: { iron_plate: 2, copper_plate: 2 }, tech: 'electricity',
+  pole:        { name: 'Poste eléctrico',     cat: 'energía', reach: 7, supply: 2, hp: 80, cost: { iron_plate: 2, copper_plate: 2 },
                  desc: 'Conecta con postes a 7 casillas y alimenta lo que esté a 2 casillas.' },
   bigpole:     { name: 'Torre de alta tensión', cat: 'energía', reach: 24, supply: 1, hp: 150, cost: { steel: 5, copper_plate: 5 }, tech: 'big_poles',
                  desc: 'Lleva energía lejos: conecta a 24 casillas.' },
@@ -202,7 +203,7 @@ const BUILDINGS = {
                  desc: 'Lleva líquidos (agua, petróleo, vapor, lubricante). Se conecta sola y entrega a las máquinas que la tocan.' },
   tank:        { name: 'Tanque',              cat: 'energía', size: 2, capacity: 2500, hp: 400, cost: { steel: 20, iron_plate: 10 }, tech: 'fluid_handling',
                  desc: 'Guarda 2.500 de un líquido como parte de la red de cañerías.' },
-  generator:   { name: 'Generador a carbón',  cat: 'energía', output: 900, hp: 300, poll: 25, cost: { iron_plate: 20, brick: 10, gear: 5 }, tech: 'electricity',
+  generator:   { name: 'Generador a carbón',  cat: 'energía', output: 900, hp: 300, poll: 25, cost: { iron_plate: 20, stone: 10 },
                  desc: 'Quema carbón o combustible sólido y genera hasta 900 kW. Simple, pero desperdicia la mitad del combustible.' },
   offshore:    { name: 'Bomba de agua',       cat: 'energía', time: 0.5, hp: 150, cost: { iron_plate: 5, gear: 2, circuit: 2 }, tech: 'steam_power',
                  desc: 'Va en la orilla, junto al agua. Saca 2 de agua por segundo, sin fin y sin electricidad.' },
@@ -276,7 +277,7 @@ const TECHS = {
   logistic_science:  { name: 'Ciencia verde',        packs: ['sci_red'], units: 40, time: 8, req: ['electronics'],
                        desc: 'Receta del pack de ciencia verde.' },
   electricity:       { name: 'Electricidad',         packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['steel', 'logistic_science'],
-                       desc: 'Generador, postes, taladro eléctrico, lámparas y combustible sólido.' },
+                       desc: 'Taladro eléctrico, lámparas y combustible sólido.' },
   steam_power:       { name: 'Energía a vapor',      packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['electricity'],
                        desc: 'Bomba de agua, caldera y máquina de vapor: el doble de energía por cada carbón.' },
   fluid_handling:    { name: 'Manejo de fluidos',    packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['steam_power'],

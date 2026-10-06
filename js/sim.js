@@ -125,7 +125,8 @@ function makeEntity(type, x, y, dir = 0) {
     case 'nursery': e.t = 0; break;
     case 'sensor': e.ch = 0; e.item = '*'; e.value = 0; break;
     case 'station': e.store = {}; e.total = 0; e.mode = 'load'; break;
-    case 'miner': case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
+    case 'miner': e.t = 0; e.buf = null; e.fuelType = null; e.fuel = 0; e.burn = 0; break;
+    case 'eminer': case 'pumpjack': e.t = 0; e.buf = null; break;
     case 'furnace': case 'efurnace':
       e.inType = null; e.inCount = 0; e.fuelType = null; e.fuel = 0; e.burn = 0;
       e.prog = 0; e.outType = null; e.outCount = 0; break;
@@ -154,6 +155,8 @@ function occupy(e, value) {
 
 // Partidas viejas: las cintas tenían un solo objeto; ahora tienen dos carriles
 function migrateEntity(e) {
+  // Antes el taladro común no gastaba nada: se le regala una carga de carbón
+  if (e.type === 'miner' && e.fuel === undefined) { e.fuelType = 'coal'; e.fuel = 5; e.burn = 0; }
   if (LANED.has(e.type) && !e.l) {
     e.l = [null, e.item || null]; e.p = [0, e.prog || 0];
     delete e.item; delete e.prog;
@@ -572,6 +575,9 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'lab':
       if (!PACKS.includes(item) || (t.packs[item] || 0) >= 10) return false;
       return ok(() => add(t.packs, item, 1));
+    case 'miner':
+      if (!MINER_FUEL[item] || t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
+      return ok(() => { t.fuelType = item; t.fuel++; });
     case 'generator':
       if (!FUELS[item] || t.fuel >= 20 || (t.fuelType && t.fuelType !== item)) return false;
       return ok(() => { t.fuelType = item; t.fuel++; });
@@ -609,7 +615,7 @@ function wantedBy(dst) {
     case 'lab': return PACKS;
     case 'turret': return ['ammo'];
     case 'boiler': return ['water', 'coal', 'solid_fuel', 'wood'];
-    case 'generator': return ['coal', 'solid_fuel', 'wood'];
+    case 'generator': case 'miner': return ['coal', 'solid_fuel', 'wood'];
     case 'shipyard': case 'starport': return Object.keys(shipNeeds(dst));
     case 'purifier': return ['air_filter'];
     case 'uplink': return ['orbital_charge'];
@@ -660,7 +666,7 @@ function pushTo(e, dir, item, lane = -1) {
 
 // En qué carril de la cinta t cae algo que viene de src (-1: cualquiera)
 //  - de atrás: el mismo carril · cinta que entra por un costado: el carril de ese lado
-//  - curva (una sola cinta entra de costado): conserva el carril · brazo o máquina de costado: el carril de enfrente
+//  - curva (una sola cinta entra de costado): conserva el carril · brazo o máquina de costado: el carril de su lado
 function laneInto(t, src, lane) {
   if (!src || src.type === 'splitter' || src.type === 'sorter' || t.type === 'splitter' || t.type === 'sorter') return lane;
   const s = sizeOf(src.type);
@@ -676,7 +682,7 @@ function laneInto(t, src, lane) {
     const fedStraight = behind && LANED.has(behind.type) && behind.dir === t.dir && behind.type !== 'underground';
     return fedStraight ? (fromLeft ? 0 : 1) : lane;
   }
-  return fromLeft ? 1 : 0;
+  return fromLeft ? 0 : 1;   // queda del lado por donde llegó
 }
 
 // --------------------------- Investigación ---------------------------
@@ -852,12 +858,17 @@ function update(dt) {
           if (!mt) { e.depleted = true; break; }
           e.depleted = false;
           const fx = moduleFx(e);
-          const sp = (def.power ? drawPower(e, def.power * fx.power) * fx.speed : 1) * (1 + 0.1 * infLevel('inf_drill'));
+          let sp = (def.power ? drawPower(e, def.power * fx.power) * fx.speed : 1) * (1 + 0.1 * infLevel('inf_drill'));
+          if (e.type === 'miner') {
+            if (e.burn <= 0 && e.fuel > 0) { e.burn = MINER_FUEL[e.fuelType]; if (--e.fuel === 0) e.fuelType = null; }
+            if (e.burn <= 0) sp = 0;
+          }
           e.active = sp > 0;
           e.t += dt * sp;
           if (e.t >= def.time) {
             e.t = Math.min(e.t - def.time, def.time);
             e.buf = mineOre(mt.x, mt.y);
+            if (e.type === 'miner') e.burn--;
             if (e.buf) {
               countProduced(e.buf);
               emit(e, def.poll * def.time * fx.poll / 60);
@@ -867,6 +878,8 @@ function update(dt) {
             }
           }
         }
+        // Un taladro común sobre carbón se alimenta solo cuando se queda sin nada
+        if (e.type === 'miner' && e.buf && MINER_FUEL[e.buf] && !e.fuel && e.burn <= 0) { e.fuelType = e.buf; e.fuel = 1; e.buf = null; }
         if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
         break;
       }
@@ -947,7 +960,9 @@ function update(dt) {
         }
         e.active = true;
         const lfx = moduleFx(e);
-        e.prog += dt * def.speed * lfx.speed * labSpeedMult() / tech.time;
+        const lp = drawPower(e, def.power * lfx.power);
+        e.active = lp > 0;
+        e.prog += dt * def.speed * lp * lfx.speed * labSpeedMult() / tech.time;
         if (e.prog >= 1) {
           e.prog = 0;
           e.working = false;

@@ -720,8 +720,13 @@ function netRenderModal() {
   const box = $('online-body');
   if (!box) return;
   if (!NET.available) {
-    box.innerHTML = '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b> (no desde el archivo suelto).</p>' +
-      '<p class="muted small">Ahí podés compartir tu mundo, armar tu lista de amigos e invitarlos con un toque.</p>';
+    box.innerHTML = NET.why === 'link'
+      ? '<p><b>No te podés conectar en tiempo real desde este acceso.</b> Claude no deja jugar en línea a quien entra con el <b>link público</b> o sin iniciar sesión.</p>' +
+        '<p>Para jugar juntos, el dueño del juego tiene que <b>invitarte por email</b> desde el botón <b>Compartir</b> del artifact. Entrá con tu cuenta de Claude y abrí el juego desde esa invitación.</p>' +
+        '<p class="muted small">Igual podés jugar tu propia partida: se guarda en este navegador.</p>'
+      : NET.why === 'error'
+        ? '<p>No se pudo conectar con el servicio en línea. Probá recargar la página en un rato.</p>'
+        : '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b>, con tu cuenta (no desde el archivo suelto).</p>';
     return;
   }
   const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;
@@ -762,6 +767,11 @@ function netRenderModal() {
     h += '</ul>';
   }
   h += '<div class="net-search"><input id="net-q" type="search" placeholder="Buscar persona por nombre…" autocomplete="off"><div id="net-results"></div></div>';
+  h += '<details class="req-pick"><summary>¿Cómo invito a alguien que todavía no aparece?</summary>' +
+    '<ol class="small"><li>Tocá <b>Compartir</b> arriba del juego (en Claude) e <b>invitalo por email</b>. Con el link público no se puede conectar en tiempo real.</li>' +
+    '<li>Tu amigo entra con su cuenta de Claude y abre el juego desde la invitación.</li>' +
+    '<li>Vos abrí <b>tu mundo</b> acá ("Compartir mi partida") y dejá el juego abierto: tu compu es la que lleva la partida.</li>' +
+    '<li>Cuando tu amigo aparezca en <b>Conectados ahora</b>, agregalo y tocá <b>Invitar</b>.</li></ol></details>';
 
   // Conectados ahora que no son amigos
   const others = NET.lobby.filter((p) => !p.sameTab && p.kind === 'viewer' && (p.by || (p.presence && p.presence.uid)) && !NET.friends.includes(p.by || p.presence.uid));
@@ -835,8 +845,9 @@ function netUpdateChip() {
 async function netInit() {
   if (!window.claude || typeof window.claude.use !== 'function') return;
   let room, db, user;
-  try { [room, db, user] = await Promise.all([claude.use('room'), claude.use('db'), claude.use('user')]); } catch (_) { return; }
-  if (!room || !db) return;
+  try { [room, db, user] = await Promise.all([claude.use('room'), claude.use('db'), claude.use('user')]); } catch (_) { NET.why = 'error'; return; }
+  // Sin sala: entró por el link público (o sin sesión). La plataforma no deja conectarse así.
+  if (!room || !db) { NET.why = 'link'; return; }
   NET.room = room; NET.db = db; NET.user = user; NET.available = true;
   try { NET.uid = user ? await user.id() : null; } catch (_) { NET.uid = null; }
   try { NET.canWrite = user && user.can ? (await user.can('data.write')) !== false : true; } catch (_) { NET.canWrite = true; }

@@ -505,7 +505,11 @@ function endPointer(ev) {
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
+// Si el mouse está sobre la barra o un panel, no se mira el suelo de abajo
+let mouseOnMap = false;
+canvas.addEventListener('pointerenter', () => { mouseOnMap = true; });
 canvas.addEventListener('pointerleave', (ev) => {
+  mouseOnMap = false;
   if (ev.pointerType === 'mouse' && !pointers.size) { hover = null; updateTooltip(); }
 });
 
@@ -596,7 +600,7 @@ function handleKeysPan(dt) {
       view.y += wdy(S.player.y - view.y / TILE) * TILE * k;
       clampView();
     }
-    if (!isTouch()) hover = screenToTile(mouse.x, mouse.y);
+    if (!isTouch() && mouseOnMap) hover = screenToTile(mouse.x, mouse.y);
     return;
   }
   const sp = 800 * dt / view.zoom;
@@ -607,6 +611,6 @@ function handleKeysPan(dt) {
   if (keys.has('d') || keys.has('arrowright')) { view.x += sp; moved = true; }
   if (moved) {
     clampView();
-    if (!isTouch()) hover = screenToTile(mouse.x, mouse.y);
+    if (!isTouch() && mouseOnMap) hover = screenToTile(mouse.x, mouse.y);
   }
 }

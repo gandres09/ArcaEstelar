@@ -418,6 +418,10 @@
   function feedAll() {
     for (const f of managed.furnaces) if (!f._dead && f.type === 'furnace' && f.fuel < 4) { feedFrom(f, ['coal'], 4); if (!f.fuel && f.burn <= 0) BOT.starved.coal = (BOT.starved.coal || 0) + 1; }
     for (const b of managed.boilers) if (!b._dead && b.fuel < 5) { feedFrom(b, ['coal', 'solid_fuel'], 5); if (!b.fuel) BOT.starved.coal = (BOT.starved.coal || 0) + 3; }
+    // Taladros comunes: queman carbón. Primero los que sacan carbón (se alimentan solos después)
+    const burners = S.entities.filter((m) => m.type === 'miner' && m.fuel < 3 && !m.depleted);
+    burners.sort((a, b) => (oreAt(b.x, b.y) === 'coal') - (oreAt(a.x, a.y) === 'coal'));
+    for (const m of burners) { feedFrom(m, ['coal'], oreAt(m.x, m.y) === 'coal' ? 1 : 3); if (!m.fuel && m.burn <= 0) BOT.starved.coal = (BOT.starved.coal || 0) + 1; }
     for (const e of managed.mall) {
       if (e._dead) continue;
       if (e.type === 'furnace' || e.type === 'efurnace') {
@@ -549,6 +553,12 @@
     // Máquinas eléctricas sin energía: conectarlas a una red con generación
     if (S.playTime - (BOT.lastFix || 0) > 60) {
       BOT.lastFix = S.playTime;
+      // Generadores sueltos (sin poste): uno pegado
+      for (const g of S.entities) {
+        if (g.type !== 'generator' || g._net >= 0) continue;
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (free(g.x + dx, g.y + dy) && place('pole', g.x + dx, g.y + dy, 0, { silent: true })) break;
+      }
+      if (powerDirty) rebuildPower();
       for (const e of S.entities) {
         const d = BUILDINGS[e.type];
         if (d && d.power && (!nets[e._net] || nets[e._net].prev.solar + nets[e._net].prev.fuel === 0)) connectPowerFor(e);
@@ -570,12 +580,21 @@
       const capacity = S.entities.filter((e) => e.type === 'steam_engine').length * 900;
       const demand = nets.reduce((a, n) => a + n.prev.demand, 0);
       if (demand > capacity * 0.75 || capacity === 0) { if (buildSteamPlant()) return; }
-    } else if (hasTech('electricity') && elec && !S.entities.some((e) => e.type === 'generator' || e.type === 'steam_engine')) {
-      // Antes del vapor: un generador a carbón junto al centro
+    } else if (elec && S.entities.filter((e) => e.type === 'generator').length * 900 < nets.reduce((a, n) => a + n.prev.demand, 0) * 1.25 + 1) {
+      // Antes del vapor: generadores a carbón junto al centro, según el consumo
       const s = mallSlot();
       if (s && affordOrWant(costOf('generator'))) {
         const g = place('generator', s.x, s.y, 0, { silent: true });
-        if (g) { managed.boilers.push(g); connectPower(s.x + 1, s.y + 1); note('generador a carbón'); }
+        if (g) {
+          managed.boilers.push(g);
+          feedFrom(g, ['coal'], 5);
+          // Un poste pegado al generador y, desde ahí, a las máquinas
+          let pole = false;
+          for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) if (!pole && free(g.x + dx, g.y + dy)) pole = !!place('pole', g.x + dx, g.y + dy, 0, { silent: true });
+          if (powerDirty) rebuildPower();
+          for (const e of S.entities) { const d = BUILDINGS[e.type]; if (d && d.power && e !== g && (!nets[e._net] || !nets[e._net].prev.fuel)) connectPowerFor(e); }
+          note('generador a carbón');
+        }
       }
     }
     // 3) Agua y petróleo

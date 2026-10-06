@@ -94,6 +94,7 @@ function buildToolbar() {
     b.className = 'tool';
     b.innerHTML = `<span class="key">${keyHint}</span>${icon}<span class="label">${label}</span>`;
     b.addEventListener('click', onClick || (() => selectTool(id)));
+    if (id && BUILDINGS[id]) b.dataset.tool = id;
     bar.appendChild(b);
     if (id) toolButtons[id] = b;
     return b;
@@ -133,7 +134,7 @@ function updateToolbar() {
     const d = BUILDINGS[id];
     if (!d) continue;
     b.classList.toggle('poor', !canAfford(d.cost));
-    b.title = `${d.name}${keyOf(id) !== '' ? ` [${keyOf(id)}]` : ''}\n${d.desc}\nCosto: ${costText(d.cost)}`;
+    b.setAttribute('aria-label', `${d.name}. ${d.desc} Costo: ${costText(d.cost)}`);
   }
 }
 
@@ -192,6 +193,7 @@ function updateConfirm() {
     const how = isTouch() ? (isLineTool(tool) ? 'Tocá dónde empieza y dónde termina.' : 'Tocá dónde va.') : (isLineTool(tool) ? 'Clic y arrastrá.' : 'Clic dónde va · R gira.');
     text = `<span class="tc-head"><img class="ico" src="${buildingIcon(tool)}" alt=""><b>${d.name}</b></span>` +
       `<span class="tc-cost">Pide: ${costHtml(d.cost, true)}</span>` +
+      `<span class="tc-desc muted">${d.desc}</span>` +
       `<span class="tc-note ${miss ? 'bad' : 'muted'}">${miss ? 'Te falta: ' + miss : how}</span>`;
     btns = ['close'];
   }
@@ -337,18 +339,19 @@ function currentHint() {
       if (!furnaces.some((f) => f.fuel || f.burn > 0) && pv('coal') < 1 && pv('wood') < 1) return 'El horno necesita combustible: extraé <b>carbón</b> o talá un <b>árbol</b> (la madera también sirve).';
       return 'Tocá el horno y usá <b>Cargar mineral</b> y <b>Cargar carbón</b>. Cuando funda, tocá <b>Recoger</b>. Necesitás 10 placas de hierro.';
     }
-    return 'Con 10 placas de hierro y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha. ¡Ya no vas a tener que extraer a mano!';
+    return 'Con 10 placas de hierro y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha, y cargale carbón. ¡Ya no vas a tener que extraer a mano!';
   }
   if (!hasMinerOn('iron_ore')) return 'Elegí el <b>Taladro</b> y ponelo sobre el mineral de hierro (gris azulado). Girá la flecha para que apunte a donde va el mineral.';
+  if (S.entities.some((e) => e.type === 'miner' && !e.fuel && e.burn <= 0 && !e.depleted)) return 'Hay un <b>Taladro</b> sin combustible: tocalo y usá <b>Cargar carbón</b> (1 carbón = 8 minerales). Un taladro sobre carbón se alimenta solo.';
   if (!countType('furnace') && !countType('efurnace')) return 'Poné un <b>Horno</b> justo delante de la flecha del taladro.';
   if ((d.iron_plate || 0) < 5) return 'Llevá las placas del horno al <b>Núcleo</b> con <b>Cintas</b>. Acordate de cargarle carbón al horno (tocalo con la mano).';
   if (!hasMinerOn('coal')) return 'Automatizá el combustible: un taladro sobre <b>carbón</b> y una cinta que lo lleve a los hornos.';
   if ((d.copper_plate || 0) < 5) return 'Armá otra línea para el <b>cobre</b> (mineral naranja): taladro → horno → Núcleo.';
-  if (!countType('assembler')) return 'Poné una <b>Ensambladora</b>, elegí la receta <b>Engranaje</b> y alimentala con placas de hierro.';
+  if (!countType('generator') && !countType('steam_engine') && !countType('solar') && !countType('fusion_plant')) return 'Las ensambladoras y los laboratorios necesitan <b>electricidad</b>: poné un <b>Generador a carbón</b>, cargale carbón y llevá la energía con <b>Postes</b>.';
+  if (!countType('assembler')) return 'Poné una <b>Ensambladora</b> al alcance de un <b>Poste</b>, elegí la receta <b>Engranaje</b> y alimentala con placas de hierro.';
   if (!countType('lab')) return 'Fabricá <b>Ciencia roja</b> (cobre + engranaje) y llevala a un <b>Laboratorio</b>.';
   if (!S.research.current && nextTech()) return `Abrí <b>Investigación</b> y elegí qué investigar. Sugerencia: <b>${TECHS[nextTech()].name}</b>.`;
   if (S.techs.steam_power && !countType('steam_engine')) return 'Energía a vapor: poné una <b>Bomba de agua</b> en la orilla de un lago, apuntando a una <b>Caldera</b> (cargala con carbón), y la caldera apuntando a <b>Máquinas de vapor</b> en fila. Conectalas con postes.';
-  if (S.techs.electricity && !countType('generator') && !countType('solar') && !countType('steam_engine')) return 'Construí un <b>Generador</b>, alimentalo con carbón y conectalo con <b>Postes</b> a tus máquinas eléctricas.';
   if (!S.peaceful && S.biters.some((b) => b.state === 'attack')) return '⚠️ Hay bichos atacando. Poné <b>Torretas</b> con <b>Munición</b> y <b>Muros</b> alrededor de la fábrica.';
   if (S.techs.oil && !countType('pumpjack')) return 'Buscá un pozo de <b>petróleo</b> (manchas negras) y poné una <b>Bomba de petróleo</b>.';
   if (S.techs.receivers && !countType('receiver')) return 'Con los <b>Receptores</b> no hace falta llevar todo hasta el Núcleo: poné uno al final de una línea lejana y lo que le llega va al inventario.';
@@ -473,6 +476,11 @@ function inspectorContent(e) {
       if (kinds.length) h += row('Queda', fmt(Object.values(area).reduce((a, b) => a + b, 0)) + (e.type === 'pumpjack' ? ' en el pozo' : ' en su área'));
       if (e.buf) h += row('Estado', '<span class="bad">Salida bloqueada</span>');
       if (def.power) h += powerRow(e);
+      if (e.type === 'miner') {
+        h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'quemando' : '<span class="bad">sin combustible</span>')) +
+          '<div class="actions"><button type="button" data-act="fuel">Cargar carbón</button>' +
+          (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
+      }
       break;
     }
     case 'furnace': case 'efurnace': {
@@ -485,7 +493,7 @@ function inspectorContent(e) {
       h += '<div class="recipes-note muted">Funde: ' + Object.entries(SMELT).filter(([, r]) => hasTech(r.tech))
         .map(([k, r]) => `${r.n}×${itemImg(k, 'ico-s')}→${itemImg(r.out, 'ico-s')}`).join(' ') + '</div>';
       h += '<div class="actions">';
-      if (e.type === 'furnace') h += '<button type="button" data-act="fuel">Cargar carbón</button>';
+      if (e.type === 'furnace') h += '<button type="button" data-act="fuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '');
       h += '<button type="button" data-act="feed">Cargar mineral</button><button type="button" data-act="collect">Recoger</button></div>';
       break;
     }
@@ -570,14 +578,12 @@ function inspectorContent(e) {
     }
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest':
       if (e.type === 'providerchest' && !portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
-      h += row('Guardado', `${e.total} / ${def.capacity}`) +
-        Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
-        '<div class="actions"><button type="button" data-act="empty">Vaciar al inventario</button></div>';
+      h += row('Guardado', `${e.total} / ${def.capacity}`) + chestPicker(e);
       break;
     case 'generator':
       h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
-        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button></div>';
+        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
       break;
     case 'receiver':
       h += '<p>Todo lo que le llega va al inventario del Núcleo.</p>';
@@ -639,7 +645,7 @@ function inspectorContent(e) {
       h += row('Agua', `${e.water} / 20`) +
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Vapor listo', e.out) + row('Estado', e.active ? '<span class="ok">hirviendo</span>' : e.water ? 'esperando combustible' : '<span class="bad">sin agua</span>') +
-        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button></div>';
+        '<div class="actions"><button type="button" data-act="gfuel">Cargar carbón</button>' + (e.fuel ? '<button type="button" data-act="unfuel">Sacar combustible</button>' : '') + '</div>';
       break;
     case 'steam_engine':
       h += row('Vapor', `${e.steam} / 10`) + row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
@@ -763,6 +769,46 @@ function updateInspector() {
 
 function moveToInv(item, n) { giveItem(item, n); }
 
+// Contenido de un cofre (tocá para sacar) y lo que tenés para poner
+function chestPicker(e) {
+  const def = BUILDINGS[e.type];
+  const inside = Object.entries(e.store).filter(([, n]) => n > 0);
+  let h = '<div class="pick-title">Adentro <span class="muted">(tocá para sacar' + (isTouch() ? '' : ' o arrastrá a tu inventario') + ')</span></div>';
+  h += inside.length
+    ? '<div class="picker">' + inside.map(([k, n]) => `<button type="button" class="pick stack" data-act="ctake" data-v="${k}" data-drag="${k}" title="Sacar ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(n)}</span></button>`).join('') + '</div>'
+    : '<p class="muted small">Vacío.</p>';
+  const mine = ITEM_ORDER.filter((k) => !FLUIDS.has(k) && avail(k) >= 1);
+  h += '<div class="pick-title">Poner <span class="muted">(tocá un objeto tuyo' + (isTouch() ? '' : ' o arrastralo acá') + ')</span></div>';
+  h += mine.length && e.total < def.capacity
+    ? '<div class="picker">' + mine.map((k) => `<button type="button" class="pick stack" data-act="cput" data-v="${k}" title="Poner ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(avail(k))}</span></button>`).join('') + '</div>'
+    : `<p class="muted small">${e.total >= def.capacity ? 'El cofre está lleno.' : 'No tenés objetos para poner.'}</p>`;
+  if (inside.length) h += '<div class="actions"><button type="button" data-act="empty">Vaciar todo al inventario</button></div>';
+  return h;
+}
+
+// Poner objetos de tu inventario en un edificio (cofre o máquina)
+function depositTo(e, k, max = Infinity) {
+  if (!e || !k || avail(k) < 1) return 0;
+  const def = BUILDINGS[e.type];
+  if (def && def.capacity && e.store) {
+    const n = Math.min(Math.floor(avail(k)), def.capacity - e.total, max);
+    if (n <= 0) return 0;
+    takeItem(k, n); add(e.store, k, n); e.total += n;
+    return n;
+  }
+  return feedFrom(e, [k], Math.min(max, 50));
+}
+
+// Sacar un tipo de objeto de un edificio hacia tu inventario
+function withdrawFrom(e, k) {
+  if (!e || !k) return 0;
+  if (e.store && e.store[k]) { const n = e.store[k]; delete e.store[k]; e.total -= n; giveItem(k, n); return n; }
+  if (e.outType === k && e.outCount) { const n = e.outCount; e.outCount = 0; e.outType = null; giveItem(k, n); return n; }
+  if (e.recipe && RECIPES[e.recipe].out === k && e.out) { const n = e.out; e.out = 0; giveItem(k, n); return n; }
+  if (e.fuelType === k && e.fuel) { const n = e.fuel; e.fuel = 0; e.fuelType = null; giveItem(k, n); return n; }
+  return 0;
+}
+
 // Pasa objetos del inventario a un edificio usando su propia lógica de entrada
 function feedFrom(e, items, max) {
   let n = 0;
@@ -858,9 +904,14 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'tremove': removeTrain(e); closeInspector(); updateUI(); return;
     case 'fuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 10);
-      if (!n) toast(e.fuel >= 10 ? 'El horno ya está lleno.' : 'No tenés carbón ni madera en el inventario.');
+      if (!n) toast(e.fuel >= 10 ? 'Ya está lleno de combustible.' : 'No tenés carbón ni madera en el inventario.');
       break;
     }
+    case 'unfuel':
+      if (e.fuel) { giveItem(e.fuelType, e.fuel); e.fuel = 0; e.fuelType = null; }
+      break;
+    case 'ctake': withdrawFrom(e, v); break;
+    case 'cput': if (!depositTo(e, v)) toast('No entra más.'); break;
     case 'gfuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 20);
       if (!n) toast('No tenés combustible en el inventario.');
@@ -1066,9 +1117,31 @@ function showTapInfo(t) {
   updateTooltip();
 }
 
+// Cartel de un botón de la barra de abajo (con mouse)
+let barTip = null;
+$('toolbar').addEventListener('pointerover', (ev) => {
+  if (ev.pointerType !== 'mouse') return;
+  const b = ev.target.closest('[data-tool]');
+  barTip = b ? b.dataset.tool : null;
+  updateTooltip();
+});
+$('toolbar').addEventListener('pointerleave', () => { barTip = null; updateTooltip(); });
+
 function updateTooltip() {
   const el = $('tooltip');
   let html = '';
+  if (barTip && BUILDINGS[barTip] && !isTouch()) {
+    const d = BUILDINGS[barTip];
+    const miss = missingText(d.cost);
+    el.innerHTML = `<b>${d.name}</b>${keyOf(barTip) !== '' ? ` <kbd>${keyOf(barTip)}</kbd>` : ''}<br><span class="muted">${d.desc}</span>` +
+      `<div class="tip-cost">Pide: ${costHtml(d.cost, true)}</div>` + (miss ? `<span class="bad">Te falta: ${miss}</span>` : '');
+    el.hidden = false;
+    const r = (toolButtons[barTip] || $('toolbar')).getBoundingClientRect();
+    const tw = el.offsetWidth, th = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, cw - tw - 8)) + 'px';
+    el.style.top = Math.max(8, r.top - th - 10) + 'px';
+    return;
+  }
   if (tapInfo && isTouch() && performance.now() < tapInfo.until && !launchAnim) {
     html = groundInfo(tapInfo.x, tapInfo.y, true);
     if (html) {
