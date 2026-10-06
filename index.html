@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mini Fábrica</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="topbar" class="panel">
+    <div id="inventory"></div>
+    <div id="menu">
+      <button id="btn-help" type="button">Ayuda</button>
+      <button id="btn-new" type="button">Nuevo juego</button>
+    </div>
+  </div>
+
+  <div id="toolbar" class="panel"></div>
+
+  <div id="goals" class="panel">
+    <h2>Objetivo</h2>
+    <div id="goal-body"></div>
+  </div>
+
+  <div id="tooltip" class="panel" hidden></div>
+  <div id="toast"></div>
+
+  <div id="help" class="modal" hidden>
+    <div class="modal-box panel">
+      <h1>Mini Fábrica</h1>
+      <p>Construí una fábrica automática: extraé minerales, fundilos en placas, fabricá piezas y llevalas al <b>Núcleo</b> para cumplir objetivos y desbloquear edificios.</p>
+      <h3>Cómo empezar</h3>
+      <ol>
+        <li>Poné un <b>Taladro</b> (tecla 2) sobre mineral de hierro (gris azulado).</li>
+        <li>Con <b>R</b> girás la flecha: es hacia donde el taladro saca el mineral.</li>
+        <li>Llevá el mineral con <b>Cintas</b> (tecla 1, arrastrá para trazar) hasta un <b>Horno</b> (tecla 3).</li>
+        <li>El horno necesita <b>carbón</b>: hacé clic sobre él con la mano para cargarle carbón del inventario, o mandale carbón por cinta.</li>
+        <li>Llevá las placas del horno al Núcleo con más cintas.</li>
+      </ol>
+      <h3>Controles</h3>
+      <ul class="keys">
+        <li><kbd>1</kbd>–<kbd>6</kbd> elegir edificio · <kbd>Esc</kbd> mano</li>
+        <li><kbd>R</kbd> girar · <kbd>Clic derecho</kbd> desarmar (devuelve el costo)</li>
+        <li><kbd>WASD</kbd> / flechas o arrastrar con la mano: mover cámara · <kbd>Rueda</kbd> zoom</li>
+        <li>Con la mano: mantené clic sobre un mineral para extraerlo a mano, clic en un horno para cargar carbón y recoger placas, clic en una ensambladora para cambiar la receta.</li>
+      </ul>
+      <button id="btn-help-close" type="button" class="primary">¡A construir!</button>
+    </div>
+  </div>
+
+  <div id="win" class="modal" hidden>
+    <div class="modal-box panel">
+      <h1>🚀 ¡Cohete lanzado!</h1>
+      <p>Tu fábrica completó todos los objetivos.</p>
+      <p id="win-stats"></p>
+      <button id="btn-win-close" type="button" class="primary">Seguir jugando</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
