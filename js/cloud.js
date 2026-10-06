@@ -42,8 +42,12 @@ async function cloudInit(fresh) {
     }
     CLOUD.on = true;
   } catch (_) {
+    // Sin saber cuál copia es la más nueva no se sube nada: se reintenta en un rato
     CLOUD.err++;
-    CLOUD.on = true;   // se puede seguir subiendo copias aunque la lectura haya fallado
+    CLOUD.ready = true;
+    cloudStatus();
+    setTimeout(() => cloudInit(fresh), 30000);
+    return;
   }
   CLOUD.ready = true;
   cloudStatus();
@@ -56,6 +60,13 @@ async function cloudSave(force = false) {
   CLOUD.busy = true;
   CLOUD.lastTry = now;
   try {
+    // Si otro aparato subió algo después de nuestra última copia, no lo pisamos
+    const cur = await cloudDoc('meta').get();
+    if (cur.exists && (cur.data().at || 0) > CLOUD.at + 1000) {
+      CLOUD.busy = false;
+      await cloudAdoptNewer(cur.data());
+      return false;
+    }
     S.savedAt = now;
     const z = await gzipBase64(serialize());
     // Se escribe en el casillero libre y recién al final se apunta la ficha:
@@ -78,6 +89,39 @@ async function cloudSave(force = false) {
   }
 }
 
+// Hay una copia más nueva hecha desde otro aparato (o pestaña): se carga esa,
+// así nunca se pisa lo que jugaste en otro lado.
+async function cloudAdoptNewer(meta) {
+  if (CLOUD.busy || NET.on || NET.busy) return;
+  CLOUD.busy = true;
+  try {
+    const raw = await cloudFetch(meta);
+    loadFrom(raw);
+    S.savedAt = meta.at;
+    CLOUD.slot = meta.slot === 'b' ? 'b' : 'a';
+    CLOUD.at = meta.at;
+    save();
+    closeModals();
+    toolbarKey = '';
+    updateUI();
+    toast('☁️ Seguiste jugando en otro aparato: cargué esa partida, que es la más nueva.');
+  } catch (_) {
+    CLOUD.err++;
+  } finally {
+    CLOUD.busy = false;
+    cloudStatus();
+  }
+}
+
+// Al volver a la pestaña: ¿alguien jugó en otro aparato mientras tanto?
+async function cloudCheckNewer() {
+  if (!CLOUD.on || CLOUD.busy || NET.on) return;
+  try {
+    const m = await cloudDoc('meta').get();
+    if (m.exists && (m.data().at || 0) > CLOUD.at + 1000 && m.data().v === SAVE_VERSION) await cloudAdoptNewer(m.data());
+  } catch (_) { /* se vuelve a intentar la próxima vez */ }
+}
+
 async function cloudRestore() {
   if (!CLOUD.on) return;
   try {
@@ -86,6 +130,8 @@ async function cloudRestore() {
     const meta = m.data();
     loadFrom(await cloudFetch(meta));
     S.savedAt = meta.at;
+    CLOUD.at = meta.at;
+    CLOUD.slot = meta.slot === 'b' ? 'b' : 'a';
     save();
     closeModals();
     toolbarKey = '';
@@ -128,7 +174,7 @@ function initCloud() {
   setInterval(() => cloudSave(), 5000);
   // Al salir o cambiar de app: copia inmediata (Safari corta todo apenas se oculta la página)
   const flush = () => { save(); cloudSave(true); };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else cloudCheckNewer(); });
   window.addEventListener('pagehide', flush);
   $('btn-cloud-load').addEventListener('click', () => {
     if (confirm('¿Cargar la copia de la nube? Se reemplaza la partida actual.')) cloudRestore();
