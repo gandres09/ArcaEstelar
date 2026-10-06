@@ -174,7 +174,7 @@ async function exportGame() {
 async function downloadGame() {
   const code = await gzipBase64(serialize());
   const d = new Date(), two = (n) => String(n).padStart(2, '0');
-  const filename = `mini-fabrica-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.txt`;
+  const filename = `arca-estelar-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.txt`;
   // Dentro de Claude la descarga pasa por la plataforma (pide confirmación)
   let dl = null;
   if (window.claude && !NET.p2p) { try { dl = await claude.use('downloads'); } catch (_) { dl = null; } }
@@ -207,7 +207,7 @@ async function loadGameFile(file) {
     updateUI();
     toast('📂 Partida cargada desde ' + file.name + '.');
   } catch (_) {
-    toast('Ese archivo no es una partida de Mini Fábrica (o está incompleto).');
+    toast('Ese archivo no es una partida de Arca Estelar (o está incompleto).');
   }
 }
 

@@ -753,7 +753,7 @@ function netRenderModal() {
         '<p class="muted small">Igual podés jugar tu propia partida: se guarda en este navegador.</p>'
       : NET.why === 'error'
         ? '<p>No se pudo conectar con el servicio en línea. Probá recargar la página en un rato.</p>'
-        : '<p>El juego en línea funciona cuando abrís Mini Fábrica desde <b>su link de Claude</b>, con tu cuenta (no desde el archivo suelto).</p>') + diag;
+        : '<p>El juego en línea funciona cuando abrís Arca Estelar desde <b>su link de Claude</b>, con tu cuenta (no desde el archivo suelto).</p>') + diag;
     return;
   }
   const dot = (uid, cid) => `<span class="dot" style="background:${netColor(uid, cid)}"></span>`;

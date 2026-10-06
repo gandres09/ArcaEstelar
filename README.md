@@ -1,4 +1,4 @@
-# Mini Fábrica
+# Arca Estelar
 
 Un juego de automatización para el navegador, inspirado en Factorio. Te estrellaste en un planeta
 desconocido y la única forma de salir es levantar una fábrica cada vez más grande. El juego tiene
