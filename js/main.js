@@ -321,7 +321,7 @@ async function init() {
   setInterval(save, 10000);
   setInterval(updateUI, 250);
   setInterval(checkAchievements, 2000);
-  setInterval(() => renderMinimap(minimap), 500);
+  setInterval(() => { if (!document.hidden) renderMinimap(minimap); }, 250);
   $('btn-online').addEventListener('click', () => openModal('online'));
   initChat();
   initRpgUi();

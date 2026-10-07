@@ -523,11 +523,18 @@ canvas.addEventListener('wheel', (ev) => {
 const minimap = $('minimap');
 function minimapJump(ev) {
   const r = minimap.getBoundingClientRect();
-  view.x = ((ev.clientX - r.left) / r.width) * W * TILE;
-  view.y = ((ev.clientY - r.top) / r.height) * H * TILE;
+  const v = miniView(minimap);
+  const mx = ((ev.clientX - r.left) / r.width) * minimap.width, my = ((ev.clientY - r.top) / r.height) * minimap.height;
+  view.x = wrapX(v.c.x + (mx - minimap.width / 2) / v.k) * TILE;
+  view.y = wrapY(v.c.y + (my - minimap.height / 2) / v.k) * TILE;
+  followCam = false;
   clampView();
+  renderMinimap(minimap);
 }
-minimap.addEventListener('pointerdown', (ev) => { minimap.setPointerCapture(ev.pointerId); minimapJump(ev); });
+$('mini-in').addEventListener('click', () => setMiniZoom(1));
+$('mini-out').addEventListener('click', () => setMiniZoom(-1));
+minimap.addEventListener('pointerdown', (ev) => { minimap.setPointerCapture(ev.pointerId); miniLock = null; miniLock = miniView(minimap).c; minimapJump(ev); });
+for (const t of ['pointerup', 'pointercancel']) minimap.addEventListener(t, () => { miniLock = null; });
 minimap.addEventListener('pointermove', (ev) => { if (ev.buttons) minimapJump(ev); });
 
 // --------------------------- Teclado ---------------------------

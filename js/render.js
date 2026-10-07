@@ -2032,6 +2032,39 @@ function drawOverlays(ctx) {
     ctx.fillStyle = '#f0a742';
     ctx.fillRect(x * TILE + 3, y * TILE - 8, (TILE - 6) * Math.min(1, prog / (handMining.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
+  if (NET.on) drawFriendArrows(ctx);
+}
+
+// Amigos fuera de la pantalla: una flecha de su color en el borde, con su nombre y a cuántas casillas está
+function drawFriendArrows(g) {
+  g.save();
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Zona libre de la pantalla (sin la barra de arriba, la de abajo ni el panel del costado)
+  const side = $('side'), sr = side && document.body.classList.contains('side-open') ? side.getBoundingClientRect() : null;
+  const L = 30, T = 80, R = (sr && sr.width > 0 && sr.left > cw * 0.5 ? sr.left : cw) - 30, B = ch - 130;
+  const ccx = (L + R) / 2, ccy = (T + B) / 2;
+  for (const a of NET.avatars.values()) {
+    const dx = wdx(a.x - view.x / TILE) * TILE * view.zoom, dy = wdy(a.y - view.y / TILE) * TILE * view.zoom;
+    const sx = cw / 2 + dx, sy = ch / 2 + dy;
+    if (sx > L && sx < R && sy > T && sy < B) continue;
+    const ddx = sx - ccx, ddy = sy - ccy;
+    const k = Math.min((R - L) / 2 / Math.max(1e-6, Math.abs(ddx)), (B - T) / 2 / Math.max(1e-6, Math.abs(ddy)));
+    const x = ccx + ddx * k, y = ccy + ddy * k, ang = Math.atan2(ddy, ddx);
+    const col = netColor(a.by);
+    g.save(); g.translate(x, y); g.rotate(ang);
+    g.fillStyle = col; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(14, 0); g.lineTo(-6, -10); g.lineTo(-2, 0); g.lineTo(-6, 10); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    const pr = a.by && NET.profiles[a.by];
+    const dist = playerOn() ? Math.round(wdist(S.player.x, S.player.y, a.x, a.y)) : null;
+    const label = (a.nick || (pr && pr.name) || 'Jugador').slice(0, 14) + (dist != null ? ` · ${dist}` : '');
+    g.font = '700 12px Barlow, system-ui, sans-serif'; g.textBaseline = 'middle';
+    const tw = g.measureText(label).width;
+    const lx = Math.max(4, Math.min(cw - tw - 4, x - Math.cos(ang) * 22 - tw / 2)), ly = Math.max(10, Math.min(ch - 10, y - Math.sin(ang) * 22));
+    g.fillStyle = 'rgba(15,18,22,0.8)'; rrect(g, lx - 4, ly - 9, tw + 8, 18, 6); g.fill();
+    g.fillStyle = '#fff'; g.textAlign = 'left'; g.fillText(label, lx, ly);
+  }
+  g.restore();
 }
 
 function g_reach(g, p) {
@@ -2107,49 +2140,108 @@ function drawLaunch(ctx) {
 // --------------------------- Minimapa ---------------------------
 
 let fogCanvas = null;
+// Zoom del minimapa: 1 = todo el planeta; más alto = más cerca, centrado en tu personaje
+const MINI_ZOOMS = [1, 3, 6, 12, 24, 48];
+let miniZoom = 12;
+try { const z = +localStorage.getItem('mini-fabrica-minizoom2'); if (MINI_ZOOMS.includes(z)) miniZoom = z; } catch (_) { /* nada */ }
+let miniLock = null;   // mientras arrastrás el dedo en el minimapa, no se corre
+function miniCenter() {
+  if (miniLock) return miniLock;
+  if (miniZoom === 1) return { x: W / 2, y: H / 2 };
+  if (playerOn() && followCam) return { x: S.player.x, y: S.player.y };
+  return { x: wrapX(view.x / TILE), y: wrapY(view.y / TILE) };
+}
+// Casilla del mapa → píxel del minimapa (y al revés, para tocarlo)
+function miniView(mc) {
+  const c = miniCenter(), k = (mc.width / W) * miniZoom;
+  return { c, k, px: (x) => mc.width / 2 + wdx(x - c.x) * k, py: (y) => mc.height / 2 + wdy(y - c.y) * k };
+}
 function renderMinimap(mc) {
   const g = mc.getContext('2d');
-  const sx = mc.width / W, sy = mc.height / H;
+  const v = miniView(mc), k = v.k;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#07090c'; g.fillRect(0, 0, mc.width, mc.height);
   g.imageSmoothingEnabled = false;
-  g.drawImage(pixelMap, 0, 0, mc.width, mc.height);
+  // El mapa da la vuelta: se dibuja también al lado para que no se vea el borde
+  const tiled = (img, dw, dh) => {
+    for (const ox of [-1, 0, 1]) for (const oy of [-1, 0, 1]) {
+      const x0 = mc.width / 2 + (ox * W - v.c.x) * k, y0 = mc.height / 2 + (oy * H - v.c.y) * k;
+      if (x0 > mc.width || y0 > mc.height || x0 + dw * k < 0 || y0 + dh * k < 0) continue;
+      g.drawImage(img, x0, y0, dw * k, dh * k);
+    }
+  };
+  tiled(pixelMap, W, H);
   if (showPollution) {
     for (let i = 0; i < pollution.length; i++) {
       const p = pollution[i];
       if (p < 1) continue;
       g.fillStyle = `rgba(150,70,30,${Math.min(0.6, 0.1 + p / 250)})`;
-      g.fillRect((i % PW) * POLL_CELL * sx, Math.floor(i / PW) * POLL_CELL * sy, POLL_CELL * sx, POLL_CELL * sy);
+      g.fillRect(v.px((i % PW) * POLL_CELL), v.py(Math.floor(i / PW) * POLL_CELL), POLL_CELL * k, POLL_CELL * k);
     }
   }
-  // Niebla: una imagen chiquita (una celda = un píxel) que se estira; mucho más rápido que un rectángulo por celda
+  // Niebla: una imagen chiquita (una celda = un píxel) que se estira
   if (!fogCanvas || fogCanvas.width !== PW || fogCanvas.height !== PH) { fogCanvas = document.createElement('canvas'); fogCanvas.width = PW; fogCanvas.height = PH; }
   const fg = fogCanvas.getContext('2d'), img = fg.createImageData(PW, PH), px = img.data;
   for (let i = 0; i < explored.length; i++) if (!explored[i]) { px[i * 4] = 7; px[i * 4 + 1] = 9; px[i * 4 + 2] = 12; px[i * 4 + 3] = 255; }
   fg.putImageData(img, 0, 0);
-  g.drawImage(fogCanvas, 0, 0, PW * POLL_CELL * sx, PH * POLL_CELL * sy);
+  g.imageSmoothingEnabled = miniZoom > 3;
+  tiled(fogCanvas, PW * POLL_CELL, PH * POLL_CELL);
+  g.imageSmoothingEnabled = false;
+  const inside = (x, y, m = 8) => x > -m && y > -m && x < mc.width + m && y < mc.height + m;
   for (const e of S.entities) {
     const s = sizeOf(e.type);
     if (e.type === 'nest' && !tileExplored(e.x, e.y)) continue;
+    const x = v.px(e.x), y = v.py(e.y);
+    if (!inside(x, y)) continue;
     g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
-    g.fillRect(e.x * sx, e.y * sy, Math.max(1.5, s * sx), Math.max(1.5, s * sy));
+    g.fillRect(x, y, Math.max(1.5, s * k), Math.max(1.5, s * k));
   }
   // Aventura: ruinas sin saquear, guaridas con jefe y tu mochila perdida
   if (S.character && S.ruins) {
     g.fillStyle = '#7ef0ff';
-    for (const r of S.ruins) if (!r.looted && tileExplored(r.x, r.y)) g.fillRect(r.x * sx - 1.5, r.y * sy - 1.5, 3, 3);
-    for (const l of S.lairs) if (tileExplored(l.x, l.y)) { g.fillStyle = l.alive ? '#ff3b6b' : '#7a4a55'; g.beginPath(); g.arc(l.x * sx, l.y * sy, 3.5, 0, Math.PI * 2); g.fill(); }
-    if (playerOn() && S.player.bag) { g.fillStyle = '#ffd34d'; g.fillRect(S.player.bag.x * sx - 2.5, S.player.bag.y * sy - 2.5, 5, 5); }
+    for (const r of S.ruins) if (!r.looted && tileExplored(r.x, r.y)) g.fillRect(v.px(r.x) - 2, v.py(r.y) - 2, 4, 4);
+    for (const l of S.lairs) if (tileExplored(l.x, l.y)) { g.fillStyle = l.alive ? '#ff3b6b' : '#7a4a55'; g.beginPath(); g.arc(v.px(l.x), v.py(l.y), 4, 0, Math.PI * 2); g.fill(); }
+    if (playerOn() && S.player.bag) { g.fillStyle = '#ffd34d'; g.fillRect(v.px(S.player.bag.x) - 3, v.py(S.player.bag.y) - 3, 6, 6); }
   }
-  if (playerOn()) { g.fillStyle = '#ffd34d'; g.beginPath(); g.arc(S.player.x * sx, S.player.y * sy, 3, 0, Math.PI * 2); g.fill(); }
   g.fillStyle = '#ffffff';
-  for (const t of S.trains) g.fillRect(t.x * sx - 1.5, t.y * sy - 1.5, 3, 3);
+  for (const t of S.trains) g.fillRect(v.px(t.x) - 1.5, v.py(t.y) - 1.5, 3, 3);
   g.fillStyle = '#ff7a5c';
-  for (const b of S.biters) if (b.state === 'attack' && tileExplored(Math.floor(b.x), Math.floor(b.y))) g.fillRect(b.x * sx - 1, b.y * sy - 1, 2, 2);
+  for (const b of S.biters) if (b.state === 'attack' && tileExplored(Math.floor(b.x), Math.floor(b.y))) g.fillRect(v.px(b.x) - 1, v.py(b.y) - 1, 2, 2);
+  // Recuadro de lo que ves en pantalla
   const vw = cw / view.zoom / TILE, vh = ch / view.zoom / TILE;
-  g.strokeStyle = '#fff';
+  g.strokeStyle = 'rgba(255,255,255,0.8)';
   g.lineWidth = 1;
-  // El recuadro de la vista puede cruzar el borde: se dibuja también del otro lado
-  const rx = (wrapX(view.x / TILE) - vw / 2) * sx, ry = (wrapY(view.y / TILE) - vh / 2) * sy;
-  for (const ox of [-mc.width, 0, mc.width]) for (const oy of [-mc.height, 0, mc.height]) {
-    g.strokeRect(rx + ox + 0.5, ry + oy + 0.5, vw * sx, vh * sy);
+  g.strokeRect(v.px(wrapX(view.x / TILE) - vw / 2) + 0.5, v.py(wrapY(view.y / TILE) - vh / 2) + 0.5, vw * k, vh * k);
+  // Tus amigos: un punto de su color con su nombre (si están fuera del minimapa, en el borde)
+  g.font = '700 15px Barlow, system-ui, sans-serif'; g.textBaseline = 'middle';
+  if (NET.on) for (const a of NET.avatars.values()) {
+    const col = netColor(a.by);
+    let x = v.px(a.x), y = v.py(a.y);
+    const out = !inside(x, y, -6);
+    x = Math.max(6, Math.min(mc.width - 6, x)); y = Math.max(6, Math.min(mc.height - 6, y));
+    g.fillStyle = col; g.strokeStyle = '#0b0d10'; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, out ? 4 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
+    const pr = a.by && NET.profiles[a.by];
+    const name = (a.nick || (pr && pr.name) || 'Jugador').slice(0, 12);
+    const tw = g.measureText(name).width;
+    const tx = Math.max(2, Math.min(mc.width - tw - 2, x + 8 > mc.width - tw ? x - tw - 8 : x + 8));
+    g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.textAlign = 'left';
+    g.strokeText(name, tx, y); g.fillStyle = '#fff'; g.fillText(name, tx, y);
   }
+  // Vos, arriba de todo, con flechita hacia donde mirás
+  if (playerOn()) {
+    const x = v.px(S.player.x), y = v.py(S.player.y);
+    g.save(); g.translate(x, y); g.rotate(S.player.ang || 0);
+    g.fillStyle = '#ffd34d'; g.strokeStyle = '#0b0d10'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -5); g.lineTo(-2.5, 0); g.lineTo(-5, 5); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
+  const zl = $('mini-zoom-label');
+  if (zl) zl.textContent = miniZoom === 1 ? 'Todo' : '×' + miniZoom;
+}
+function setMiniZoom(d) {
+  const i = Math.max(0, Math.min(MINI_ZOOMS.length - 1, MINI_ZOOMS.indexOf(miniZoom) + d));
+  miniZoom = MINI_ZOOMS[i];
+  try { localStorage.setItem('mini-fabrica-minizoom2', miniZoom); } catch (_) { /* nada */ }
+  renderMinimap($('minimap'));
 }
