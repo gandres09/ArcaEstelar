@@ -40,7 +40,7 @@ const netCapture = () => NET.on && !NET.applying && NET.sim === 0;
 function netPush(a) { if (netCapture()) NET.out.push(a); }
 function netTrainSchedule(t) { netPush({ k: 'ts', x: Math.round(t.x), y: Math.round(t.y), s: t.schedule || [] }); }
 function netPlaced(e) { if (netCapture()) NET.out.push({ lazy: e }); }
-function netTouch(e) { if (netCapture() && e) NET.touched.add(e); }
+function netTouch(e) { if (netCapture() && e) { if (isVehicle(e.type)) NET.out.push({ k: 'vs', id: e.id, s: vehicleSync(e) }); else NET.touched.add(e); } }
 
 // Cambios en el inventario de la Nave hechos por este jugador
 function netInvDelta(before) {
@@ -131,6 +131,12 @@ function netApply(a) {
         }
         return true;
       }
+      case 'mk': netMarker(a.m); return true;
+      case 'mkx': ensureMarkers(); S.markers = S.markers.filter((m) => m.id !== a.id); renderMarkerList(); return true;
+      // Vehículos: poner, actualizar (el que maneja manda dónde quedó) y sacar
+      case 'vp': { if (!vehicleById(a.id) && isVehicle(a.t)) { const v = placeVehicle(a.t, a.x, a.y, true); if (v) v.id = a.id; } return true; }
+      case 'vs': { const v = vehicleById(a.id); if (v && a.s && !(S.player && S.player.vehicle === v.id)) Object.assign(v, a.s); return true; }
+      case 'vr': { ensureVehicles(); const v = vehicleById(a.id); if (v) { if (S.player && S.player.vehicle === v.id) S.player.vehicle = null; S.vehicles.splice(S.vehicles.indexOf(v), 1); } return true; }
       case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; } return true; }
     }
     return true;
@@ -243,7 +249,7 @@ function netPlayerState() {
 function netSendPresence() {
   chatPrune();
   const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
-    hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null, tl: S.player && S.player.torch === false ? 0 : 1 };
+    hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null, tl: S.player && S.player.torch === false ? 0 : 1, dv: (S.player && S.player.vehicle) || null, dvt: (S.player && S.player.vehicle && myVehicle() && myVehicle().type) || null };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -333,6 +339,7 @@ async function netLoadSnapshot(meta, first) {
 function applyShared(obj, first) {
   const st = obj.s;
   const mine = { player: S.player, pinv: S.pinv };
+  const myV = typeof myVehicle === 'function' ? myVehicle() : null;   // el vehículo que manejo: manda el mío, no la foto
   const same = !first && S.seed === st.seed && W === (st.mapW || 320) && H === (st.mapH || 240) && oreBase;
   if (!same) {
     setMapSize(st.mapW || 320, st.mapH || 240);
@@ -368,6 +375,10 @@ function applyShared(obj, first) {
     applyTrees(obj.trees);
     loadPollution(obj.pollution);
     mergeFog(obj.fog);
+  }
+  if (myV && S.player && S.player.vehicle === myV.id) {
+    S.vehicles = (S.vehicles || []).filter((v) => v.id !== myV.id);
+    S.vehicles.push(myV);
   }
   rebuildGrid();
   // Lo que pasó después de la foto se vuelve a aplicar encima
@@ -704,7 +715,7 @@ function netUpdateAvatars(peers, dt) {
     // Se acerca suave a la última posición conocida (por el lado corto del mapa)
     const k = Math.min(1, dt * 12);
     a.x = wrapX(a.x + wdx(x - a.x) * k); a.y = wrapY(a.y + wdy(y - a.y) * k);
-    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n), torch: p.presence.tl === 0 ? 0 : 1 });
+    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n), torch: p.presence.tl === 0 ? 0 : 1, dv: p.presence.dv || null, dvt: p.presence.dvt || null });
     // Su perro: se acerca suave y, si lo acarician o come, salen corazones
     const pp = p.presence.p;
     if (pp.length >= 12 && Number.isFinite(pp[6]) && Number.isFinite(pp[7])) {

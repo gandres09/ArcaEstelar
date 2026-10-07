@@ -271,6 +271,7 @@ let revealTimer = 0;
 function updatePlayer(dt) {
   if (!playerOn()) return;
   const p = S.player;
+  if (p.vehicle) { updatePet(p, dt); driveStep(dt); if (p.vehicle) return; }
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad

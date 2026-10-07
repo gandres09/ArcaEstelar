@@ -415,6 +415,9 @@ function dropGear(x, y, L, r) {
 function hurtPlayer(dmg, from) {
   const p = S.player;
   if (!p || p.safeT > 0) return;
+  // Manejando, los golpes se los lleva el vehículo
+  const veh = p.vehicle && vehicleById(p.vehicle);
+  if (veh) { hurtVehicle(veh, dmg); return; }
   const st = playerStats(p);
   const real = dmg * (1 - st.reduce);
   p.hp -= real;
@@ -588,7 +591,7 @@ function updateRpg(dt) {
   for (const c of S.creatures.slice()) if (!c.dead) creatureStep(c, dt, hs);
   for (const c of S.creatures) if (c.atk) c.atk = Math.max(0, c.atk - dt);
   if (!playerOn()) return;
-  playerCombat(dt);
+  if (!S.player.vehicle) playerCombat(dt);
   petCombat(dt);
   pickUps();
 }

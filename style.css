@@ -585,3 +585,15 @@ img { -webkit-user-drag: none; }
   #toast { top: calc(50px + var(--st)); }
   .modal-box { padding: 12px 16px; }
 }
+
+/* Marcadores */
+.marker-bar { display: flex; gap: 6px; margin-top: 6px; }
+.marker-bar .small-btn { flex: 1; }
+#btn-mark.on { border-color: var(--accent); color: var(--accent); }
+#marker-list { margin-top: 4px; display: flex; flex-direction: column; gap: 3px; max-height: 180px; overflow-y: auto; }
+.mk-row { display: flex; align-items: center; gap: 4px; }
+.mk-row.ping .mk-name { color: #ffd34d; }
+.mk-icon { padding: 2px 4px; font-size: 15px; line-height: 1; background: none; border: 0; }
+.mk-name { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text); background: var(--panel-2); border: 1px solid transparent; border-radius: 6px; padding: 3px 6px; user-select: text; -webkit-user-select: text; }
+input.mk-name:focus { border-color: var(--accent); outline: none; }
+.mk-row .small-btn { padding: 2px 6px; }

@@ -20,7 +20,7 @@ function placeableIgnoringCost(type, x, y) {
 }
 
 function addGhost(type, x, y, dir, extra = {}) {
-  if (!robotsOn() || type === 'train' || type === 'landfill') return null;
+  if (!robotsOn() || type === 'train' || type === 'landfill' || isVehicle(type)) return null;
   x = wrapX(x); y = wrapY(y);
   if (ghostAt(x, y)) return null;
   if (!placeableIgnoringCost(type, x, y).ok) return null;

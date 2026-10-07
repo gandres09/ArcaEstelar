@@ -203,6 +203,7 @@ function contents(e) {
 
 // free: lo aplica la red (otro jugador ya lo pagó y lo vio posible)
 function canPlace(type, x, y, free = false) {
+  if (isVehicle(type)) return canPlaceVehicle(type, wrapX(x), wrapY(y), free);
   if (type === 'train') return free ? (isRail(at(x, y)) && !trainAt(x, y) ? { ok: true } : { ok: false }) : canPlaceTrain(x, y);
   const s = sizeOf(type);
   if (s === 1) {
@@ -313,6 +314,7 @@ function place(type, x, y, dir, opts = {}) {
     }
     return res.rotate;
   }
+  if (isVehicle(type)) return placeVehicle(type, x, y, !!opts.free);
   if (type === 'train') {
     const t = placeTrain(x, y, !!opts.free);
     if (t) netPush({ k: 'p', t: 'train', x, y });
@@ -625,6 +627,12 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'uplink':
       if (item !== 'orbital_charge' || t.charges >= 10) return false;
       return ok(() => { t.charges++; });
+    case 'vehicle': {
+      const vd = VEHICLES[t.type];
+      if (vd.gun && vd.gun.ammo === item) { if (t.ammo >= 50) return false; return ok(() => { t.ammo++; }); }
+      if (!VEHICLE_FUEL[item] || t.fuel >= 20 || (t.fuelType && t.fuelType !== item)) return false;
+      return ok(() => { t.fuelType = item; t.fuel++; });
+    }
     case 'flameturret':
       if (item !== 'oil' || t.fuel >= 50) return false;
       return ok(() => { t.fuel++; });
@@ -1223,6 +1231,7 @@ function update(dt) {
   updateTrains(dt);
   updateRobots(dt);
   updateWeather(dt);
+  updateVehicles(dt);
   updateEnemies(dt);
   NET.sim--;
   if (NET.on) NET.shadow = { ...S.inv };

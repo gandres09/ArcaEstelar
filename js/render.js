@@ -1370,8 +1370,7 @@ function drawPlayer(g, lod) {
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(mx + 3, my - 8, TILE - 6, 5);
     g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * Math.min(1, p.mineT / (p.mine.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
-  drawAvatar(g, p, x, y, '#ffb347', '#d9782a');
-  drawPlayerCombat(g, p, x, y);
+  if (!p.vehicle) { drawAvatar(g, p, x, y, '#ffb347', '#d9782a'); drawPlayerCombat(g, p, x, y); }
   if (NET.on) drawNameTag(g, x, y, NET.nick || 'Vos', '#ffb347', NET.role === 'host');
   if (NET.on && CHAT.mySay && performance.now() < CHAT.mySay.until) drawSpeech(g, x, y, CHAT.mySay.text);
 }
@@ -1428,7 +1427,7 @@ function drawRemotePlayers(g, lod) {
     const col = netColor(a.by);
     const x = a.x * TILE, y = a.y * TILE;
     if (lod) { g.fillStyle = col; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); continue; }
-    drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
+    if (!a.dv) drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
     const pr = a.by && NET.profiles[a.by];
     drawNameTag(g, x, y, a.nick || (pr && pr.name) || 'Jugador', col, a.host);
     if (a.say && performance.now() < a.sayUntil) drawSpeech(g, x, y, a.say);
@@ -1928,11 +1927,13 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   if (!lod && playerOn() && S.player.pet && !S.player.pet.gone) drawPet(ctx, S.player.pet, true);
   if (!lod && NET.on) for (const a of NET.avatars.values()) if (a.pet) drawPet(ctx, a.pet, true);
   if (!lod) drawPetHearts(ctx, rdt);
+  drawVehicles(ctx, lod, time);
   if (playerOn()) drawPlayer(ctx, lod);
   if (NET.on) drawRemotePlayers(ctx, lod);
   if (!lod) drawGhostsAndRobots(ctx, vx0, vy0, vx1, vy1);
   drawEffects(ctx, rdt);
   drawShots(ctx);
+  drawMarkers(ctx);
 
   // Cables de los postes
   ctx.lineWidth = lod ? 2 : 1.2;
@@ -2081,7 +2082,7 @@ function drawOverlays(ctx) {
     ctx.fillStyle = '#f0a742';
     ctx.fillRect(x * TILE + 3, y * TILE - 8, (TILE - 6) * Math.min(1, prog / (handMining.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
-  if (NET.on) drawFriendArrows(ctx);
+  if (NET.on || (S.markers && S.markers.some((m) => m.ping))) drawFriendArrows(ctx);
 }
 
 // Amigos fuera de la pantalla: una flecha de su color en el borde, con su nombre y a cuántas casillas está
@@ -2092,14 +2093,16 @@ function drawFriendArrows(g) {
   const side = $('side'), sr = side && document.body.classList.contains('side-open') ? side.getBoundingClientRect() : null;
   const L = 30, T = 80, R = (sr && sr.width > 0 && sr.left > cw * 0.5 ? sr.left : cw) - 30, B = ch - 130;
   const ccx = (L + R) / 2, ccy = (T + B) / 2;
-  for (const a of NET.avatars.values()) {
+  const pings = (S.markers || []).filter((m) => m.ping && m.by !== (NET.nick || null)).map((m) => ({ x: m.x, y: m.y, nick: '📣 ' + (m.by || 'Llamado'), by: null, ping: true }));
+  const list = NET.on ? [...NET.avatars.values(), ...pings] : pings;
+  for (const a of list) {
     const dx = wdx(a.x - view.x / TILE) * TILE * view.zoom, dy = wdy(a.y - view.y / TILE) * TILE * view.zoom;
     const sx = cw / 2 + dx, sy = ch / 2 + dy;
     if (sx > L && sx < R && sy > T && sy < B) continue;
     const ddx = sx - ccx, ddy = sy - ccy;
     const k = Math.min((R - L) / 2 / Math.max(1e-6, Math.abs(ddx)), (B - T) / 2 / Math.max(1e-6, Math.abs(ddy)));
     const x = ccx + ddx * k, y = ccy + ddy * k, ang = Math.atan2(ddy, ddx);
-    const col = netColor(a.by);
+    const col = a.ping ? '#ffd34d' : netColor(a.by);
     g.save(); g.translate(x, y); g.rotate(ang);
     g.fillStyle = col; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.lineWidth = 2;
     g.beginPath(); g.moveTo(14, 0); g.lineTo(-6, -10); g.lineTo(-2, 0); g.lineTo(-6, 10); g.closePath(); g.fill(); g.stroke();
@@ -2254,6 +2257,7 @@ function renderMinimap(mc) {
   }
   g.fillStyle = '#ffffff';
   for (const t of S.trains) g.fillRect(v.px(t.x) - 1.5, v.py(t.y) - 1.5, 3, 3);
+  for (const vh of S.vehicles || []) { g.fillStyle = VEHICLES[vh.type].color; g.fillRect(v.px(vh.x) - 3, v.py(vh.y) - 3, 6, 6); g.strokeStyle = '#fff'; g.lineWidth = 1; g.strokeRect(v.px(vh.x) - 3, v.py(vh.y) - 3, 6, 6); }
   g.fillStyle = '#ff7a5c';
   for (const b of S.biters) if (b.state === 'attack' && tileExplored(Math.floor(b.x), Math.floor(b.y))) g.fillRect(v.px(b.x) - 1, v.py(b.y) - 1, 2, 2);
   // Recuadro de lo que ves en pantalla
@@ -2277,6 +2281,7 @@ function renderMinimap(mc) {
     g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.textAlign = 'left';
     g.strokeText(name, tx, y); g.fillStyle = '#fff'; g.fillText(name, tx, y);
   }
+  drawMarkersMini(g, v, inside);
   // Vos, arriba de todo, con flechita hacia donde mirás
   if (playerOn()) {
     const x = v.px(S.player.x), y = v.py(S.player.y);

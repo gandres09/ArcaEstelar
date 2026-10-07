@@ -51,6 +51,7 @@ const ITEMS = {
   eff_module:     { name: 'Módulo de eficiencia',    color: '#5cc47a', shape: 'module' },
   ammo:           { name: 'Munición',           color: '#c9a227', shape: 'ammo' },
   artillery_shell:{ name: 'Proyectil de artillería', color: '#8a9a5b', shape: 'ammo' },
+  cannon_shell:   { name: 'Bala de cañón',      color: '#6b7a4a', shape: 'ammo' },
 
   sci_red:        { name: 'Ciencia roja',       color: '#e0473b', shape: 'flask' },
   sci_green:      { name: 'Ciencia verde',      color: '#4cc25a', shape: 'flask' },
@@ -150,6 +151,7 @@ const RECIPES = {
   habitat:      { machine: 'asm',  tier: 2, in: { hull: 3, life_support: 2, plastic: 20 },  out: 'habitat',      n: 1, time: 20,  tech: 'starship' },
   shield:       { machine: 'asm',  tier: 2, in: { superconductor: 6, battery: 10, quantum_processor: 2 }, out: 'shield', n: 1, time: 20, tech: 'starship' },
   artillery_shell: { machine: 'asm', tier: 2, in: { steel: 2, sulfur: 2, ammo: 2 },         out: 'artillery_shell', n: 1, time: 8, tech: 'artillery' },
+  cannon_shell: { machine: 'asm',  tier: 2, in: { steel: 1, sulfur: 1, ammo: 1 },           out: 'cannon_shell', n: 2, time: 4,   tech: 'vehicles4' },
 };
 const RECIPE_ORDER = Object.keys(RECIPES);
 
@@ -291,6 +293,17 @@ const BUILDINGS = {
                  desc: 'Parada de tren sobre la vía. En modo Carga recibe objetos; en Descarga los suelta por la flecha.' },
   train:       { name: 'Tren',                cat: 'trenes', hp: 500, cost: { engine: 10, steel: 40, circuit: 10 }, tech: 'railway',
                  desc: 'Locomotora con 2 vagones (800 objetos). Ponelo sobre una vía: recorre todas las estaciones de su red.' },
+  // Vehículos: se ponen como un edificio pero andan sueltos (ver vehicles.js)
+  buggy:       { name: 'Buggy',               cat: 'vehículos', as: 'vehicle', vehicle: true, character: true, hp: 200, cost: { iron_plate: 40, gear: 20, copper_plate: 10 }, tech: 'vehicles1',
+                 desc: 'Liviano y barato. Quema carbón o madera. Baúl chico (20).' },
+  car:         { name: 'Auto',                cat: 'vehículos', as: 'vehicle', vehicle: true, character: true, hp: 350, cost: { steel: 20, engine: 6, circuit: 8 }, tech: 'vehicles2',
+                 desc: 'Rápido y con baúl de 50. Mejor con combustible sólido.' },
+  truck:       { name: 'Camioneta blindada',  cat: 'vehículos', as: 'vehicle', vehicle: true, character: true, hp: 900, cost: { steel: 50, engine: 12, circuit: 20 }, tech: 'vehicles3',
+                 desc: 'Blindada, baúl de 100 y ametralladora que dispara sola (usa munición).' },
+  tank:        { name: 'Tanque',              cat: 'vehículos', as: 'vehicle', vehicle: true, character: true, hp: 2500, cost: { steel: 100, engine: 20, processor: 10 }, tech: 'vehicles4',
+                 desc: 'Muy resistente, baúl de 150 y cañón que explota (usa balas de cañón). Atropella todo.' },
+  hover:       { name: 'Aerodeslizador',      cat: 'vehículos', as: 'vehicle', vehicle: true, character: true, hp: 1200, cost: { low_density: 20, electric_engine: 12, processor: 10, battery: 10 }, tech: 'vehicles5',
+                 desc: 'El más rápido: cruza lagos por arriba del agua y tiene láser (gasta combustible). Baúl de 120.' },
   landfill:    { name: 'Relleno',             cat: 'terreno', hp: 1, cost: { stone: 20 }, tech: 'landfill',
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
@@ -298,7 +311,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -313,6 +326,8 @@ const TECHS = {
                        desc: 'Brazo largo: toma y deja a 2 casillas.' },
   ship_link1:        { name: 'Señal de la Nave 1',   packs: ['sci_red'], units: 30, time: 8, req: ['electronics'],
                        desc: 'Usás lo guardado en la Nave hasta 20 casillas de distancia (antes 10), y antenas que llevan la señal 12 casillas más.' },
+  vehicles1:         { name: 'Vehículos',            packs: ['sci_red'], units: 30, time: 8, req: ['logistics'],
+                       desc: 'Buggy: para recorrer el mapa más rápido.' },
   logistics:         { name: 'Logística',            packs: ['sci_red'], units: 20, time: 8, req: [],
                        desc: 'Divisor y cinta subterránea.' },
   defense:           { name: 'Defensa',              packs: ['sci_red'], units: 20, time: 8, req: [],
@@ -351,6 +366,10 @@ const TECHS = {
                        desc: 'Torreta lanzallamas que quema petróleo.' },
   ship_link2:        { name: 'Señal de la Nave 2',   packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['ship_link1', 'logistic_science'],
                        desc: 'La Nave llega a 35 casillas y cada antena a 16.' },
+  vehicles2:         { name: 'Automóviles',          packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['vehicles1', 'advanced_assembly'],
+                       desc: 'Auto: más rápido y con más baúl.' },
+  vehicles3:         { name: 'Blindados',            packs: ['sci_red', 'sci_green'], units: 90, time: 15, req: ['vehicles2', 'weapons1'],
+                       desc: 'Camioneta blindada con ametralladora.' },
   big_poles:         { name: 'Alta tensión',         packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],
                        desc: 'Torres que llevan energía a 24 casillas.' },
   railway:           { name: 'Trenes',               packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['logistics2', 'advanced_assembly'],
@@ -383,6 +402,8 @@ const TECHS = {
                        desc: 'Torreta de artillería que bombardea nidos lejanos, y sus proyectiles.' },
   ship_link3:        { name: 'Señal de la Nave 3',   packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['ship_link2', 'chemical_science'],
                        desc: 'La Nave llega a 60 casillas y cada antena a 24.' },
+  vehicles4:         { name: 'Tanques',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['vehicles3', 'chemical_science'],
+                       desc: 'Tanque con cañón, y sus balas de cañón.' },
   logistics3:        { name: 'Logística 3',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['logistics2', 'chemical_science'],
                        desc: 'Cinta exprés.' },
   weapons2:          { name: 'Armas 2',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['weapons1', 'chemical_science'],
@@ -403,6 +424,8 @@ const TECHS = {
                        desc: 'Procesador + batería: el cerebro de la nave.' },
   space_science:     { name: 'Ciencia espacial',     packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 25, req: ['titanium', 'control_units'],
                        desc: 'Receta del pack de ciencia espacial.' },
+  vehicles5:         { name: 'Aerodeslizador',       packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 200, time: 25, req: ['vehicles4', 'space_science'],
+                       desc: 'Aerodeslizador: el más rápido, cruza el agua y tiene láser.' },
   rocketry:          { name: 'Cohetería',            packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 300, time: 30, req: ['space_science', 'electric_engines'],
                        desc: 'Astillero, propulsores, navegación, soporte vital y combustible de cohete.' },
   // Etapa 2: limpiar el planeta (se desbloquea al llegar al espacio)

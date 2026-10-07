@@ -739,6 +739,26 @@ function inspectorContent(e) {
         row('Líquido', net && net.amount >= 1 ? itemLabel(net.fluid, Math.floor(net.amount)) : 'vacío') + row('Estado', e.active ? 'bombeando' : 'quieta') + powerRow(e);
       break;
     }
+    case 'vehicle': {
+      const vd = VEHICLES[e.type], mine = S.player && S.player.vehicle === e.id;
+      h += row('Vida', `${Math.ceil(e.hp)} / ${def.hp}`) + bar(e.hp / def.hp) +
+        row('Velocidad máxima', `${Math.round(vd.speed * 3.6 * 4)} km/h`) +
+        row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'le queda un poco' : '<span class="bad">vacío</span>'));
+      if (vd.gun) h += row('Arma', vd.gun.laser ? 'láser (gasta combustible)' : `${e.ammo} ${ITEMS[vd.gun.ammo].name.toLowerCase()}`);
+      if (vd.water) h += '<p class="muted small">Cruza lagos por arriba del agua.</p>';
+      h += `<div class="actions">${mine ? '<button type="button" class="primary" data-act="vexit">🚶 Bajarme</button>' : '<button type="button" class="primary" data-act="venter">🚗 Subirme</button>'}</div>`;
+      h += pickRow(e, 'Cargar combustible', ['wood', 'coal', 'solid_fuel', 'rocket_fuel'], 20, 'No se mezclan combustibles distintos: si querés otro, sacá el que tiene.') +
+        (e.fuel ? '<div class="actions"><button type="button" data-act="unfuel">Sacar combustible</button></div>' : '');
+      if (vd.gun && !vd.gun.laser) h += pickRow(e, 'Cargar munición', [vd.gun.ammo], 50);
+      // Baúl
+      const inside = Object.entries(e.cargo).filter(([, n]) => n > 0);
+      h += `<div class="pick-title">Baúl (${e.total} / ${vd.cargo}) <span class="muted">· tocá para sacar</span></div>`;
+      h += inside.length ? '<div class="picker">' + inside.map(([k, n]) => `<button type="button" class="pick stack" data-act="vtake" data-v="${k}" title="Sacar ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(n)}</span></button>`).join('') + '</div>' : '<p class="muted small">Vacío.</p>';
+      const mineItems = Object.keys(S.pinv).filter((k) => S.pinv[k] >= 1);
+      if (mineItems.length && e.total < vd.cargo) h += '<div class="pick-title">Poner desde tu mochila</div><div class="picker">' + mineItems.map((k) => `<button type="button" class="pick stack" data-act="vput" data-v="${k}" title="Poner ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(S.pinv[k])}</span></button>`).join('') + '</div>';
+      if (!mine) h += '<div class="actions"><button type="button" data-act="vpick">🧰 Guardar el vehículo</button></div>';
+      break;
+    }
     case 'lightningrod': {
       const wn = weatherNow();
       h += row('Protege', `${ROD_RADIUS} casillas a la redonda`) + row('Rayos atrapados', S.rodHits || 0) + row('Clima', `${wn.w.icon} ${wn.w.name}`);
@@ -806,6 +826,7 @@ function inspectorContent(e) {
     const fx = moduleFx(e);
     if (mods.length) h += `<div class="muted small">Velocidad ${Math.round(fx.speed * 100)} % · Consumo ${Math.round(fx.power * 100)} %${fx.prod ? ` · Productividad +${Math.round(fx.prod * 100)} %` : ''}</div>`;
   }
+  if (isVehicle(e.type)) return h;
   h += hpRow(e);
   if (e.type !== 'hub') {
     h += '<div class="actions small">';
@@ -948,6 +969,18 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     stopPlayerTasks();
     walkTo(Math.floor(e.x), Math.floor(e.y), REACH - 2);
     return;
+  }
+  if (isVehicle(e.type)) {
+    const far = wdist(S.player.x, S.player.y, e.x, e.y) > VEHICLE_REACH + 2 && S.player.vehicle !== e.id;
+    if (far && b.dataset.act !== 'close') { toast('Está lejos: acercate al vehículo.'); walkTo(Math.floor(e.x), Math.floor(e.y), 1.5); return; }
+    switch (b.dataset.act) {
+      case 'venter': enterVehicle(e); closeInspector(); return;
+      case 'vexit': exitVehicle(); closeInspector(); return;
+      case 'vtake': vehicleTake(e, v); break;
+      case 'vput': vehiclePut(e, v, Infinity); break;
+      case 'vpick': if (pickUpVehicle(e)) { closeInspector(); updateUI(); return; } break;
+    }
+    if (['vtake', 'vput'].includes(b.dataset.act)) { netTouch(e); sfx('click'); updateInspector(); updateInventory(); return; }
   }
   switch (b.dataset.act) {
     case 'close': closeInspector(); return;

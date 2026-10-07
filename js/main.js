@@ -339,6 +339,7 @@ async function init() {
   setInterval(() => { if (!document.hidden) renderMinimap(minimap); }, 250);
   $('btn-online').addEventListener('click', () => openModal('online'));
   initChat();
+  initMarkers();
   initRpgUi();
   $('btn-gear').addEventListener('click', () => openModal('gear'));
   $('torch-chip').addEventListener('click', toggleTorch);

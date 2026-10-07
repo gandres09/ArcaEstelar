@@ -245,10 +245,14 @@ function tryPlaceSingle(t) {
 
 // Un toque en la pantalla táctil
 function handleTap(t) {
+  if (markMode) { placeMarkerAtTile(t); return; }
   if (tool === 'hand') {
     const tr = trainNear(t.x, t.y);
     const e = at(t.x, t.y);
-    if (playerOn() && petAt(t)) openPetPanel();
+    const veh = playerOn() && vehicleNear(t.x + 0.5, t.y + 0.5);
+    if (veh) openInspector(veh);
+    else if (playerOn() && myVehicle()) { closeInspector(); myVehicle().target = { x: t.x + 0.5, y: t.y + 0.5 }; followCam = true; }
+    else if (playerOn() && petAt(t)) openPetPanel();
     else if (tr) openInspector(tr);
     else if (e && e.type !== 'nest') openInspector(e);
     else { closeInspector(); showTapInfo(t); if (playerOn()) handGround(t); }
@@ -390,6 +394,8 @@ canvas.addEventListener('pointerdown', (ev) => {
     area = { mode: tool, a: t, b: null };
   } else if (tool === 'paste') {
     // se pega al soltar
+  } else if (isVehicle(tool)) {
+    tryPlaceSingle(t);
   } else if (BUILDINGS[tool]) {
     beginBatch();
     const placed = tryPlaceSingle(t);
@@ -470,11 +476,16 @@ function endPointer(ev) {
   if (d && !d.moved && ev.type === 'pointerup') {
     if (isTouch()) {
       if (!handMining || handMining.prog < 0.25) handleTap(d.tile);
+    } else if (d.button === 0 && markMode) {
+      placeMarkerAtTile(d.tile);
     } else if (d.button === 0) {
       if (tool === 'hand') {
         const tr = trainNear(d.tile.x, d.tile.y);
         const e = at(d.tile.x, d.tile.y);
-        if (playerOn() && petAt(d.tile)) openPetPanel();
+        const veh = playerOn() && vehicleNear(d.tile.x + 0.5, d.tile.y + 0.5);
+        if (veh) openInspector(veh);
+        else if (playerOn() && myVehicle()) { closeInspector(); myVehicle().target = { x: d.tile.x + 0.5, y: d.tile.y + 0.5 }; followCam = true; }
+        else if (playerOn() && petAt(d.tile)) openPetPanel();
         else if (tr) openInspector(tr);
         else if (e && e.type !== 'nest') openInspector(e);
         else { if (!handMining) closeInspector(); if (playerOn()) handGround(d.tile); }
@@ -526,6 +537,10 @@ function minimapJump(ev) {
   const r = minimap.getBoundingClientRect();
   const v = miniView(minimap);
   const mx = ((ev.clientX - r.left) / r.width) * minimap.width, my = ((ev.clientY - r.top) / r.height) * minimap.height;
+  if (markMode && ev.type === 'pointerdown') {
+    placeMarkerAtTile({ x: Math.floor(wrapX(v.c.x + (mx - minimap.width / 2) / v.k)), y: Math.floor(wrapY(v.c.y + (my - minimap.height / 2) / v.k)) });
+    return;
+  }
   view.x = wrapX(v.c.x + (mx - minimap.width / 2) / v.k) * TILE;
   view.y = wrapY(v.c.y + (my - minimap.height / 2) / v.k) * TILE;
   followCam = false;
@@ -580,6 +595,12 @@ window.addEventListener('keydown', (ev) => {
     togglePollution();
   } else if (k === 'f') {
     toggleTorch();
+  } else if (k === 'm') {
+    if (hover && !isTouch()) placeMarkerAtTile(hover); else startMarkMode();
+  } else if (k === 'e' && playerOn()) {
+    // Subir al vehículo más cercano, o bajarse
+    if (myVehicle()) exitVehicle();
+    else { const v = (S.vehicles || []).filter((x) => wdist(x.x, x.y, S.player.x, S.player.y) <= VEHICLE_REACH).sort((a, b) => wdist(a.x, a.y, S.player.x, S.player.y) - wdist(b.x, b.y, S.player.x, S.player.y))[0]; if (v) enterVehicle(v); else toast('No hay ningún vehículo cerca.'); }
   }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) ev.preventDefault();
 });
