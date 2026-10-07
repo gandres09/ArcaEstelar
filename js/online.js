@@ -132,6 +132,7 @@ function netApply(a) {
         return true;
       }
       case 'mk': netMarker(a.m); return true;
+      case 'ao': if (Number.isFinite(a.n) && a.n > (S.arkOrder || 0)) S.arkOrder = Math.min(a.n, ARK_ORDERS.length); return true;
       case 'mkx': ensureMarkers(); S.markers = S.markers.filter((m) => m.id !== a.id); renderMarkerList(); return true;
       // Vehículos: poner, actualizar (el que maneja manda dónde quedó) y sacar
       case 'vp': { if (!vehicleById(a.id) && isVehicle(a.t)) { const v = placeVehicle(a.t, a.x, a.y, true); if (v) v.id = a.id; } return true; }

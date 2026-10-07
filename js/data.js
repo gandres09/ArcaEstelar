@@ -183,6 +183,8 @@ const BUILDINGS = {
                  desc: 'Toma a 2 casillas para atrás y deja a 2 casillas para adelante: pasa por arriba de una cinta o de otra máquina.' },
   stackinserter:{ name: 'Brazo de carga',     cat: 'logística', as: 'inserter', swing: 0.5, stack: 4, power: 40, hp: 120, cost: { iron_plate: 5, gear: 5, circuit: 5, processor: 1 }, tech: 'inserters3',
                  desc: 'Rápido y lleva hasta 4 objetos iguales por vuelta. Usa 40 kW.' },
+  dispatcher:  { name: 'Emisor de la Nave',   cat: 'logística', rate: 4, hp: 200, cost: { steel: 10, circuit: 10, iron_plate: 10 }, tech: 'receivers',
+                 desc: 'Lo contrario del receptor: saca de la Nave el objeto que elijas y lo pone en la cinta de adelante (4 por segundo), desde cualquier lugar.' },
   antenna:     { name: 'Antena',              cat: 'logística', hp: 120, cost: { iron_plate: 5, copper_plate: 5, circuit: 2 }, tech: 'ship_link1',
                  desc: 'Lleva la señal de la Nave más lejos: cerca de una antena podés construir y fabricar con lo guardado en la Nave, sin sacarlo. Tiene que estar dentro de la señal de la Nave o de otra antena.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 5, gear: 4 }, tech: 'logistics',

@@ -120,6 +120,7 @@ function makeEntity(type, x, y, dir = 0) {
     case 'splitter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.prio = null; break;
     case 'inserter': case 'fastinserter': e.hold = null; e.n = 0; e.t = 0; e.ret = 0; e.filter = null; break;
     case 'flameturret': e.fuel = 0; e.cd = 0; break;
+    case 'dispatcher': e.filter = null; e.t = 0; break;
     case 'artillery': e.ammo = 0; e.cd = 0; break;
     case 'sorter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.filter = null; break;
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': e.store = {}; e.total = 0; break;
@@ -456,7 +457,7 @@ function rebuildPower() {
   nets = [];
   const poles = S.entities.filter(isPole);
   for (const p of poles) p._net = -1;
-  const reach = (a, b) => Math.min(BUILDINGS[a.type].reach, BUILDINGS[b.type].reach);
+  const reach = (a, b) => Math.min(poleReach(a), poleReach(b));
   for (const p of poles) {
     if (p._net >= 0) continue;
     const id = nets.length;
@@ -486,7 +487,7 @@ function rebuildPower() {
     const s = sizeOf(e.type);
     // Buscar un poste cuya zona de alimentación toque el edificio
     for (const p of poles) {
-      const sup = BUILDINGS[p.type].supply;
+      const sup = poleSupply(p);
       const ex = wdx(e.x - p.x), ey = wdy(e.y - p.y);
       if (ex <= sup && ex + s - 1 >= -sup && ey <= sup && ey + s - 1 >= -sup) { e._net = p._net; break; }
     }
@@ -581,7 +582,7 @@ function accept(t, item, src, dry = false, lane = -1) {
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': case 'requesterchest':
-      if (t.total >= BUILDINGS[t.type].capacity) return false;
+      if (t.total >= capOf(t)) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
       if (!BUILDINGS[t.type].power && FURNACE_FUEL[item]) {
@@ -619,9 +620,10 @@ function accept(t, item, src, dry = false, lane = -1) {
       if (item !== 'ammo' || t.ammo >= 20) return false;
       return ok(() => { t.ammo++; });
     case 'shipyard': case 'starport': {
+      if (t.type === 'starport') return false;   // los pedidos del Arca se entregan con el botón
       const need = shipNeeds(t);
       if (!need[item] || (t.parts[item] || 0) >= need[item]) return false;
-      return ok(() => { add(t.parts, item, 1); arkOrderCheck(t); });
+      return ok(() => add(t.parts, item, 1));
     }
     case 'purifier':
       if (item !== 'air_filter' || t.filters >= 20) return false;
@@ -655,7 +657,7 @@ function wantedBy(dst) {
     case 'turret': return ['ammo'];
     case 'boiler': return ['water', 'coal', 'solid_fuel', 'wood'];
     case 'generator': case 'miner': return ['coal', 'solid_fuel', 'wood'];
-    case 'shipyard': case 'starport': return Object.keys(shipNeeds(dst));
+    case 'shipyard': return Object.keys(shipNeeds(dst));
     case 'purifier': return ['air_filter'];
     case 'uplink': return ['orbital_charge'];
     case 'flameturret': return ['oil'];
@@ -814,7 +816,7 @@ function update(dt) {
       case 'belt': case 'fastbelt': case 'expressbelt':
         for (let k = 0; k < 2; k++) {
           if (!e.l[k]) continue;
-          e.p[k] = Math.min(1, e.p[k] + dt * def.speed);
+          e.p[k] = Math.min(1, e.p[k] + dt * def.speed * mkMult(e));
           if (e.p[k] >= 1 && pushTo(e, e.dir, e.l[k], k)) { e.l[k] = null; e.p[k] = 0; }
         }
         break;
@@ -822,7 +824,7 @@ function update(dt) {
       case 'underground':
         for (let k = 0; k < 2; k++) {
           if (!e.l[k]) continue;
-          e.p[k] += dt * def.speed;
+          e.p[k] += dt * def.speed * mkMult(e);
           if (e.mode === 'in') {
             const p = e._pair;
             if (!p) { e.p[k] = Math.min(e.p[k], 0.5); continue; }
@@ -1022,12 +1024,22 @@ function update(dt) {
         const net = fnets[back._fnet];
         if (!net || net.amount < 1) break;
         const sp = drawPower(e, def.power);
-        e.acc = (e.acc || 0) + dt * def.rate * sp;
+        e.acc = (e.acc || 0) + dt * def.rate * sp * mkMult(e);
         while (e.acc >= 1 && net.amount >= 1) {
           const ok = isPipe(front) ? fluidAccept(front, net.fluid, false) : accept(front, net.fluid, e);
           if (!ok) { e.acc = Math.min(e.acc, 1); break; }
           net.amount -= 1; e.acc -= 1; e.active = true;
         }
+        break;
+      }
+
+      case 'dispatcher': {
+        // Saca de la Nave el objeto elegido y lo deja adelante
+        e.active = false;
+        if (!e.filter) break;
+        e.t = Math.min(4, (e.t || 0) + dt * BUILDINGS.dispatcher.rate * mkMult(e));
+        while (e.t >= 1 && (S.inv[e.filter] || 0) >= 1 && pushTo(e, e.dir, e.filter)) { S.inv[e.filter]--; e.t--; e.active = true; }
+        e.t = Math.min(e.t, 1);
         break;
       }
 
@@ -1071,8 +1083,9 @@ function update(dt) {
           if (--e.fuel === 0) e.fuelType = null;
         }
         if (e.energy > 0) {
-          net.fuel += def.output;
-          const share = net.prev.fuel > 0 ? def.output / net.prev.fuel : 0;
+          const outK = def.output * mkMult(e);
+          net.fuel += outK;
+          const share = net.prev.fuel > 0 ? outK / net.prev.fuel : 0;
           const burn = net.fuelUsed * share * dt / GENERATOR_EFFICIENCY;
           e.load = net.prev.fuel > 0 ? net.fuelUsed / net.prev.fuel : 0;
           e.active = burn > 0;
@@ -1085,7 +1098,7 @@ function update(dt) {
       case 'offshore':
         if (!e.buf) {
           e.t += dt;
-          if (e.t >= def.time) { e.t = 0; e.buf = 'water'; }
+          if (e.t * mkMult(e) >= def.time) { e.t = 0; e.buf = 'water'; }
         }
         if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
         break;
@@ -1097,7 +1110,7 @@ function update(dt) {
           if (--e.fuel === 0) e.fuelType = null;
         }
         if (e.water > 0 && e.energy >= STEAM_ENERGY && e.out < 10) {
-          e.t += dt * def.rate;
+          e.t += dt * def.rate * mkMult(e);
           e.active = true;
           if (e.t >= 1) { e.t -= 1; e.water--; e.energy -= STEAM_ENERGY; e.out++; countProduced('steam'); }
           emit(e, def.poll * dt / 60);
@@ -1114,8 +1127,9 @@ function update(dt) {
         if (!net) break;
         if (e.energy <= 0 && e.steam > 0) { e.energy += STEAM_ENERGY; e.steam--; }
         if (e.energy > 0) {
-          net.fuel += def.output;
-          const share = net.prev.fuel > 0 ? def.output / net.prev.fuel : 0;
+          const outK = def.output * mkMult(e);
+          net.fuel += outK;
+          const share = net.prev.fuel > 0 ? outK / net.prev.fuel : 0;
           const burn = net.fuelUsed * share * dt;
           e.load = net.prev.fuel > 0 ? net.fuelUsed / net.prev.fuel : 0;
           e.active = burn > 0;
@@ -1127,8 +1141,8 @@ function update(dt) {
       case 'radar': {
         const sp = drawPower(e, def.power);
         e.active = sp > 0.3;
-        if (e.active && e.r < def.scan * POLL_CELL) {
-          e.t += dt * sp;
+        if (e.active && e.r < def.scan * mkMult(e) * POLL_CELL) {
+          e.t += dt * sp * mkMult(e);
           if (e.t >= 1) { e.t = 0; reveal(e.x + 0.5, e.y + 0.5, e.r); e.r += 2; }
         }
         break;
@@ -1136,7 +1150,7 @@ function update(dt) {
 
       case 'solar': {
         const net = nets[e._net];
-        e.out = def.output * sun;
+        e.out = def.output * sun * mkMult(e);
         if (net) net.solar += e.out;
         break;
       }
@@ -1145,10 +1159,10 @@ function update(dt) {
         const net = nets[e._net];
         if (!net) break;
         if (net.accCount > 0) {
-          e.stored = Math.max(0, Math.min(def.capacity, e.stored + (net.accFlow / net.accCount) * dt));
+          e.stored = Math.max(0, Math.min(capOf(e), e.stored + (net.accFlow / net.accCount) * dt));
         }
-        net.accDis += Math.min(def.rate, e.stored / Math.max(dt, 1e-3));
-        net.accChg += Math.min(def.rate, (def.capacity - e.stored) / Math.max(dt, 1e-3));
+        net.accDis += Math.min(def.rate * mkMult(e), e.stored / Math.max(dt, 1e-3));
+        net.accChg += Math.min(def.rate * mkMult(e), (capOf(e) - e.stored) / Math.max(dt, 1e-3));
         e.flow = net.accFlow / Math.max(1, net.accCount);
         break;
       }
@@ -1160,7 +1174,7 @@ function update(dt) {
 
       case 'fusion_plant': {
         const net = nets[e._net];
-        e.out = def.output;
+        e.out = def.output * mkMult(e);
         if (net) net.solar += e.out;   // energía directa, como la solar pero sin sol
         e.active = true;
         break;
@@ -1253,7 +1267,7 @@ function shipProgress(type = stageOf() >= 3 ? 'starport' : 'shipyard') {
   if (type === 'starport') {
     // Pedidos completos + lo que va del pedido actual
     let frac = arkOrderIdx();
-    if (yard && !arkDone()) { const n = ARK_ORDERS[arkOrderIdx()].need; let h = 0, t = 0; for (const k in n) { t += n[k]; h += Math.min(n[k], yard.parts[k] || 0); } frac += h / t; }
+    if (!arkDone()) { const n = ARK_ORDERS[arkOrderIdx()].need; let h = 0, t = 0; for (const k in n) { t += n[k]; h += Math.min(n[k], S.inv[k] || 0); } frac += 0.99 * h / t; }
     return { yard, have: frac, need: ARK_ORDERS.length, frac: frac / ARK_ORDERS.length };
   }
   const needs = type === 'starport' ? ARK : SHIP;
@@ -1350,7 +1364,7 @@ function orbitalStrike(x, y, r) {
 
 const SIGNAL_COLORS = ['#e5534b', '#5cc47a', '#3f86e0', '#f0c040', '#b45fe0', '#3cc4c4', '#f08a3a', '#e8e8e8'];
 const SIGNAL_NAMES = ['rojo', 'verde', 'azul', 'amarillo', 'violeta', 'celeste', 'naranja', 'blanco'];
-const CONDITIONABLE = new Set(['longinserter', 'stackinserter', 'steelfurnace', 'assembler3', 'refinery', 'pump', 'beacon', 'belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
+const CONDITIONABLE = new Set(['dispatcher', 'longinserter', 'stackinserter', 'steelfurnace', 'assembler3', 'refinery', 'pump', 'beacon', 'belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
   'furnace', 'efurnace', 'assembler', 'assembler2', 'chem', 'lab', 'lamp', 'generator', 'boiler', 'steam_engine', 'splitter', 'sorter', 'radar', 'purifier', 'nursery']);
 let signals = new Array(8).fill(0);
 
@@ -1390,15 +1404,18 @@ function condOk(c) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_TYPES = new Set(['miner', 'eminer', 'pumpjack', 'furnace', 'steelfurnace', 'efurnace', 'assembler', 'assembler2', 'assembler3',
-  'chem', 'refinery', 'lab', 'inserter', 'fastinserter', 'longinserter', 'stackinserter', 'turret', 'laser', 'flameturret']);
+const MK_SKIP = new Set(['hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'tank', 'sensor', 'lamp', 'armory', 'nest']);
+const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];
 function mkCost(type, m) {
   const base = BUILDINGS[type].cost, c = {};
-  for (const k in base) c[k] = Math.max(1, Math.ceil(base[k] * 0.6));
-  if (m === 2) { c.circuit = (c.circuit || 0) + 5; c.steel = (c.steel || 0) + 5; }
-  if (m === 3) { c.processor = (c.processor || 0) + 3; c.steel = (c.steel || 0) + 10; c.cristal = (c.cristal || 0) + 2; }
+  let total = 0;
+  for (const k in base) { c[k] = Math.max(1, Math.ceil(base[k] * 0.6)); total += base[k]; }
+  // Lo extra depende de cuánto cuesta el edificio: una cinta pide poco, una ensambladora más
+  const sc = Math.min(1, total / 20);
+  if (m === 2) { c.circuit = (c.circuit || 0) + Math.ceil(5 * sc); c.steel = (c.steel || 0) + Math.ceil(5 * sc); }
+  if (m === 3) { c.processor = (c.processor || 0) + Math.ceil(3 * sc); c.steel = (c.steel || 0) + Math.ceil(10 * sc); if (total >= 10) c.cristal = (c.cristal || 0) + Math.ceil(2 * sc); }
   return c;
 }
 function canMkUp(e) {
@@ -1416,20 +1433,63 @@ function mkUpgrade(e) {
   pay(r.cost);
   e.mk = r.next;
   delete e.hp;   // vuelve a vida completa
+  powerDirty = true;   // los postes mejorados llegan más lejos
+  if (typeof linkCache !== 'undefined') linkCache.quick = '';
+  netTouch(e);
   sfx('research');
   toast(`⬆️ ${BUILDINGS[e.type].name} mejorada a <b>${MK_ROMAN[e.mk]}</b>: ${Math.round((mkMult(e) - 1) * 100)} % más ${e.type.includes('turret') || e.type === 'laser' ? 'daño' : 'rápida'}.`);
   return true;
 }
 
-// ¿Se completó el pedido actual del Arca? Pasa al siguiente
-function arkOrderCheck(e) {
-  if (!e || e.type !== 'starport' || arkDone()) return;
+// Entregar el pedido actual del Arca (con el botón): se paga todo junto y pasa al siguiente
+function arkCanDeliver() {
+  if (arkDone()) return false;
   const need = ARK_ORDERS[arkOrderIdx()].need;
-  for (const k in need) if ((e.parts[k] || 0) < need[k]) return;
-  const done = ARK_ORDERS[arkOrderIdx()];
-  e.parts = {};
+  for (const k in need) if (avail(k) < need[k]) return false;
+  return true;
+}
+function arkDeliver(e) {
+  if (!e || e.type !== 'starport' || arkDone()) return false;
+  const o = ARK_ORDERS[arkOrderIdx()];
+  if (!arkCanDeliver()) { toast(`Te falta: ${missingText(o.need)}`); return false; }
+  for (const k in o.need) takeItem(k, o.need[k]);
   S.arkOrder = arkOrderIdx() + 1;
+  e.parts = {};
   sfx('research');
-  if (arkDone()) toast('🚀 ¡Completaste todos los pedidos de la Nave! El Arca estelar está lista para despegar.');
-  else { const nx = ARK_ORDERS[arkOrderIdx()]; toast(`${done.icon} Pedido completo: <b>${done.name}</b>. Siguiente: ${nx.icon} <b>${nx.name}</b>.`); }
+  netPush({ k: 'ao', n: S.arkOrder });
+  if (arkDone()) toast('🚀 ¡Entregaste todos los pedidos de la Nave! El Arca estelar está lista para despegar.');
+  else { const nx = ARK_ORDERS[arkOrderIdx()]; toast(`${o.icon} Entregaste <b>${o.name}</b>. Siguiente pedido: ${nx.icon} <b>${nx.name}</b>.`); }
+  return true;
+}
+
+// Lo que mejora cada tipo de edificio con Mk
+function mkEffect(type) {
+  const k = kindOf(type), d = BUILDINGS[type];
+  if (['chest', 'steelchest', 'woodchest', 'providerchest', 'requesterchest', 'accumulator'].includes(k)) return 'capacidad';
+  if (d.output) return 'energía';
+  if (k === 'pole' || type === 'bigpole' || type === 'lightningrod' || type === 'antenna') return 'alcance';
+  if (k === 'wall') return 'vida';
+  if (['turret', 'laser', 'flameturret', 'artillery'].includes(type)) return 'daño';
+  return 'velocidad';
+}
+// Capacidad de cofres y acumuladores con su Mk (+50 % por nivel)
+const capOf = (e) => BUILDINGS[e.type].capacity * (1 + 0.5 * ((e.mk || 1) - 1));
+const poleReach = (p) => BUILDINGS[p.type].reach + 3 * ((p.mk || 1) - 1);
+const poleSupply = (p) => BUILDINGS[p.type].supply + ((p.mk || 1) - 1);
+
+// Mejorar todas las del mismo tipo y nivel (las más cercanas primero), mientras alcancen los materiales
+function mkUpgradeAll(e) {
+  const mk = e.mk || 1;
+  const p = playerOn() ? S.player : { x: e.x, y: e.y };
+  const list = S.entities.filter((x) => x.type === e.type && (x.mk || 1) === mk).sort((a, b) => wdist(a.x, a.y, p.x, p.y) - wdist(b.x, b.y, p.x, p.y));
+  let n = 0;
+  const quiet = toast;
+  for (const x of list) {
+    const r = canMkUp(x);
+    if (!r.ok) break;
+    pay(r.cost); x.mk = r.next; delete x.hp; netTouch(x); n++;
+  }
+  if (n) { powerDirty = true; if (typeof linkCache !== 'undefined') linkCache.quick = ''; sfx('research'); }
+  quiet(n ? `⬆️ Mejoraste ${n} ${BUILDINGS[e.type].name.toLowerCase()} a ${MK_ROMAN[mk + 1]}.` + (n < list.length ? ` Faltan materiales para las otras ${list.length - n}.` : '') : 'No alcanzan los materiales.');
+  return n;
 }

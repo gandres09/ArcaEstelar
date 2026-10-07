@@ -48,7 +48,7 @@ function strikeAt(x, y, real) {
   sfx('boom', x, y);
   if (!real) return;
   // ¿Hay un pararrayos cerca? Se lleva el rayo y no pasa nada
-  const rod = S.entities.find((e) => (e.type === 'lightningrod' && wdist(e.x + 0.5, e.y + 0.5, x, y) <= ROD_RADIUS) ||
+  const rod = S.entities.find((e) => (e.type === 'lightningrod' && wdist(e.x + 0.5, e.y + 0.5, x, y) <= ROD_RADIUS + 10 * ((e.mk || 1) - 1)) ||
     (e.type === 'hub' && wdist(e.x + 1.5, e.y + 1.5, x, y) <= SHIP_ROD));
   if (rod) { const s = sizeOf(rod.type) / 2; bolts[bolts.length - 1].x = rod.x + s; bolts[bolts.length - 1].y = rod.y + 0.2; rod.hitAt = S.playTime; S.rodHits = (S.rodHits || 0) + 1; return; }
   spawnExplosion(x, y, 0.7);

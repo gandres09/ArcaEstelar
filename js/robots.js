@@ -176,7 +176,7 @@ function updateLogistics(dt) {
     if (r.type !== 'requesterchest' || !r.req || !portNear(r)) continue;
     for (const item in r.req) {
       let missing = r.req[item] - (r.store[item] || 0) - (coming[r.id + ':' + item] || 0);
-      while (missing > 0 && r.total + (coming[r.id + ':' + item] || 0) < BUILDINGS.requesterchest.capacity) {
+      while (missing > 0 && r.total + (coming[r.id + ':' + item] || 0) < capOf(r)) {
         const n = Math.min(LOGI_CARGO, missing);
         // El cofre de provisión más cercano con ese objeto; si no, la Nave
         let src = null, bd = Infinity;

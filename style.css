@@ -607,3 +607,13 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 #travel { position: fixed; inset: 0; z-index: 40; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; background: radial-gradient(circle, #fff, #cfe0ff); color: #12161b; font: 700 26px "Chakra Petch", system-ui, sans-serif; }
 #travel.go { animation: travelFade 2.2s ease-out forwards; }
 @keyframes travelFade { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Barra de abajo por categorías */
+.tool.cat .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tool.cat { width: 64px; }
+.tool.cat.open { border-color: var(--accent); }
+.tool-pop { position: fixed; z-index: 7; padding: 8px; max-width: calc(100vw - 16px - var(--sl) - var(--sr)); max-height: 55vh; overflow-y: auto; }
+.tool-pop-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 2px 6px; }
+.tool-pop-grid { display: grid; grid-template-columns: repeat(auto-fill, 56px); gap: 4px; width: min(380px, calc(100vw - 32px)); }
+.tool-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.tool-tabs .small-btn.on { border-color: var(--accent); color: var(--accent); }

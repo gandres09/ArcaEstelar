@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
   ['underground', 'inserter', 'fastinserter', 'longinserter', 'stackinserter'],
-  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver', 'antenna'],
+  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver', 'dispatcher', 'antenna'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'steelfurnace', 'efurnace'],
   ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
@@ -79,55 +79,146 @@ function fmt(n) {
 const toolButtons = {};
 let toolbarKey = '';
 
+// Barra de abajo: herramientas fijas + un botón por categoría que despliega sus edificios
+const CAT_ICONS = { 'logística': '📦', 'producción': '🏭', 'energía': '⚡', 'defensa': '🛡️', 'nave': '🚀', 'planeta': '🌱', 'robots': '🤖', 'trenes': '🚂', 'vehículos': '🚗', 'terreno': '🏝️' };
+const catButtons = {};
+const lastInCat = {};
+let openCat = null;
+
 function buildToolbar() {
   // Solo se muestran los edificios desbloqueados
   const unlocked = TOOL_ORDER.filter(isUnlocked);
-  const key = unlocked.join(',') + '|' + !!clipboard;
+  const compact = window.innerWidth < 620;   // celular parado: todo en un solo botón "Construir"
+  const key = unlocked.join(',') + '|' + !!clipboard + '|' + compact;
   if (key === toolbarKey) return;
   toolbarKey = key;
   const bar = $('toolbar');
   bar.innerHTML = '';
+  const pops = $('tool-pops');
+  pops.innerHTML = '';
   for (const k in toolButtons) delete toolButtons[k];
-  const mk = (id, label, keyHint, icon, onClick) => {
+  for (const k in catButtons) delete catButtons[k];
+  const mk = (parent, id, label, keyHint, icon, onClick) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'tool';
     b.innerHTML = `<span class="key">${keyHint}</span>${icon}<span class="label">${label}</span>`;
-    b.addEventListener('click', onClick || (() => selectTool(id)));
+    b.addEventListener('click', onClick || (() => { selectTool(id); closeToolPop(); }));
     if (id && BUILDINGS[id]) b.dataset.tool = id;
-    bar.appendChild(b);
+    parent.appendChild(b);
     if (id) toolButtons[id] = b;
     return b;
   };
-  const group = document.createElement('div');
-  mk('hand', 'Mano', 'Esc', '<span class="emoji">✋</span>');
-  mk('delete', 'Desarmar', 'X', '<span class="emoji">🗑️</span>');
-  mk(null, 'Girar', 'R', '<span class="emoji">🔄</span>', () => rotateAction(1));
-  mk(null, 'Deshacer', 'Ctrl Z', '<span class="emoji">↶</span>', undoAction);
-  mk('copy', 'Copiar', 'C', '<span class="emoji">📋</span>');
-  if (clipboard) mk('paste', 'Pegar', 'V', '<span class="emoji">📌</span>');
-  let lastCat = null;
-  for (const id of unlocked) {
-    const d = BUILDINGS[id];
-    if (d.cat !== lastCat) {
-      const sep = document.createElement('div');
-      sep.className = 'sep';
-      sep.textContent = d.cat;
-      bar.appendChild(sep);
-      lastCat = d.cat;
+  mk(bar, 'hand', 'Mano', 'Esc', '<span class="emoji">✋</span>');
+  mk(bar, 'delete', 'Desarmar', 'X', '<span class="emoji">🗑️</span>');
+  mk(bar, null, 'Girar', 'R', '<span class="emoji">🔄</span>', () => rotateAction(1));
+  mk(bar, null, 'Deshacer', 'Ctrl Z', '<span class="emoji">↶</span>', undoAction);
+  mk(bar, 'copy', 'Copiar', 'C', '<span class="emoji">📋</span>');
+  if (clipboard) mk(bar, 'paste', 'Pegar', 'V', '<span class="emoji">📌</span>');
+  const sep = document.createElement('div');
+  sep.className = 'sep';
+  bar.appendChild(sep);
+  // Una categoría por botón; al tocarla se abre su lista arriba de la barra
+  const cats = [];
+  for (const id of unlocked) { const c = BUILDINGS[id].cat; if (!cats.includes(c)) cats.push(c); }
+  if (compact && cats.length) {
+    // Un solo botón con pestañas por categoría
+    const pop = document.createElement('div');
+    pop.className = 'tool-pop panel';
+    pop.dataset.cat = '*';
+    pop.hidden = true;
+    const tabs = document.createElement('div');
+    tabs.className = 'tool-tabs';
+    pop.appendChild(tabs);
+    const grids = {};
+    for (const cat of cats) {
+      const t = document.createElement('button');
+      t.type = 'button'; t.className = 'small-btn'; t.dataset.tab = cat;
+      t.textContent = `${CAT_ICONS[cat] || ''} ${cat}`;
+      t.addEventListener('click', () => showToolTab(cat));
+      tabs.appendChild(t);
+      const grid = document.createElement('div');
+      grid.className = 'tool-pop-grid'; grid.dataset.grid = cat; grid.hidden = true;
+      for (const id of unlocked.filter((i) => BUILDINGS[i].cat === cat)) mk(grid, id, BUILDINGS[id].name, keyOf(id), `<img src="${buildingIcon(id)}" alt="">`);
+      pop.appendChild(grid);
+      grids[cat] = grid;
     }
-    mk(id, d.name, keyOf(id), `<img src="${buildingIcon(id)}" alt="">`);
+    pops.appendChild(pop);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'tool cat'; b.dataset.cat = '*';
+    b.addEventListener('click', () => toggleToolPop('*'));
+    bar.appendChild(b);
+    catButtons['*'] = { b, ids: unlocked.filter((i) => BUILDINGS[i].cat), all: true };
+    showToolTab(toolTab && cats.includes(toolTab) ? toolTab : cats[0]);
+  } else for (const cat of cats) {
+    const ids = unlocked.filter((id) => BUILDINGS[id].cat === cat);
+    const pop = document.createElement('div');
+    pop.className = 'tool-pop panel';
+    pop.dataset.cat = cat;
+    pop.hidden = true;
+    pop.innerHTML = `<div class="tool-pop-title">${CAT_ICONS[cat] || ''} ${cat}</div>`;
+    const grid = document.createElement('div');
+    grid.className = 'tool-pop-grid';
+    pop.appendChild(grid);
+    for (const id of ids) mk(grid, id, BUILDINGS[id].name, keyOf(id), `<img src="${buildingIcon(id)}" alt="">`);
+    pops.appendChild(pop);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tool cat';
+    b.dataset.cat = cat;
+    b.addEventListener('click', () => toggleToolPop(cat));
+    bar.appendChild(b);
+    catButtons[cat] = { b, ids };
   }
-  const locked = TOOL_ORDER.length - unlocked.length;
+  const locked = TOOL_ORDER.filter((k) => !BUILDINGS[k].hidden).length - unlocked.length;
   if (locked) {
-    const b = mk(null, `${locked} por investigar`, '', '<span class="emoji">🔒</span>', () => openModal('research'));
+    const b = mk(bar, null, `${locked} por investigar`, '', '<span class="emoji">🔒</span>', () => openModal('research'));
     b.classList.add('more');
   }
-  void group;
 }
+
+// El botón de cada categoría muestra el último edificio que elegiste de ahí
+let toolTab = null;
+function showToolTab(cat) {
+  toolTab = cat;
+  for (const g of document.querySelectorAll('#tool-pops [data-grid]')) g.hidden = g.dataset.grid !== cat;
+  for (const t of document.querySelectorAll('#tool-pops [data-tab]')) t.classList.toggle('on', t.dataset.tab === cat);
+}
+function paintCatButtons() {
+  for (const cat in catButtons) {
+    const { b, ids, all } = catButtons[cat];
+    const cur = all ? (ids.includes(tool) ? tool : null) : ids.includes(tool) ? tool : (ids.includes(lastInCat[cat]) ? lastInCat[cat] : null);
+    const icon = cur ? `<img src="${buildingIcon(cur)}" alt="">` : `<span class="emoji">${all ? '🏗️' : CAT_ICONS[cat] || '•'}</span>`;
+    const html = `<span class="key">${all ? '' : ids.length}</span>${icon}<span class="label">${cur ? BUILDINGS[cur].name : all ? 'Construir' : cat} ▾</span>`;
+    if (b.dataset.html !== html) { b.innerHTML = html; b.dataset.html = html; }
+    b.classList.toggle('selected', ids.includes(tool));
+    b.classList.toggle('open', openCat === cat);
+  }
+}
+
+function toggleToolPop(cat) {
+  openCat = openCat === cat ? null : cat;
+  if (openCat === '*' && BUILDINGS[tool] && BUILDINGS[tool].cat) showToolTab(BUILDINGS[tool].cat);
+  for (const p of $('tool-pops').children) p.hidden = p.dataset.cat !== openCat;
+  if (openCat) {
+    const pop = [...$('tool-pops').children].find((p) => p.dataset.cat === openCat);
+    const r = catButtons[openCat].b.getBoundingClientRect(), tb = $('toolbar').getBoundingClientRect();
+    pop.style.bottom = (window.innerHeight - tb.top + 6) + 'px';
+    const w = Math.min(pop.offsetWidth || 300, window.innerWidth - 16);
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  }
+  paintCatButtons();
+}
+function closeToolPop() { if (openCat) toggleToolPop(openCat); }
+// Tocar afuera cierra la lista
+document.addEventListener('pointerdown', (ev) => {
+  if (openCat && !ev.target.closest('.tool-pop') && !ev.target.closest('.tool.cat')) closeToolPop();
+}, true);
 
 function updateToolbar() {
   buildToolbar();
+  if (BUILDINGS[tool]) lastInCat[BUILDINGS[tool].cat] = tool;
+  paintCatButtons();
   for (const id in toolButtons) {
     const b = toolButtons[id];
     b.classList.toggle('selected', tool === id);
@@ -314,7 +405,7 @@ function currentHint() {
     if (!S.techs.starship) return 'Seguí investigando hasta el <b>Arca estelar</b>: Fusión → Motor de curvatura → Arca. La <b>Planta de fusión</b> da 8 MW limpios.';
     if (!sp.yard) return 'Construí el <b>Dique estelar</b> (7×7) para armar el Arca.';
     if (shipReady(sp.yard)) return '¡El Arca está completa! Tocá el Dique estelar y apretá <b>Despegar</b>.';
-    { const o = ARK_ORDERS[arkOrderIdx()]; return `📋 Pedido ${arkOrderIdx() + 1} de ${ARK_ORDERS.length} de la Nave: ${o.icon} <b>${o.name}</b> — ${Object.entries(o.need).map(([k, n]) => `${n} ${ITEMS[k].name.toLowerCase()}`).join(', ')}. Llevalo al <b>Dique estelar</b>.${o.need.helio3 || o.need.aleacion_lunar ? ' Esto se consigue en la <b>Luna</b>.' : ''}`; }
+    { const o = ARK_ORDERS[arkOrderIdx()]; return `📋 Pedido ${arkOrderIdx() + 1} de ${ARK_ORDERS.length} de la Nave: ${o.icon} <b>${o.name}</b> — ${Object.entries(o.need).map(([k, n]) => `${n} ${ITEMS[k].name.toLowerCase()}`).join(', ')}. Cuando lo tengas en la Nave, tocá el <b>Dique estelar</b> y apretá <b>Entregar pedido</b>.${o.need.helio3 || o.need.aleacion_lunar ? ' Esto se consigue en la <b>Luna</b>.' : ''}`; }
   }
   if (st === 2) {
     const c = cleanupProgress();
@@ -596,7 +687,7 @@ function inspectorContent(e) {
     }
     case 'requesterchest': {
       const reqs = Object.entries(e.req || {});
-      h += row('Guardado', `${e.total} / ${def.capacity}`);
+      h += row('Guardado', `${e.total} / ${capOf(e)}`);
       h += '<p class="small"><b>Pedidos</b> (los robots logísticos los traen):</p>';
       if (!reqs.length) h += '<p class="muted small">Todavía no pediste nada. Elegí un objeto abajo.</p>';
       for (const [k, n] of reqs) {
@@ -616,7 +707,7 @@ function inspectorContent(e) {
     }
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest':
       if (e.type === 'providerchest' && !portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
-      h += row('Guardado', `${e.total} / ${def.capacity}`) + chestPicker(e);
+      h += row('Guardado', `${e.total} / ${capOf(e)}`) + chestPicker(e);
       break;
     case 'generator':
       h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
@@ -626,6 +717,16 @@ function inspectorContent(e) {
     case 'receiver':
       h += '<p>Todo lo que le llega va al inventario de la Nave.</p>';
       break;
+    case 'dispatcher': {
+      h += '<p>Saca de la <b>Nave</b> el objeto elegido y lo deja en lo que tenga adelante (una cinta, un cofre o una máquina), desde cualquier lugar del mapa.</p>' +
+        row('Saca', e.filter ? `${itemLabel(e.filter)} <span class="muted">(hay ${Math.floor(S.inv[e.filter] || 0)} en la Nave)</span>` : '<span class="bad">nada: elegí un objeto</span>') +
+        row('Velocidad', `${(BUILDINGS.dispatcher.rate * mkMult(e)).toFixed(1)} por segundo`);
+      const inNave = ITEM_ORDER.filter((k) => (S.inv[k] || 0) >= 1 && !FLUIDS.has(k));
+      h += '<div class="pick-title">Qué sacar de la Nave</div><div class="picker">' +
+        `<button type="button" class="pick ${!e.filter ? 'on' : ''}" data-act="filter" data-v="">✕</button>` +
+        inNave.map((k) => `<button type="button" class="pick stack ${e.filter === k ? 'on' : ''}" data-act="filter" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(S.inv[k])}</span></button>`).join('') + '</div>';
+      break;
+    }
     case 'pipe': case 'tank': {
       const net = fnets[e._fnet];
       h += net ? row('Líquido', net.amount >= 1 ? itemLabel(net.fluid) : 'vacío') + row('Cantidad', `${Math.floor(net.amount)} / ${net.cap}`) + bar(net.amount / net.cap) +
@@ -697,11 +798,11 @@ function inspectorContent(e) {
       break;
     case 'accumulator': {
       const d = BUILDINGS.accumulator;
-      h += row('Carga', `${Math.round((e.stored || 0) / 1000 * 10) / 10} / ${d.capacity / 1000} MJ`) + bar((e.stored || 0) / d.capacity) + powerRow(e);
+      h += row('Carga', `${Math.round((e.stored || 0) / 1000 * 10) / 10} / ${capOf(e) / 1000} MJ`) + bar((e.stored || 0) / capOf(e)) + powerRow(e);
       break;
     }
     case 'pole': case 'bigpole':
-      if (def.supply) h += row('Alimenta', `a ${def.supply} casillas`) + row('Conecta', `a ${def.reach} casillas`);
+      if (def.supply) h += row('Alimenta', `a ${poleSupply(e)} casillas`) + row('Conecta', `a ${poleReach(e)} casillas`);
       h += nets[e._net] ? row('Postes en la red', nets[e._net].poles) + netRows(nets[e._net]) : '';
       break;
     case 'lamp':
@@ -792,10 +893,18 @@ function inspectorContent(e) {
     case 'shipyard': case 'starport': {
       const needs = shipNeeds(e);
       if (e.type === 'starport') {
-        h += `<p>📋 <b>Pedidos de la Nave</b> para armar el Arca: ${arkOrderIdx()} de ${ARK_ORDERS.length} completos.</p>`;
+        h += `<p>📋 <b>Pedidos de la Nave</b> para armar el Arca: ${arkOrderIdx()} de ${ARK_ORDERS.length} entregados.</p>`;
         h += '<div class="ark-orders">' + ARK_ORDERS.map((o, i) => `<span class="${i < arkOrderIdx() ? 'ok' : i === arkOrderIdx() ? 'cur' : 'muted'}" title="${o.name}">${o.icon}</span>`).join('') + '</div>';
-        if (!arkDone()) { const o = ARK_ORDERS[arkOrderIdx()]; h += `<p><b>${o.icon} ${o.name}</b><br><span class="muted small">${o.desc}</span></p>`; }
-      } else h += '<p>Piezas de la nave:</p>';
+        if (!arkDone()) {
+          const o = ARK_ORDERS[arkOrderIdx()];
+          h += `<p><b>${o.icon} ${o.name}</b><br><span class="muted small">${o.desc}</span></p>`;
+          for (const k in o.need) { const have = Math.floor(avail(k)); h += `<div class="row">${itemLabel(k)}<span class="${have >= o.need[k] ? 'ok' : ''}">${have} / ${o.need[k]}</span></div>` + bar(have / o.need[k]); }
+          h += '<p class="muted small">Se paga con lo que hay en la Nave (y tu mochila) cuando aprietes el botón: así podés usar esas cosas en otra cosa hasta que decidas entregar.</p>';
+          h += `<div class="actions"><button type="button" class="primary" data-act="arkpay" ${arkCanDeliver() ? '' : 'disabled'}>📦 Entregar pedido</button></div>`;
+        } else h += '<div class="actions"><button type="button" class="primary" data-act="launch">🚀 ¡Despegar!</button></div>';
+        break;
+      }
+      h += '<p>Piezas de la nave:</p>';
       for (const k in needs) {
         const have = e.parts[k] || 0;
         h += `<div class="row">${itemLabel(k)}<span>${have} / ${needs[k]}</span></div>` + bar(have / needs[k]);
@@ -845,11 +954,13 @@ function inspectorContent(e) {
   if (isVehicle(e.type)) return h;
   if (MK_TYPES.has(e.type) && hasTech('mk2')) {
     const mk = e.mk || 1;
-    h += `<div class="pick-title">Nivel: <b>${MK_ROMAN[mk]}</b>${mk > 1 ? ` <span class="ok">(+${Math.round((mkMult(e) - 1) * 100)} %)</span>` : ''}</div>`;
+    const eff = mkEffect(e.type), pct = eff === 'capacidad' || eff === 'vida' ? 50 * (mk - 1) : eff === 'alcance' ? null : Math.round((mkMult(e) - 1) * 100);
+    h += `<div class="pick-title">Nivel: <b>${MK_ROMAN[mk]}</b>${mk > 1 ? ` <span class="ok">(${pct === null ? 'más alcance' : `+${pct} % ${eff}`})</span>` : ` <span class="muted">· mejorar da más ${eff}</span>`}</div>`;
     if (mk < MK_MAX) {
       const c = mkCost(e.type, mk + 1), ok = hasTech(MK_TECH[mk + 1]);
       h += `<div class="tc-cost small">${ok ? `Mejorar a ${MK_ROMAN[mk + 1]}: ${costHtml(c, true)}` : `Para ${MK_ROMAN[mk + 1]} investigá <b>${TECHS[MK_TECH[mk + 1]].name}</b>.`}</div>` +
-        (ok ? `<div class="actions"><button type="button" class="primary" data-act="mkup" ${canAfford(c) ? '' : 'disabled'}>⬆️ Mejorar a ${MK_ROMAN[mk + 1]}</button></div>` : '');
+        (ok ? `<div class="actions"><button type="button" class="primary" data-act="mkup" ${canAfford(c) ? '' : 'disabled'}>⬆️ Mejorar a ${MK_ROMAN[mk + 1]}</button>` +
+          (() => { const same = S.entities.filter((x) => x.type === e.type && (x.mk || 1) === mk).length; return same > 1 ? `<button type="button" data-act="mkall" ${canAfford(c) ? '' : 'disabled'}>⬆️ Todas las iguales (${same})</button>` : ''; })() + '</div>' : '');
     }
   }
   h += hpRow(e);
@@ -908,9 +1019,9 @@ function chestPicker(e) {
     : '<p class="muted small">Vacío.</p>';
   const mine = ITEM_ORDER.filter((k) => !FLUIDS.has(k) && avail(k) >= 1);
   h += '<div class="pick-title">Poner <span class="muted">(tocá un objeto tuyo' + (isTouch() ? '' : ' o arrastralo acá') + ')</span></div>';
-  h += mine.length && e.total < def.capacity
+  h += mine.length && e.total < capOf(e)
     ? '<div class="picker">' + mine.map((k) => `<button type="button" class="pick stack" data-act="cput" data-v="${k}" title="Poner ${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(avail(k))}</span></button>`).join('') + '</div>'
-    : `<p class="${e.total >= def.capacity ? 'muted' : 'bad'} small">${e.total >= def.capacity ? 'El cofre está lleno.'
+    : `<p class="${e.total >= capOf(e) ? 'muted' : 'bad'} small">${e.total >= capOf(e) ? 'El cofre está lleno.'
       : usePocket() && !nearStorage() ? 'Tu mochila está vacía. Lejos de la Nave solo podés usar lo que llevás encima: acercate a la Nave y pasá cosas a la mochila (tocándolas en el panel de inventario).'
         : 'No tenés objetos para poner.'}</p>`;
   if (mine.length && usePocket() && !nearStorage()) h += '<p class="muted small">Lejos de la Nave se usa solo lo que llevás en la mochila.</p>';
@@ -923,7 +1034,7 @@ function depositTo(e, k, max = Infinity) {
   if (!e || !k || avail(k) < 1) return 0;
   const def = BUILDINGS[e.type];
   if (def && def.capacity && e.store) {
-    const n = Math.min(Math.floor(avail(k)), def.capacity - e.total, max);
+    const n = Math.min(Math.floor(avail(k)), capOf(e) - e.total, max);
     if (n <= 0) return 0;
     takeItem(k, n); add(e.store, k, n); e.total += n;
     return n;
@@ -988,7 +1099,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   const e = inspected;
   const v = b.dataset.v;
   // Mover objetos o desarmar exige estar cerca
-  const NEEDS_REACH = ['travel', 'pfeed', 'ufeed', 'remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
+  const NEEDS_REACH = ['arkpay', 'travel', 'pfeed', 'ufeed', 'remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
   if (NEEDS_REACH.includes(b.dataset.act) && !inReach(Math.floor(e.x), Math.floor(e.y))) {
     toast('Está lejos: el personaje va para allá.');
     stopPlayerTasks();
@@ -1010,6 +1121,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   switch (b.dataset.act) {
     case 'close': closeInspector(); return;
     case 'mkup': mkUpgrade(e); break;
+    case 'mkall': mkUpgradeAll(e); break;
+    case 'arkpay': arkDeliver(e); break;
     case 'travel': travel(v); return;
     case 'rotate': rotateEntity(e, 1); break;
     case 'remove': removeEntity(e); closeInspector(); updateUI(); return;
@@ -1113,7 +1226,6 @@ $('inspector').addEventListener('pointerdown', (ev) => {
         const n = Math.min(Math.floor(avail(k)), needs[k] - (e.parts[k] || 0));
         if (n > 0) { takeItem(k, n); add(e.parts, k, n); moved += n; }
       }
-      arkOrderCheck(e);
       toast(moved ? `Transferiste ${moved} piezas.` : 'No tenés piezas en el inventario.');
       break;
     }
@@ -1279,13 +1391,15 @@ function showTapInfo(t) {
 
 // Cartel de un botón de la barra de abajo (con mouse)
 let barTip = null;
-$('toolbar').addEventListener('pointerover', (ev) => {
-  if (ev.pointerType !== 'mouse') return;
-  const b = ev.target.closest('[data-tool]');
-  barTip = b ? b.dataset.tool : null;
-  updateTooltip();
-});
-$('toolbar').addEventListener('pointerleave', () => { barTip = null; updateTooltip(); });
+for (const id of ['toolbar', 'tool-pops']) {
+  $(id).addEventListener('pointerover', (ev) => {
+    if (ev.pointerType !== 'mouse') return;
+    const b = ev.target.closest('[data-tool]');
+    barTip = b ? b.dataset.tool : null;
+    updateTooltip();
+  });
+  $(id).addEventListener('pointerleave', () => { barTip = null; updateTooltip(); });
+}
 
 function updateTooltip() {
   const el = $('tooltip');
@@ -1296,10 +1410,12 @@ function updateTooltip() {
     el.innerHTML = `<b>${d.name}</b>${keyOf(barTip) !== '' ? ` <kbd>${keyOf(barTip)}</kbd>` : ''}<br><span class="muted">${d.desc}</span>` +
       `<div class="tip-cost">Pide: ${costHtml(d.cost, true)}</div>` + (miss ? `<span class="bad">Te falta: ${miss}</span>` : '');
     el.hidden = false;
-    const r = (toolButtons[barTip] || $('toolbar')).getBoundingClientRect();
+    const tb = toolButtons[barTip], pop = tb && tb.closest('.tool-pop');
+    const r = tb ? tb.getBoundingClientRect() : $('toolbar').getBoundingClientRect();
+    if (pop) { const pr = pop.getBoundingClientRect(); r.y = pr.top; }   // arriba de la lista, para no taparla
     const tw = el.offsetWidth, th = el.offsetHeight;
     el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - tw / 2, cw - tw - 8)) + 'px';
-    el.style.top = Math.max(8, r.top - th - 10) + 'px';
+    el.style.top = Math.max(8, (pop ? pop.getBoundingClientRect().top : r.top) - th - 10) + 'px';
     return;
   }
   if (tapInfo && isTouch() && performance.now() < tapInfo.until && !launchAnim) {

@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -973,6 +973,13 @@ function drawBuilding(g, e, x0, y0, t) {
       drawCar(g, cx, cy, 0, true, 0);
       break;
 
+    case 'dispatcher': {
+      box(g, x0, y0, '#3d4552', '#5aa0ff');
+      if (e.filter) drawItem(g, e.filter, cx, cy, 6);
+      else { g.fillStyle = '#5aa0ff'; g.font = 'bold 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', cx, cy + 1); }
+      drawArrow(g, cx, cy, e.dir, '#cfe4ff');
+      break;
+    }
     case 'receiver': {
       box(g, x0, y0, '#3d4552', '#f0a742');
       g.fillStyle = '#f0a742';
@@ -1318,6 +1325,7 @@ function drawShipyard(g, e, x0, y0, t) {
 }
 
 function shipProgressOf(e) {
+  if (e.type === 'starport') return arkOrderIdx() / ARK_ORDERS.length;
   let have = 0, need = 0;
   const needs = shipNeeds(e);
   for (const k in needs) { need += needs[k]; have += Math.min(needs[k], e.parts?.[k] || 0); }
@@ -1895,7 +1903,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
     ctx.fillStyle = 'rgba(80,160,255,0.12)';
     for (const e of S.entities) {
       if (!isPole(e)) continue;
-      const sup = BUILDINGS[e.type].supply;
+      const sup = poleSupply(e);
       ctx.fillRect((e.x - sup) * TILE, (e.y - sup) * TILE, TILE * (sup * 2 + 1), TILE * (sup * 2 + 1));
     }
   }

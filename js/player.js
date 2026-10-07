@@ -43,7 +43,7 @@ function signalNodes() {
     const n = nodes[i];
     for (const a of ants) {
       if (a._linked) continue;
-      if (wdist(n.x, n.y, a.x + 0.5, a.y + 0.5) <= n.r) { a._linked = true; nodes.push({ x: a.x + 0.5, y: a.y + 0.5, r: ANTENNA_LINK[L], e: a }); }
+      if (wdist(n.x, n.y, a.x + 0.5, a.y + 0.5) <= n.r) { a._linked = true; nodes.push({ x: a.x + 0.5, y: a.y + 0.5, r: ANTENNA_LINK[L] + 4 * ((a.mk || 1) - 1), e: a }); }
     }
   }
   linkCache = { quick, nodes };
