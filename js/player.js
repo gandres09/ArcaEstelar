@@ -119,8 +119,7 @@ function unstick(p) {
 }
 
 // Camino a pie (A*), hasta quedar a `near` casillas del destino
-function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000, viaTrees = false) {
-  const ok = viaTrees ? (x, y) => walkable(x, y) || (!at(x, y) && treeAt(x, y) && oreAt(x, y) !== 'water') : walkable;
+function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
   const idx = (x, y) => tIdx(x, y);
   sx = wrapX(sx); sy = wrapY(sy); tx = wrapX(tx); ty = wrapY(ty);
   const heap = [];
@@ -144,10 +143,9 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000, viaTrees = false)
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const x = wrapX(cx + dx), y = wrapY(cy + dy);
-      if (!ok(x, y)) continue;
+      if (!walkable(x, y)) continue;
       if (dx && dy && (!walkable(cx + dx, cy) || !walkable(cx, cy + dy))) continue;   // en diagonal no se cuela entre árboles
-      const tree = viaTrees && !walkable(x, y);
-      const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1) * (onRoad(x, y) ? 0.85 : 1) + (tree ? 6 : 0);   // prefiere los caminos; talar cuesta
+      const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1) * (onRoad(x, y) ? 0.85 : 1);   // prefiere los caminos
       if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + wdist(x, y, tx, ty)); }
     }
   }
@@ -156,10 +154,9 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000, viaTrees = false)
 
 function walkTo(tx, ty, near = 0.6) {
   const p = S.player;
-  // Si el bosque no deja pasar, va talando lo que le tapa el paso
-  const path = walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near) || walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near, 8000, true);
+  const path = walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near);
   p.path = path && path.length ? path : null;
-  if (!path) toast('No hay camino hasta ahí.');
+  if (!path) toast('No hay camino hasta ahí: si hay árboles en el medio, talalos con la mano (tocalos) o hacé un camino.');
   return !!path;
 }
 
@@ -289,16 +286,6 @@ function updatePlayer(dt) {
     p.path = null; p.mine = null;
     const l = Math.hypot(inp.x, inp.y);
     vx = inp.x / l * pspd; vy = inp.y / l * pspd;
-  } else if (p.path && p.path.length && !walkable(Math.floor(p.path[0].x), Math.floor(p.path[0].y)) && treeAt(Math.floor(p.path[0].x), Math.floor(p.path[0].y)) && !at(Math.floor(p.path[0].x), Math.floor(p.path[0].y))) {
-    // Un árbol en el camino: lo tala y sigue
-    const tx = Math.floor(p.path[0].x), ty = Math.floor(p.path[0].y);
-    p.ang = Math.atan2(wdy(ty + 0.5 - p.y), wdx(tx + 0.5 - p.x));
-    p.chopT = (p.chopT || 0) + dt;
-    p.mining = true;
-    if (p.chopT >= CHOP_TIME) {
-      p.chopT = 0;
-      if (chopTree(tx, ty)) { netPush({ k: 'c', x: tx, y: ty }); giveItem('wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove', tx, ty); }
-    }
   } else if (p.path && p.path.length) {
     // Avanza por los puntos del camino sin pasarse
     let budget = pspd * dt;

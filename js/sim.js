@@ -205,7 +205,13 @@ function contents(e) {
 }
 
 // free: lo aplica la red (otro jugador ya lo pagó y lo vio posible)
+// En la Luna no hay oxígeno: nada que queme combustible puede funcionar
+const BURNERS = new Set(['miner', 'furnace', 'steelfurnace', 'generator', 'boiler', 'flameturret']);
+const NO_AIR_MSG = 'En la Luna no hay oxígeno en el aire: lo que quema combustible no funciona. Usá máquinas eléctricas con paneles solares.';
+const noAir = (type) => S && S.surface === 'moon' && BURNERS.has(type);
+
 function canPlace(type, x, y, free = false) {
+  if (!free && noAir(type)) return { ok: false, why: NO_AIR_MSG };
   if (isVehicle(type)) return canPlaceVehicle(type, wrapX(x), wrapY(y), free);
   if (type === 'train') return free ? (isRail(at(x, y)) && !trainAt(x, y) ? { ok: true } : { ok: false }) : canPlaceTrain(x, y);
   const s = sizeOf(type);
@@ -805,8 +811,10 @@ function update(dt) {
   let researchDone = false;
 
   readSignals();
+  const moonAir = S.surface === 'moon';
   for (const e of S.entities) {
     const def = BUILDINGS[e.type];
+    if (moonAir && BURNERS.has(e.type)) { e.active = false; continue; }   // sin oxígeno no hay fuego
     // Red de señales: si la condición no se cumple, el edificio queda apagado
     if (e.cond) {
       e.off = !condOk(e.cond);

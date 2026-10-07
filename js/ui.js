@@ -859,6 +859,7 @@ function inspectorContent(e) {
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'le queda un poco' : '<span class="bad">vacío</span>'));
       if (vd.gun) h += row('Arma', vd.gun.laser ? 'láser (gasta combustible)' : `${e.ammo} ${ITEMS[vd.gun.ammo].name.toLowerCase()}`);
       if (vd.water) h += '<p class="muted small">Cruza lagos por arriba del agua.</p>';
+      if (S.surface === 'moon') h += '<p class="small">🌙 En la Luna no hay oxígeno: solo anda con <b>combustible de cohete</b>.</p>';
       h += `<div class="actions">${mine ? '<button type="button" class="primary" data-act="vexit">🚶 Bajarme</button>' : '<button type="button" class="primary" data-act="venter">🚗 Subirme</button>'}</div>`;
       h += pickRow(e, 'Cargar combustible', ['wood', 'coal', 'solid_fuel', 'rocket_fuel'], 20, 'No se mezclan combustibles distintos: si querés otro, sacá el que tiene.') +
         (e.fuel ? '<div class="actions"><button type="button" data-act="unfuel">Sacar combustible</button></div>' : '');
@@ -952,6 +953,7 @@ function inspectorContent(e) {
     if (mods.length) h += `<div class="muted small">Velocidad ${Math.round(fx.speed * 100)} % · Consumo ${Math.round(fx.power * 100)} %${fx.prod ? ` · Productividad +${Math.round(fx.prod * 100)} %` : ''}</div>`;
   }
   if (isVehicle(e.type)) return h;
+  if (noAir(e.type)) h += `<p class="bad small">🌙 ${NO_AIR_MSG}</p>`;
   if (MK_TYPES.has(e.type) && hasTech('mk2')) {
     const mk = e.mk || 1;
     const eff = mkEffect(e.type), pct = eff === 'capacidad' || eff === 'vida' ? 50 * (mk - 1) : eff === 'alcance' ? null : Math.round((mkMult(e) - 1) * 100);

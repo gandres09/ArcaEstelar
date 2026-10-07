@@ -155,7 +155,11 @@ function driveStep(dt) {
   }
   // Combustible
   const fuelMult = v.fuelType ? VEHICLE_FUEL[v.fuelType] || 1 : (v.lastFuel ? VEHICLE_FUEL[v.lastFuel] || 1 : 1);
-  if (throttle > 0 && v.burn <= 0 && v.fuel > 0) { v.burn += FUEL_KJ[v.fuelType]; v.lastFuel = v.fuelType; if (--v.fuel === 0) v.fuelType = null; }
+  const airless = S.surface === 'moon' && v.fuelType && v.fuelType !== 'rocket_fuel';
+  if (airless && throttle > 0 && !v.airMsg) { v.airMsg = true; toast('🌙 En la Luna no hay oxígeno: los vehículos solo andan con <b>combustible de cohete</b>, que lleva su propio oxígeno.'); }
+  if (!airless) v.airMsg = false;
+  if (throttle > 0 && v.burn <= 0 && v.fuel > 0 && !airless) { v.burn += FUEL_KJ[v.fuelType]; v.lastFuel = v.fuelType; if (--v.fuel === 0) v.fuelType = null; }
+  if (S.surface === 'moon' && v.lastFuel && v.lastFuel !== 'rocket_fuel') v.burn = 0;   // lo que quedaba encendido se apaga
   const hasFuel = v.burn > 0;
   if (throttle > 0 && !hasFuel && !v.noFuelMsg) { v.noFuelMsg = true; toast('⛽ Se quedó sin combustible. Cargale desde su panel (tocalo).'); }
   if (hasFuel) v.noFuelMsg = false;
