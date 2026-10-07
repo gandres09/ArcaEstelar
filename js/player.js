@@ -6,7 +6,9 @@
 const PLAYER_SPEED = 6.5;   // casillas por segundo
 const REACH = 10;           // alcance para construir e interactuar
 const MINE_REACH = 2.6;     // alcance para extraer a mano
-const STORAGE_REACH = 10;   // distancia a la Nave para usar lo que tiene guardado
+const STORAGE_REACH = 10;   // distancia a la Nave para usar lo que tiene guardado (sin investigar)
+const SHIP_LINK = [10, 20, 35, 60];      // alcance de la señal de la Nave según la investigación
+const ANTENNA_LINK = [12, 12, 16, 24];   // alcance de cada antena
 const PLAYER_RADIUS = 0.28;
 const REVEAL_RADIUS = 18;
 
@@ -23,12 +25,36 @@ function withNucleo(fn) {
 }
 const usePocket = () => playerOn() && !forceHub;
 
-// ¿El personaje está cerca de la Nave (o de un receptor, con la red logística)?
+// Señal de la Nave: su propio alcance y el de las antenas encadenadas.
+// Una antena funciona si está dentro de la señal de la Nave o de otra antena que funcione.
+const linkLevel = () => (S.techs.ship_link3 ? 3 : S.techs.ship_link2 ? 2 : S.techs.ship_link1 ? 1 : 0);
+let linkCache = { key: '', nodes: [] };
+function signalNodes() {
+  const now = Math.floor(performance.now() / 300);
+  const quick = now + ':' + S.entities.length + ':' + linkLevel();
+  if (linkCache.quick === quick) return linkCache.nodes;
+  const L = linkLevel();
+  const hub = S.entities.find((e) => e.type === 'hub');
+  const ants = S.entities.filter((e) => e.type === 'antenna');
+  const nodes = [];
+  if (hub) nodes.push({ x: hub.x + 1.5, y: hub.y + 1.5, r: SHIP_LINK[L], e: hub });
+  for (const a of ants) a._linked = false;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    for (const a of ants) {
+      if (a._linked) continue;
+      if (wdist(n.x, n.y, a.x + 0.5, a.y + 0.5) <= n.r) { a._linked = true; nodes.push({ x: a.x + 0.5, y: a.y + 0.5, r: ANTENNA_LINK[L], e: a }); }
+    }
+  }
+  linkCache = { quick, nodes };
+  return nodes;
+}
+
+// ¿El personaje está al alcance de la señal de la Nave (o de un receptor, con la red logística)?
 function nearStorage() {
   if (!usePocket()) return true;
   const p = S.player;
-  const hub = S.entities.find((e) => e.type === 'hub');
-  if (hub && wdist(p.x, p.y, hub.x + 1.5, hub.y + 1.5) <= STORAGE_REACH) return true;
+  for (const n of signalNodes()) if (wdist(p.x, p.y, n.x, n.y) <= n.r) return true;
   if (S.techs.logistic_network) {
     for (const e of S.entities) if (e.type === 'receiver' && wdist(p.x, p.y, e.x + 0.5, e.y + 0.5) <= 4) return true;
   }

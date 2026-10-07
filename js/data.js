@@ -173,6 +173,8 @@ const BUILDINGS = {
                  desc: 'Toma a 2 casillas para atrás y deja a 2 casillas para adelante: pasa por arriba de una cinta o de otra máquina.' },
   stackinserter:{ name: 'Brazo de carga',     cat: 'logística', as: 'inserter', swing: 0.5, stack: 4, power: 40, hp: 120, cost: { iron_plate: 5, gear: 5, circuit: 5, processor: 1 }, tech: 'inserters3',
                  desc: 'Rápido y lleva hasta 4 objetos iguales por vuelta. Usa 40 kW.' },
+  antenna:     { name: 'Antena',              cat: 'logística', hp: 120, cost: { iron_plate: 5, copper_plate: 5, circuit: 2 }, tech: 'ship_link1',
+                 desc: 'Lleva la señal de la Nave más lejos: cerca de una antena podés construir y fabricar con lo guardado en la Nave, sin sacarlo. Tiene que estar dentro de la señal de la Nave o de otra antena.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 5, gear: 4 }, tech: 'logistics',
                  desc: 'Reparte objetos entre adelante, izquierda y derecha.' },
   sorter:      { name: 'Filtro',              cat: 'logística', hp: 120, cost: { iron_plate: 5, circuit: 4 }, tech: 'sorting',
@@ -294,7 +296,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -307,6 +309,8 @@ const TECHS = {
                        desc: 'Brazos que pasan objetos entre cintas, cofres, máquinas y la Nave.' },
   inserters2:        { name: 'Brazos largos',        packs: ['sci_red'], units: 20, time: 8, req: ['inserters', 'electronics'],
                        desc: 'Brazo largo: toma y deja a 2 casillas.' },
+  ship_link1:        { name: 'Señal de la Nave 1',   packs: ['sci_red'], units: 30, time: 8, req: ['electronics'],
+                       desc: 'Usás lo guardado en la Nave hasta 20 casillas de distancia (antes 10), y antenas que llevan la señal 12 casillas más.' },
   logistics:         { name: 'Logística',            packs: ['sci_red'], units: 20, time: 8, req: [],
                        desc: 'Divisor y cinta subterránea.' },
   defense:           { name: 'Defensa',              packs: ['sci_red'], units: 20, time: 8, req: [],
@@ -343,6 +347,8 @@ const TECHS = {
                        desc: 'Poste mediano: más alcance que el de madera.' },
   flamethrower:      { name: 'Lanzallamas',          packs: ['sci_red', 'sci_green'], units: 60, time: 15, req: ['oil', 'defense'],
                        desc: 'Torreta lanzallamas que quema petróleo.' },
+  ship_link2:        { name: 'Señal de la Nave 2',   packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['ship_link1', 'logistic_science'],
+                       desc: 'La Nave llega a 35 casillas y cada antena a 16.' },
   big_poles:         { name: 'Alta tensión',         packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],
                        desc: 'Torres que llevan energía a 24 casillas.' },
   railway:           { name: 'Trenes',               packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['logistics2', 'advanced_assembly'],
@@ -373,6 +379,8 @@ const TECHS = {
                        desc: 'Subestación: alimenta un área enorme.' },
   artillery:         { name: 'Artillería',           packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 25, req: ['weapons2', 'advanced_assembly'],
                        desc: 'Torreta de artillería que bombardea nidos lejanos, y sus proyectiles.' },
+  ship_link3:        { name: 'Señal de la Nave 3',   packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['ship_link2', 'chemical_science'],
+                       desc: 'La Nave llega a 60 casillas y cada antena a 24.' },
   logistics3:        { name: 'Logística 3',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['logistics2', 'chemical_science'],
                        desc: 'Cinta exprés.' },
   weapons2:          { name: 'Armas 2',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['weapons1', 'chemical_science'],

@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -758,6 +758,23 @@ function drawBuilding(g, e, x0, y0, t) {
       g.fillStyle = '#6f6758';
       for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) g.fillRect(x0 + 2 + c * 15 + (r % 2) * 7, y0 + 2 + r * 7.5, 13, 6);
       break;
+
+    case 'antenna': {
+      const on = e._linked;
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(cx + 2, y0 + TILE - 4, 9, 3.5, 0, 0, 7); g.fill();
+      g.fillStyle = '#5d6670'; g.fillRect(cx - 7, y0 + TILE - 7, 14, 4);
+      g.strokeStyle = '#9aa3ad'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(cx - 5, y0 + TILE - 6); g.lineTo(cx, y0 + 9); g.lineTo(cx + 5, y0 + TILE - 6); g.moveTo(cx - 3, cy + 3); g.lineTo(cx + 3, cy + 3); g.stroke();
+      // Platito
+      g.fillStyle = '#c9d6dd'; g.beginPath(); g.ellipse(cx + 3, y0 + 9, 7, 4, -0.5, 0, 7); g.fill();
+      g.fillStyle = on ? `rgba(127,209,255,${0.6 + 0.4 * Math.sin(t * 5 + e.x)})` : '#e5534b';
+      g.beginPath(); g.arc(cx, y0 + 6, 2.5, 0, 7); g.fill();
+      if (on) {
+        g.strokeStyle = `rgba(127,209,255,${0.5 - ((t * 0.8) % 1) * 0.5})`; g.lineWidth = 1.5;
+        g.beginPath(); g.arc(cx, y0 + 6, 4 + ((t * 0.8) % 1) * 12, -2.4, -0.7); g.stroke();
+      }
+      break;
+    }
 
     case 'beacon': {
       box(g, x0, y0, '#2c3550', '#6f8fd8', 3, TILE * 2);
@@ -1954,6 +1971,17 @@ function drawOverlays(ctx) {
     ctx.strokeStyle = gh.ok ? '#5cc47a' : '#e5534b';
     ctx.lineWidth = 2;
     ctx.strokeRect(gh.x * TILE + 1, gh.y * TILE + 1, TILE * s - 2, TILE * s - 2);
+    if (gh.type === 'antenna') {
+      ctx.save();
+      for (const n of signalNodes()) {
+        ctx.fillStyle = 'rgba(127,209,255,0.07)'; ctx.strokeStyle = 'rgba(127,209,255,0.45)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(n.x * TILE, n.y * TILE, n.r * TILE, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+      const L = linkLevel();
+      ctx.strokeStyle = 'rgba(255,230,120,0.7)';
+      ctx.beginPath(); ctx.arc(gh.x * TILE + TILE / 2, gh.y * TILE + TILE / 2, ANTENNA_LINK[L] * TILE, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     if (kindOf(gh.type) === 'pole' || gh.type === 'bigpole') {
       const d = BUILDINGS[gh.type];
       ctx.strokeStyle = 'rgba(120,180,255,0.6)';

@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
   ['underground', 'inserter', 'fastinserter', 'longinserter', 'stackinserter'],
-  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver'],
+  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver', 'antenna'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'steelfurnace', 'efurnace'],
   ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
@@ -251,7 +251,7 @@ function updateInventory() {
   if (char) {
     fill($('pocket'), S.pinv);
     const near = nearStorage();
-    $('storage-note').textContent = near ? 'Estás cerca de la Nave: tocá un objeto para pasarlo de un lado al otro. Construís usando las dos cosas.' : 'Lejos de la Nave: construís solo con lo que llevás en la mochila.';
+    $('storage-note').textContent = near ? '📡 Tenés señal de la Nave: construís y fabricás con lo guardado ahí, sin sacarlo. Tocá un objeto para pasarlo de un lado al otro.' : 'Sin señal de la Nave: construís solo con lo que llevás en la mochila. Acercate a la Nave o a una antena.';
     $('storage-note').classList.toggle('ok', near);
     updateCraftUI();
   }
@@ -390,7 +390,14 @@ function togglePollution() {
 
 // --------------------------- Barra superior ---------------------------
 
+let signalWas = null;
 function updateTopbar() {
+  // Aviso al entrar o salir de la señal de la Nave
+  if (playerOn()) {
+    const near = nearStorage();
+    if (signalWas !== null && near !== signalWas && S.playTime > 5) toast(near ? '📡 Volviste a la señal de la Nave: podés usar lo guardado ahí.' : 'Saliste de la señal de la Nave: ahora usás solo tu mochila.');
+    signalWas = near;
+  }
   $('era').textContent = ERAS[eraIndex()].name;
   const ph = dayPhase();
   const hours = Math.floor(((S.dayTime + 0.25) % 1) * 24);
@@ -722,6 +729,14 @@ function inspectorContent(e) {
       const back = at(e.x - dx, e.y - dy), net = isPipe(back) && fnets[back._fnet];
       h += row('Toma de', isPipe(back) ? 'una cañería' : '<span class="bad">nada (poné una cañería atrás)</span>') +
         row('Líquido', net && net.amount >= 1 ? itemLabel(net.fluid, Math.floor(net.amount)) : 'vacío') + row('Estado', e.active ? 'bombeando' : 'quieta') + powerRow(e);
+      break;
+    }
+    case 'antenna': {
+      signalNodes();
+      const L = linkLevel();
+      h += row('Señal', e._linked ? '<span class="ok">conectada a la Nave</span>' : '<span class="bad">sin señal: acercala a la Nave o a otra antena</span>') +
+        row('Alcance', `${ANTENNA_LINK[L]} casillas`) + row('Alcance de la Nave', `${SHIP_LINK[L]} casillas`) +
+        `<p class="muted small">Cerca de una antena conectada usás lo guardado en la Nave para construir y fabricar.${L < 3 ? ' Investigá <b>Señal de la Nave</b> para llegar más lejos.' : ''}</p>`;
       break;
     }
     case 'beacon': {
