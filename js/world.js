@@ -125,8 +125,14 @@ function generateMap(seed) {
   };
   // Generación 4: lo valioso queda lejos de la Nave, hay que salir a explorar (y pelear)
   const far = gen >= 4 && K > 4;
-  const farther = gen >= 5 && K > 4;   // partidas nuevas: lo valioso, bien lejos
-  if (farther) {
+  const farther = gen >= 5 && K > 4;   // lo valioso, bien lejos
+  const farthest = gen >= 6 && K > 4;  // partidas nuevas: todavía más lejos
+  if (farthest) {
+    ring(5, 300, 440, 4, 3, 5, 450);
+    ring(6, 430, 560, 6, 3.5, 6.5, 500);
+    ring(5, 440, W / 2, Math.round(5 * K), 3, 6, 450);
+    ring(6, 560, W / 2, Math.round(5 * K), 4, 7, 500);
+  } else if (farther) {
     ring(5, 160, 260, 4, 3, 5, 450);
     ring(6, 300, 420, 6, 3.5, 6.5, 500);
     ring(5, 260, W / 2, Math.round(6 * K), 3, 6, 450);
@@ -155,9 +161,11 @@ function generateMap(seed) {
     }
   };
   let fields = 0, tries = 0;
+  // Un solo pozo de petróleo cerca, para empezar; el resto, muy lejos
+  if (farthest) { const a = rnd() * Math.PI * 2, d = 45 + rnd() * 20; oilField(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.75)); }
   while (fields < 9 * K && tries++ < 500 * K) {
-    const d0 = farther ? 230 : far ? 90 : 32;
-    const a = rnd() * Math.PI * 2, d = d0 + rnd() * (fields < 9 ? (farther ? 170 : far ? 150 : 100) : W / 2 - d0);
+    const d0 = farthest ? 380 : farther ? 230 : far ? 90 : 32;
+    const a = rnd() * Math.PI * 2, d = d0 + rnd() * (fields < 9 ? (farthest ? 200 : farther ? 170 : far ? 150 : 100) : W / 2 - d0);
     const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
     if (legacy && (px < 6 || py < 6 || px > W - 7 || py > H - 7)) continue;
     oilField(px, py);
@@ -170,8 +178,8 @@ function generateMap(seed) {
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
     if (d < 26) continue;
     let id = 1 + Math.floor(rnd() * 4);
-    if (d > (farther ? 240 : far ? 120 : 35) && rnd() < 0.15) id = 5;
-    if (d > (farther ? 400 : far ? 260 : 60) && rnd() < 0.15) id = 6;
+    if (d > (farthest ? 380 : farther ? 240 : far ? 120 : 35) && rnd() < 0.15) id = 5;
+    if (d > (farthest ? 540 : farther ? 400 : far ? 260 : 60) && rnd() < 0.15) id = 6;
     patch(px, py, 2.5 + rnd() * 5, id, 380 * (1 + d / 45));
   }
 
