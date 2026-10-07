@@ -1679,9 +1679,34 @@ function drawNight(ctx2, visible) {
     g.fillStyle = grd;
     g.fillRect(sx - rad, sy - rad, rad * 2, rad * 2);
   }
+  // Linternas: la tuya y las de tus amigos alumbran hacia donde miran
+  const torches = [];
+  if (playerOn() && S.player.torch !== false) torches.push(S.player);
+  if (NET.on) for (const a of NET.avatars.values()) if (a.torch !== 0) torches.push(a);
+  for (const p of torches) {
+    const sx = (wdx(p.x - view.x / TILE) * TILE) * k + lw / 2, sy = (wdy(p.y - view.y / TILE) * TILE) * k + lh / 2;
+    const len = 10 * TILE * k, half = 0.5, ang = p.ang || 0;
+    const cone = g.createRadialGradient(sx, sy, 0, sx, sy, len);
+    cone.addColorStop(0, 'rgba(0,0,0,1)'); cone.addColorStop(0.7, 'rgba(0,0,0,0.85)'); cone.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = cone;
+    g.beginPath(); g.moveTo(sx, sy); g.arc(sx, sy, len, ang - half, ang + half); g.closePath(); g.fill();
+    // Un poco de luz alrededor, para verte los pies
+    const r = 2.5 * TILE * k, glow = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+    glow.addColorStop(0, 'rgba(0,0,0,0.9)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = glow; g.fillRect(sx - r, sy - r, r * 2, r * 2);
+  }
   ctx2.setTransform(1, 0, 0, 1, 0, 0);
   ctx2.imageSmoothingEnabled = true;
   ctx2.drawImage(lightCanvas, 0, 0, canvas.width, canvas.height);
+  // Un tinte cálido en el haz de tu linterna
+  if (playerOn() && S.player.torch !== false && dark > 0.2) {
+    const p = S.player, z = view.zoom * dpr;
+    const sx = (wdx(p.x - view.x / TILE) * TILE) * z + canvas.width / 2, sy = (wdy(p.y - view.y / TILE) * TILE) * z + canvas.height / 2;
+    const len = 10 * TILE * z, grd = ctx2.createRadialGradient(sx, sy, 0, sx, sy, len);
+    grd.addColorStop(0, `rgba(255,230,160,${0.12 * dark})`); grd.addColorStop(1, 'rgba(255,230,160,0)');
+    ctx2.fillStyle = grd;
+    ctx2.beginPath(); ctx2.moveTo(sx, sy); ctx2.arc(sx, sy, len, (p.ang || 0) - 0.5, (p.ang || 0) + 0.5); ctx2.closePath(); ctx2.fill();
+  }
 }
 
 // --------------------------- Cuadro principal ---------------------------

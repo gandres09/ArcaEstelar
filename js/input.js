@@ -577,6 +577,8 @@ window.addEventListener('keydown', (ev) => {
     openModal('planos');
   } else if (k === 'p') {
     togglePollution();
+  } else if (k === 'f') {
+    toggleTorch();
   }
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) ev.preventDefault();
 });

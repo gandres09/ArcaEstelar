@@ -243,7 +243,7 @@ function netPlayerState() {
 function netSendPresence() {
   chatPrune();
   const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
-    hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null };
+    hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null, tl: S.player && S.player.torch === false ? 0 : 1 };
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
@@ -704,7 +704,7 @@ function netUpdateAvatars(peers, dt) {
     // Se acerca suave a la última posición conocida (por el lado corto del mapa)
     const k = Math.min(1, dt * 12);
     a.x = wrapX(a.x + wdx(x - a.x) * k); a.y = wrapY(a.y + wdy(y - a.y) * k);
-    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n) });
+    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n), torch: p.presence.tl === 0 ? 0 : 1 });
     // Su perro: se acerca suave y, si lo acarician o come, salen corazones
     const pp = p.presence.p;
     if (pp.length >= 12 && Number.isFinite(pp[6]) && Number.isFinite(pp[7])) {

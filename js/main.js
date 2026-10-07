@@ -326,6 +326,7 @@ async function init() {
   initChat();
   initRpgUi();
   $('btn-gear').addEventListener('click', () => openModal('gear'));
+  $('torch-chip').addEventListener('click', toggleTorch);
   // Atajo al nombre de jugador (vive en la ventana En línea)
   $('btn-name').addEventListener('click', () => {
     openModal('online');

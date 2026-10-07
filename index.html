@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=1791334422">
+  <link rel="stylesheet" href="style.css?v=1791334548">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -20,6 +20,7 @@
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
       <button id="hero-chip" type="button" class="chip btn-chip player-only" title="Tu personaje y tu equipo">❤️ 100 · ⭐ 1</button>
+      <button id="torch-chip" type="button" class="chip btn-chip player-only" title="Linterna (F)" hidden>🔦</button>
       <button id="net-chip" type="button" class="chip btn-chip" hidden title="Jugar en línea">🌐</button>
       <button id="chat-chip" type="button" class="chip btn-chip" hidden title="Chat">💬<span id="chat-badge" hidden></span></button>
     </div>
@@ -218,7 +219,7 @@
         <li><kbd>1</kbd>–<kbd>0</kbd> edificios (repetí la tecla para cambiar de variante) · <kbd>Esc</kbd> cancelar</li>
         <li><kbd>R</kbd> girar · <kbd>Q</kbd> copiar el edificio bajo el cursor · <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer</li>
         <li><kbd>X</kbd> desarmar (arrastrá para un área) · <kbd>C</kbd> copiar área · <kbd>V</kbd> pegar · clic derecho desarma</li>
-        <li><kbd>WASD</kbd> o arrastrar con la mano: mover · rueda: zoom · <kbd>T</kbd> investigación · <kbd>P</kbd> polución · <kbd>B</kbd> planos</li>
+        <li><kbd>F</kbd> linterna · <kbd>WASD</kbd> o arrastrar con la mano: mover · rueda: zoom · <kbd>T</kbd> investigación · <kbd>P</kbd> polución · <kbd>B</kbd> planos</li>
       </ul>
       </details>
       <details class="help-sec"><summary>💡 Trucos y consejos</summary>
@@ -330,27 +331,27 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=1791334422"></script>
-  <script src="js/world.js?v=1791334422"></script>
-  <script src="js/sim.js?v=1791334422"></script>
-  <script src="js/enemies.js?v=1791334422"></script>
-  <script src="js/trains.js?v=1791334422"></script>
-  <script src="js/robots.js?v=1791334422"></script>
-  <script src="js/fluids.js?v=1791334422"></script>
-  <script src="js/player.js?v=1791334422"></script>
-  <script src="js/online.js?v=1791334422"></script>
-  <script src="js/p2p.js?v=1791334422"></script>
-  <script src="js/cloud.js?v=1791334422"></script>
-  <script src="js/pet.js?v=1791334422"></script>
-  <script src="js/rpg.js?v=1791334422"></script>
-  <script src="js/render.js?v=1791334422"></script>
-  <script src="js/rpgdraw.js?v=1791334422"></script>
-  <script src="js/audio.js?v=1791334422"></script>
-  <script src="js/ui.js?v=1791334422"></script>
-  <script src="js/progress.js?v=1791334422"></script>
-  <script src="js/blueprints.js?v=1791334422"></script>
-  <script src="js/input.js?v=1791334422"></script>
-  <script src="js/dragdrop.js?v=1791334422"></script>
-  <script src="js/main.js?v=1791334422"></script>
+  <script src="js/data.js?v=1791334548"></script>
+  <script src="js/world.js?v=1791334548"></script>
+  <script src="js/sim.js?v=1791334548"></script>
+  <script src="js/enemies.js?v=1791334548"></script>
+  <script src="js/trains.js?v=1791334548"></script>
+  <script src="js/robots.js?v=1791334548"></script>
+  <script src="js/fluids.js?v=1791334548"></script>
+  <script src="js/player.js?v=1791334548"></script>
+  <script src="js/online.js?v=1791334548"></script>
+  <script src="js/p2p.js?v=1791334548"></script>
+  <script src="js/cloud.js?v=1791334548"></script>
+  <script src="js/pet.js?v=1791334548"></script>
+  <script src="js/rpg.js?v=1791334548"></script>
+  <script src="js/render.js?v=1791334548"></script>
+  <script src="js/rpgdraw.js?v=1791334548"></script>
+  <script src="js/audio.js?v=1791334548"></script>
+  <script src="js/ui.js?v=1791334548"></script>
+  <script src="js/progress.js?v=1791334548"></script>
+  <script src="js/blueprints.js?v=1791334548"></script>
+  <script src="js/input.js?v=1791334548"></script>
+  <script src="js/dragdrop.js?v=1791334548"></script>
+  <script src="js/main.js?v=1791334548"></script>
 </body>
 </html>

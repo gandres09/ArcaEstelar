@@ -412,6 +412,10 @@ function updateTopbar() {
   if (playerOn()) {
     const p = S.player;
     $('hero-chip').textContent = heroChipText();
+    // La linterna se ve de noche (o si está apagada, para poder prenderla)
+    $('torch-chip').hidden = darkness() < 0.2;
+    $('torch-chip').classList.toggle('off', p.torch === false);
+    $('torch-chip').textContent = p.torch === false ? '🔦 apagada' : '🔦';
     $('hero-chip').classList.toggle('warn', p.hp < playerStats(p).maxHp * 0.35);
     if (!$('gear').hidden) renderGearModalSoft();
   }
@@ -1317,4 +1321,12 @@ function sensorOptions(t) {
   if (t.type === 'pipe' || t.type === 'tank') return [...FLUIDS];
   if (t.l) return [...new Set(t.l.filter(Boolean))];
   return [];
+}
+
+function toggleTorch() {
+  if (!playerOn()) return;
+  S.player.torch = S.player.torch === false;
+  sfx('click');
+  toast(S.player.torch ? '🔦 Linterna prendida.' : 'Linterna apagada.');
+  updateTopbar();
 }
