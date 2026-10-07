@@ -952,8 +952,6 @@ function update(dt) {
             }
           }
         }
-        // Un taladro común sobre carbón se alimenta solo cuando se queda sin nada
-        if (e.type === 'miner' && e.buf && MINER_FUEL[e.buf] && !e.fuel && e.burn <= 0) { e.fuelType = e.buf; e.fuel = 1; e.buf = null; }
         if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
         break;
       }

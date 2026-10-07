@@ -418,10 +418,10 @@
   function feedAll() {
     for (const f of managed.furnaces) if (!f._dead && f.type === 'furnace' && f.fuel < 4) { feedFrom(f, ['coal'], 4); if (!f.fuel && f.burn <= 0) BOT.starved.coal = (BOT.starved.coal || 0) + 1; }
     for (const b of managed.boilers) if (!b._dead && b.fuel < 5) { feedFrom(b, ['coal', 'solid_fuel'], 5); if (!b.fuel) BOT.starved.coal = (BOT.starved.coal || 0) + 3; }
-    // Taladros comunes: queman carbón. Primero los que sacan carbón (se alimentan solos después)
+    // Taladros comunes: queman carbón. Primero los que sacan carbón
     const burners = S.entities.filter((m) => m.type === 'miner' && m.fuel < 3 && !m.depleted);
     burners.sort((a, b) => (oreAt(b.x, b.y) === 'coal') - (oreAt(a.x, a.y) === 'coal'));
-    for (const m of burners) { feedFrom(m, ['coal'], oreAt(m.x, m.y) === 'coal' ? 1 : 3); if (!m.fuel && m.burn <= 0) BOT.starved.coal = (BOT.starved.coal || 0) + 1; }
+    for (const m of burners) { feedFrom(m, ['coal'], 3); if (!m.fuel && m.burn <= 0) BOT.starved.coal = (BOT.starved.coal || 0) + 1; }
     for (const e of managed.mall) {
       if (e._dead) continue;
       if (e.type === 'furnace' || e.type === 'efurnace') {
