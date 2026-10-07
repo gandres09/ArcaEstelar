@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -1076,7 +1076,8 @@ function drawBuilding(g, e, x0, y0, t) {
       g.stroke();
       break;
 
-    case 'hub': drawCrashedShip(g, x0, y0, t); break;
+    case 'hub': if (e.type === 'lander') drawLander(g, x0, y0, t); else drawCrashedShip(g, x0, y0, t); break;
+    case 'moonpad': drawMoonpad(g, x0, y0, t); break;
 
     case 'armory': {
       const s2 = TILE * 2;
@@ -1917,6 +1918,14 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   } else {
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
+    // Marca de Mk2 / Mk3 en la esquina
+    ctx.font = '700 9px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const e of visible) {
+      if (!(e.mk > 1)) continue;
+      const s = sizeOf(e.type), bx = (e.x + s) * TILE - 7, by = e.y * TILE + 7;
+      ctx.fillStyle = e.mk === 3 ? '#b67cff' : '#5aa0ff'; ctx.beginPath(); ctx.arc(bx, by, 6, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(e.mk === 3 ? 'III' : 'II', bx, by + 0.5);
+    }
     for (const b of S.biters) {
       if (b.x * TILE < vx0 - 20 || b.x * TILE > vx1 + 20 || b.y * TILE < vy0 - 20 || b.y * TILE > vy1 + 20 || !biterVisible(b)) continue;
       drawBiter(ctx, b, time);
@@ -2250,8 +2259,7 @@ function renderMinimap(mc) {
   }
   // Aventura: ruinas sin saquear, guaridas con jefe y tu mochila perdida
   if (S.character && S.ruins) {
-    g.fillStyle = '#7ef0ff';
-    for (const r of S.ruins) if (!r.looted && tileExplored(r.x, r.y)) g.fillRect(v.px(r.x) - 2, v.py(r.y) - 2, 4, 4);
+    for (const r of S.ruins) if (!r.looted && tileExplored(r.x, r.y)) { g.fillStyle = r.pod ? '#ff9a5c' : '#7ef0ff'; g.fillRect(v.px(r.x) - 2, v.py(r.y) - 2, 4, 4); }
     for (const l of S.lairs) if (tileExplored(l.x, l.y)) { g.fillStyle = l.alive ? '#ff3b6b' : '#7a4a55'; g.beginPath(); g.arc(v.px(l.x), v.py(l.y), 4, 0, Math.PI * 2); g.fill(); }
     if (playerOn() && S.player.bag) { g.fillStyle = '#ffd34d'; g.fillRect(v.px(S.player.bag.x) - 3, v.py(S.player.bag.y) - 3, 6, 6); }
   }

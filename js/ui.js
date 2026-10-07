@@ -305,6 +305,7 @@ function currentHint() {
   const d = S.delivered;
   const hasMinerOn = (ore) => S.entities.some((e) => (e.type === 'miner' || e.type === 'eminer') && oreAt(e.x, e.y) === ore);
   const st = stageOf();
+  if (S.surface === 'moon') return '🌙 <b>Estás en la Luna.</b> Poné taladros sobre el <b>regolito</b> y fundilo en aleación lunar; el <b>Helio-3</b> está lejos del módulo. Llevá todo al <b>Módulo lunar</b>: llega a la Nave. Para volver, tocá el módulo.';
   if (st >= 4) return '🌌 ¡El Arca salió del sistema solar! Ganaste. Podés seguir jugando todo lo que quieras.';
   if (st === 3) {
     const sp = shipProgress('starport');
@@ -313,7 +314,7 @@ function currentHint() {
     if (!S.techs.starship) return 'Seguí investigando hasta el <b>Arca estelar</b>: Fusión → Motor de curvatura → Arca. La <b>Planta de fusión</b> da 8 MW limpios.';
     if (!sp.yard) return 'Construí el <b>Dique estelar</b> (7×7) para armar el Arca.';
     if (shipReady(sp.yard)) return '¡El Arca está completa! Tocá el Dique estelar y apretá <b>Despegar</b>.';
-    return `Llevá las piezas del Arca al <b>Dique estelar</b> (${Math.floor(sp.frac * 100)} %): casco, motores de curvatura, núcleos de fusión, hábitats, escudos, navegación y combustible.`;
+    { const o = ARK_ORDERS[arkOrderIdx()]; return `📋 Pedido ${arkOrderIdx() + 1} de ${ARK_ORDERS.length} de la Nave: ${o.icon} <b>${o.name}</b> — ${Object.entries(o.need).map(([k, n]) => `${n} ${ITEMS[k].name.toLowerCase()}`).join(', ')}. Llevalo al <b>Dique estelar</b>.${o.need.helio3 || o.need.aleacion_lunar ? ' Esto se consigue en la <b>Luna</b>.' : ''}`; }
   }
   if (st === 2) {
     const c = cleanupProgress();
@@ -485,7 +486,18 @@ function inspectorContent(e) {
       h += armoryHtml();
       break;
     case 'hub':
-      h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
+      if (e.type === 'lander') {
+        h += '<p>Tu base en la Luna. Todo lo que le entra (por cinta, brazo o a mano) llega por radio al <b>inventario de la Nave</b>, en la Tierra. Cerca suyo usás lo que tiene guardado la Nave.</p>' +
+          row('Para volver', `${MOON_BACK_FUEL} combustible de cohete (tenés ${Math.floor(avail('rocket_fuel'))})`) +
+          '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="earth">🌍 Volver a la Tierra</button></div>';
+      } else h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
+      break;
+    case 'moonpad':
+      h += `<p>Un cohete chico que te lleva a la Luna con tu mochila${S.player && S.player.pet && !S.player.pet.gone ? ' y tu perrito' : ''}. Allá hay <b>regolito</b> (se funde en aleación lunar), <b>hielo</b> y <b>Helio-3</b>.</p>` +
+        row('Combustible', `${MOON_FUEL} de cohete por viaje (tenés ${Math.floor(avail('rocket_fuel'))})`) +
+        '<p class="muted small">Mientras estás en la Luna, la fábrica de la Tierra queda en pausa (y al revés). Llevá paneles solares: allá no hay carbón.</p>' +
+        (NET.on && NET.role !== 'host' ? '<p class="muted small">En línea, el viaje lo hace el anfitrión y van todos.</p>' : '') +
+        '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="moon">🚀 Viajar a la Luna</button></div>';
       break;
     case 'belt': case 'fastbelt': case 'expressbelt':
       h += row('Velocidad', def.speed + ' objetos/s') + row('Carril izquierdo', e.l && e.l[0] ? itemLabel(e.l[0]) : 'vacío') + row('Carril derecho', e.l && e.l[1] ? itemLabel(e.l[1]) : 'vacío');
@@ -779,7 +791,11 @@ function inspectorContent(e) {
     }
     case 'shipyard': case 'starport': {
       const needs = shipNeeds(e);
-      h += `<p>Piezas ${e.type === 'starport' ? 'del Arca estelar' : 'de la nave'}:</p>`;
+      if (e.type === 'starport') {
+        h += `<p>📋 <b>Pedidos de la Nave</b> para armar el Arca: ${arkOrderIdx()} de ${ARK_ORDERS.length} completos.</p>`;
+        h += '<div class="ark-orders">' + ARK_ORDERS.map((o, i) => `<span class="${i < arkOrderIdx() ? 'ok' : i === arkOrderIdx() ? 'cur' : 'muted'}" title="${o.name}">${o.icon}</span>`).join('') + '</div>';
+        if (!arkDone()) { const o = ARK_ORDERS[arkOrderIdx()]; h += `<p><b>${o.icon} ${o.name}</b><br><span class="muted small">${o.desc}</span></p>`; }
+      } else h += '<p>Piezas de la nave:</p>';
       for (const k in needs) {
         const have = e.parts[k] || 0;
         h += `<div class="row">${itemLabel(k)}<span>${have} / ${needs[k]}</span></div>` + bar(have / needs[k]);
@@ -827,6 +843,15 @@ function inspectorContent(e) {
     if (mods.length) h += `<div class="muted small">Velocidad ${Math.round(fx.speed * 100)} % · Consumo ${Math.round(fx.power * 100)} %${fx.prod ? ` · Productividad +${Math.round(fx.prod * 100)} %` : ''}</div>`;
   }
   if (isVehicle(e.type)) return h;
+  if (MK_TYPES.has(e.type) && hasTech('mk2')) {
+    const mk = e.mk || 1;
+    h += `<div class="pick-title">Nivel: <b>${MK_ROMAN[mk]}</b>${mk > 1 ? ` <span class="ok">(+${Math.round((mkMult(e) - 1) * 100)} %)</span>` : ''}</div>`;
+    if (mk < MK_MAX) {
+      const c = mkCost(e.type, mk + 1), ok = hasTech(MK_TECH[mk + 1]);
+      h += `<div class="tc-cost small">${ok ? `Mejorar a ${MK_ROMAN[mk + 1]}: ${costHtml(c, true)}` : `Para ${MK_ROMAN[mk + 1]} investigá <b>${TECHS[MK_TECH[mk + 1]].name}</b>.`}</div>` +
+        (ok ? `<div class="actions"><button type="button" class="primary" data-act="mkup" ${canAfford(c) ? '' : 'disabled'}>⬆️ Mejorar a ${MK_ROMAN[mk + 1]}</button></div>` : '');
+    }
+  }
   h += hpRow(e);
   if (e.type !== 'hub') {
     h += '<div class="actions small">';
@@ -963,7 +988,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   const e = inspected;
   const v = b.dataset.v;
   // Mover objetos o desarmar exige estar cerca
-  const NEEDS_REACH = ['pfeed', 'ufeed', 'remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
+  const NEEDS_REACH = ['travel', 'pfeed', 'ufeed', 'remove', 'fuel', 'gfuel', 'feed', 'labfeed', 'ammo', 'collect', 'empty', 'transfer', 'mod', 'unmod', 'tfuel', 'tremove'];
   if (NEEDS_REACH.includes(b.dataset.act) && !inReach(Math.floor(e.x), Math.floor(e.y))) {
     toast('Está lejos: el personaje va para allá.');
     stopPlayerTasks();
@@ -984,6 +1009,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
   }
   switch (b.dataset.act) {
     case 'close': closeInspector(); return;
+    case 'mkup': mkUpgrade(e); break;
+    case 'travel': travel(v); return;
     case 'rotate': rotateEntity(e, 1); break;
     case 'remove': removeEntity(e); closeInspector(); updateUI(); return;
     case 'recipe':
@@ -1086,6 +1113,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
         const n = Math.min(Math.floor(avail(k)), needs[k] - (e.parts[k] || 0));
         if (n > 0) { takeItem(k, n); add(e.parts, k, n); moved += n; }
       }
+      arkOrderCheck(e);
       toast(moved ? `Transferiste ${moved} piezas.` : 'No tenés piezas en el inventario.');
       break;
     }

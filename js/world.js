@@ -37,6 +37,7 @@ const oreAt = (x, y) => ORE_IDS[oreType[tIdx(x, y)]];
 const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 
 function generateMap(seed) {
+  if (S && S.surface === 'moon') { generateMoonMap(seed); return; }
   oreType = new Uint8Array(W * H);
   oreAmt = new Uint16Array(W * H);
   const rnd = mulberry32(seed);
@@ -227,6 +228,7 @@ const WATER_SHALLOW = [58, 128, 164], WATER_MID = [38, 98, 150], WATER_DEEP = [2
 
 // Color del suelo en un punto (en casillas, con decimales)
 function terrainAt(x, y) {
+  if (S && S.surface === 'moon') return moonTerrainAt(x, y);
   const n = vnoise(x, y, 7, 3) * 0.6 + vnoise(x, y, 23, 4) * 0.4;
   let c = mixRgb(GRASS_DARK, GRASS_LIGHT, n);
   const dry = vnoise(x, y, 41, 5);
@@ -394,6 +396,7 @@ function drawTile(g, x, y, px, py) {
     return;
   }
 
+  if (!o && S && S.surface === 'moon') { drawMoonGround(g, x, y, px, py); return; }
   if (!o) {
     // Pasto: matas, flores y piedritas
     g.lineWidth = 1;
@@ -456,6 +459,7 @@ const treeCache = new Map();
 
 // ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos de la Nave)
 function naturalTreeAt(x, y) {
+  if (S && S.surface === 'moon') return null;
   const i = y * W + x;
   if (oreBase[i] !== 0) return null;
   if (Math.abs(x - W / 2) < 9 && Math.abs(y - H / 2) < 9) return null;

@@ -27,6 +27,7 @@ function weatherAt(i) {
 
 // El clima de ahora, con su intensidad k (sube y baja suave al cambiar)
 function weatherNow() {
+  if (S && S.surface === 'moon') return { kind: 'clear', w: WEATHERS.clear, k: 0, next: 'clear', left: WEATHER_LEN };   // en la Luna no hay clima
   const t = (S.playTime || 0) / WEATHER_LEN, i = Math.floor(t), f = t - i;
   const kind = weatherAt(i);
   const k = kind === 'clear' ? 0 : Math.max(0, Math.min(1, f / 0.12, (1 - f) / 0.12));

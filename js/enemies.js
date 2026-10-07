@@ -24,7 +24,7 @@ function savePollution() {
 function emit(e, amount) {
   if (!amount) return;
   pollution[cellOf(e.x, e.y)] += amount;
-  if (!S.peaceful) S.evo = Math.min(1, S.evo + amount * 0.000009);
+  if (!S.peaceful) S.evo = Math.min(1, S.evo + amount * 0.0000125);
 }
 
 function diffusePollution() {
@@ -134,7 +134,7 @@ function sendAttack(nest, target) {
 
 function nestStep(dt) {
   const nests = S.entities.filter((e) => e.type === 'nest');
-  const groupSize = Math.round(5 + S.evo * 20);
+  const groupSize = Math.round(6 + S.evo * 26);
   for (const n of nests) {
     const i = cellOf(n.x + 1, n.y + 1);
     const take = Math.min(pollution[i], 2 * dt);
@@ -160,7 +160,7 @@ function nestStep(dt) {
 function expandNests(dt) {
   S.expandTimer -= dt;
   if (S.expandTimer > 0) return;
-  S.expandTimer = (600 - 380 * S.evo) * (0.7 + Math.random() * 0.6);
+  S.expandTimer = (520 - 340 * S.evo) * (0.7 + Math.random() * 0.6);
   const nests = S.entities.filter((e) => e.type === 'nest');
   if (!nests.length) return;
   const cx = W >> 1, cy = H >> 1;
@@ -333,7 +333,7 @@ function turretStep(e, dt) {
   }
   if (!fire) return;
   sfx(e.type === 'laser' ? 'laser' : 'shot', e.x, e.y);
-  const dmg = def.dmg * weaponMult();
+  const dmg = def.dmg * weaponMult() * mkMult(e);
   if (target) {
     hitBiter(target, dmg);
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
@@ -358,7 +358,7 @@ function flameStep(e, dt) {
   if (!(e.flames > 0)) { e.fuel--; e.flames = 12; }   // 1 barril de petróleo = 12 llamaradas
   e.flames--;
   e.cd = 0.25;
-  const dmg = def.dmg * weaponMult();
+  const dmg = def.dmg * weaponMult() * mkMult(e);
   for (const b of S.biters) if (!b.dead && wdist(target.x, target.y, b.x, b.y) < 1.6) hitBiter(b, b === target ? dmg : dmg * 0.6);
   shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, flame: true });
   sfx('shot', e.x, e.y);
@@ -396,9 +396,9 @@ function updateEnemies(dt) {
   if (tick) { pollTimer -= 1; diffusePollution(); }
   for (const s of shots) s.t += dt;
   while (shots.length && shots[0].t > 0.12) shots.shift();
-  if (S.peaceful) return;
+  if (S.peaceful || S.surface === 'moon') return;
 
-  S.evo = Math.min(1, S.evo + dt * 0.000015);
+  S.evo = Math.min(1, S.evo + dt * 0.00002);
   if (tick) { nestStep(1); expandNests(1); }
 
   for (const b of S.biters) if (!b.dead) biterStep(b, dt);

@@ -99,6 +99,11 @@ function loadFrom(raw) {
   }
   undoStack.length = 0;
   rebuildGrid();
+  // Partidas de antes de los pedidos del Arca: lo que ya estaba en el Dique vuelve a la Nave
+  if (S.arkOrder === undefined) {
+    S.arkOrder = 0;
+    for (const e of S.entities) if (e.type === 'starport' && e.parts) { for (const k in e.parts) add(S.inv, k, e.parts[k]); e.parts = {}; }
+  }
   // Partidas de antes de que las máquinas usaran energía
   if (!S.powerRules) {
     S.powerRules = 1;

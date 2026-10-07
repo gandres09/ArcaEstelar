@@ -157,6 +157,15 @@ PeerJS para el primer contacto); la compu de quien crea la sala lleva la partida
 
 Además de las básicas: brazo largo, brazo de carga, horno de acero, Ensambladora 3, Refinería (2×2), Faro (reparte la mitad del efecto de sus módulos a 3 casillas), Bomba de cañería, poste mediano, Subestación (2×2), Compuerta, torreta lanzallamas (petróleo) y torreta de artillería (proyectiles, contra nidos a 60 casillas). Los carriles de las cintas siguen las reglas de Factorio: los brazos dejan en el carril lejano y una T con dos laterales llena un carril con cada uno.
 
+## Vehículos, marcadores, Mk y la Luna
+
+- **Vehículos** en 5 niveles: Buggy, Auto, Camioneta blindada (ametralladora), Tanque (cañón) y Aerodeslizador (cruza agua, láser). Gastan combustible (mejor combustible, más velocidad) y tienen baúl.
+- **Marcadores** compartidos en el mapa y llamado "¡Vengan!" con flecha para los amigos.
+- **Máquinas Mk2/Mk3**: se mejoran en el lugar (+35 % / +70 %).
+- **Cápsulas de escape** por el mapa con botín de fábrica; bichos y criaturas algo más bravos.
+- **La Luna**: segundo mapa (480×360) al que se viaja con la Plataforma lunar. Regolito, hielo y Helio-3. El Módulo lunar manda todo a la Nave. El lugar donde no estás queda en pausa.
+- **Pedidos de la Nave**: el Arca estelar se arma en 9 pedidos; dos piden materiales de la Luna.
+
 ## Aventura
 
 Con personaje, el planeta tiene combate y botín:

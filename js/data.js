@@ -76,6 +76,11 @@ const ITEMS = {
   habitat:        { name: 'Módulo de hábitat',  color: '#9ad17f', shape: 'part' },
   shield:         { name: 'Escudo deflector',   color: '#59c3ff', shape: 'module' },
 
+  // La Luna
+  regolito:       { name: 'Regolito',           color: '#a9a39a', shape: 'ore' },
+  hielo:          { name: 'Hielo lunar',        color: '#cfefff', shape: 'ore' },
+  helio3:         { name: 'Helio-3',            color: '#e9d8ff', shape: 'barrel' },
+  aleacion_lunar: { name: 'Aleación lunar',     color: '#c9d1e6', shape: 'plate' },
   // Partes de monstruos (para armas y armaduras)
   quitina:        { name: 'Quitina',            color: '#9c7a3c', shape: 'part' },
   colmillo:       { name: 'Colmillo',           color: '#efe6cf', shape: 'part' },
@@ -86,10 +91,11 @@ const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
 
 // Recursos del mapa (el índice es el id guardado en el mapa)
-const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water'];
+const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water', 'regolito', 'hielo', 'helio3'];
 const ORE_GROUND = {
   iron_ore: '#3c4655', copper_ore: '#553826', coal: '#1b1d1c', stone: '#5b5444',
   quartz: '#6a6680', titanium_ore: '#1f4a45', oil: '#151012', water: '#1d4f86',
+  regolito: '#6e6a62', hielo: '#9fc4d8', helio3: '#6b5a86',
 };
 
 // Combustibles
@@ -107,6 +113,8 @@ const SMELT = {
   iron_plate:   { out: 'steel',          n: 5, time: 8, tech: 'steel' },
   quartz:       { out: 'silicon',        n: 1, time: 3, tech: 'silicon' },
   titanium_ore: { out: 'titanium_plate', n: 2, time: 4, tech: 'titanium' },
+  regolito:     { out: 'aleacion_lunar', n: 4, time: 6, tech: 'moon_travel' },
+  hielo:        { out: 'water',          n: 1, time: 1, tech: 'moon_travel' },
 };
 
 // Recetas de máquinas. machine: asm (ensambladoras) o chem (planta química).
@@ -277,6 +285,10 @@ const BUILDINGS = {
                  desc: 'Desde la estación en órbita, borra el grupo de nidos más cercano de todo el planeta. Gasta 1 carga orbital por disparo. Usa 1 MW.' },
   fusion_plant:{ name: 'Planta de fusión',    cat: 'energía', size: 3, output: 8000, hp: 1000, cost: { fusion_core: 2, steel: 100, superconductor: 40 }, tech: 'fusion',
                  desc: 'Genera 8 MW sin combustible y sin contaminar.' },
+  moonpad:     { name: 'Plataforma lunar',    cat: 'nave', size: 3, hp: 1500, cost: { steel: 200, low_density: 50, processor: 40, electric_engine: 20 }, tech: 'moon_travel',
+                 desc: 'Un cohete chico para viajar con tu personaje a la Luna (gasta 50 de combustible de cohete). Volvés desde el Módulo lunar.' },
+  lander:      { name: 'Módulo lunar',        cat: 'nave', as: 'hub', size: 2, hp: 5000, hidden: true, cost: {},
+                 desc: 'Tu base en la Luna: lo que le entra llega por radio al inventario de la Nave. Desde acá volvés a la Tierra.' },
   starport:    { name: 'Dique estelar',       cat: 'nave', size: 7, hp: 6000, cost: { steel: 1000, low_density: 200, quantum_processor: 50, brick: 500 }, tech: 'starship',
                  desc: 'Acá se arma el Arca estelar para salir del sistema solar. Recibe las piezas por cinta o desde el inventario.' },
   providerchest: { name: 'Cofre de provisión', cat: 'robots', capacity: 400, hp: 200, cost: { steel: 5, circuit: 3 }, tech: 'logistic_robots',
@@ -311,7 +323,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -370,6 +382,8 @@ const TECHS = {
                        desc: 'Auto: más rápido y con más baúl.' },
   vehicles3:         { name: 'Blindados',            packs: ['sci_red', 'sci_green'], units: 90, time: 15, req: ['vehicles2', 'weapons1'],
                        desc: 'Camioneta blindada con ametralladora.' },
+  mk2:               { name: 'Máquinas Mk2',         packs: ['sci_red', 'sci_green'], units: 80, time: 15, req: ['advanced_assembly'],
+                       desc: 'Mejorá en el lugar taladros, hornos, ensambladoras, laboratorios, brazos y torretas a Mk2: 35 % más rápidos (o más daño) y más resistentes.' },
   big_poles:         { name: 'Alta tensión',         packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],
                        desc: 'Torres que llevan energía a 24 casillas.' },
   railway:           { name: 'Trenes',               packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['logistics2', 'advanced_assembly'],
@@ -404,6 +418,8 @@ const TECHS = {
                        desc: 'La Nave llega a 60 casillas y cada antena a 24.' },
   vehicles4:         { name: 'Tanques',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['vehicles3', 'chemical_science'],
                        desc: 'Tanque con cañón, y sus balas de cañón.' },
+  mk3:               { name: 'Máquinas Mk3',         packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['mk2', 'chemical_science'],
+                       desc: 'Mk3: 70 % más rápidas que las comunes. Piden cristales antiguos (de los gólems, lejos de la base).' },
   logistics3:        { name: 'Logística 3',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['logistics2', 'chemical_science'],
                        desc: 'Cinta exprés.' },
   weapons2:          { name: 'Armas 2',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['weapons1', 'chemical_science'],
@@ -426,6 +442,8 @@ const TECHS = {
                        desc: 'Receta del pack de ciencia espacial.' },
   vehicles5:         { name: 'Aerodeslizador',       packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 200, time: 25, req: ['vehicles4', 'space_science'],
                        desc: 'Aerodeslizador: el más rápido, cruza el agua y tiene láser.' },
+  moon_travel:       { name: 'Viaje a la Luna',      stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 200, time: 25, req: ['rocketry'],
+                       desc: 'Plataforma lunar para ir a la Luna. Allá hay regolito (aleación lunar), hielo y Helio-3, que pide la Nave para el Arca.' },
   rocketry:          { name: 'Cohetería',            packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 300, time: 30, req: ['space_science', 'electric_engines'],
                        desc: 'Astillero, propulsores, navegación, soporte vital y combustible de cohete.' },
   // Etapa 2: limpiar el planeta (se desbloquea al llegar al espacio)
@@ -477,7 +495,21 @@ const ERAS = [
 const SHIP = { hull: 120, thruster: 40, nav_computer: 20, life_support: 25, rocket_fuel: 300 };
 // Y el Arca estelar, para la etapa final
 const ARK = { hull: 280, warp_drive: 16, fusion_core: 20, habitat: 28, shield: 28, nav_computer: 40, rocket_fuel: 550 };
-const shipNeeds = (e) => (e.type === 'starport' ? ARK : SHIP);
+// El Arca se arma por pedidos de la Nave, uno detrás de otro
+const ARK_ORDERS = [
+  { name: 'Casco del Arca',          icon: '🛡️', need: { hull: 80, steel: 400 },                     desc: 'La estructura que va a cruzar el espacio.' },
+  { name: 'Navegación',              icon: '🧭', need: { nav_computer: 20, quantum_processor: 10 },   desc: 'Las computadoras que calculan el viaje.' },
+  { name: 'Hábitats',                icon: '🏠', need: { habitat: 14, plastic: 300 },                 desc: 'Donde va a vivir la tripulación.' },
+  { name: 'Escudo deflector',        icon: '✨', need: { shield: 14, battery: 100 },                  desc: 'Para que no la rompan los meteoritos.' },
+  { name: 'Blindaje lunar',          icon: '🌙', need: { aleacion_lunar: 120, hull: 60 },             desc: 'Solo la aleación de la Luna aguanta el calor del motor de curvatura.' },
+  { name: 'Reactores',               icon: '⚛️', need: { fusion_core: 12, superconductor: 80 },       desc: 'La energía de todo el viaje.' },
+  { name: 'Combustible de Helio-3',  icon: '🌕', need: { helio3: 200, rocket_fuel: 200 },             desc: 'El Helio-3 de la Luna alimenta los reactores de fusión.' },
+  { name: 'Motores de curvatura',    icon: '🌀', need: { warp_drive: 16, fusion_core: 8 },            desc: 'Lo que permite salir del sistema solar.' },
+  { name: 'Últimos detalles',        icon: '🚀', need: { habitat: 14, shield: 14, nav_computer: 20, hull: 140, rocket_fuel: 350 }, desc: 'Todo listo para despegar.' },
+];
+const arkOrderIdx = () => Math.min((S && S.arkOrder) || 0, ARK_ORDERS.length);
+const arkDone = () => arkOrderIdx() >= ARK_ORDERS.length;
+const shipNeeds = (e) => (e.type === 'starport' ? (arkDone() ? {} : ARK_ORDERS[arkOrderIdx()].need) : SHIP);
 
 // Las tres etapas del juego
 const STAGES = [

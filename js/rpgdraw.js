@@ -116,6 +116,7 @@ function drawCreature(g, c, t) {
 // --------------------------- Lugares ---------------------------
 
 function drawRuin(g, r, t) {
+  if (r.pod) { drawPod(g, r, t); return; }
   const px = r.x * TILE, py = r.y * TILE;
   g.save();
   g.translate(px + TILE / 2, py + TILE / 2);
@@ -304,4 +305,23 @@ function drawDamageNum(g, f) {
   g.strokeText(f.text, f.x * TILE, y);
   g.fillStyle = f.color; g.fillText(f.text, f.x * TILE, y);
   g.globalAlpha = 1;
+}
+
+// Cápsula de escape: un huevo de metal semienterrado, con luz que titila si no la abriste
+function drawPod(g, r, t) {
+  g.save();
+  g.translate(r.x * TILE + TILE / 2, r.y * TILE + TILE / 2);
+  g.fillStyle = 'rgba(30,22,16,0.35)'; g.beginPath(); g.ellipse(0, 6, 26, 14, 0, 0, 7); g.fill();
+  g.rotate(0.5);
+  g.fillStyle = r.looted ? '#5d6670' : '#cfd6dd';
+  g.beginPath(); g.ellipse(0, 0, 18, 12, 0, 0, 7); g.fill();
+  g.fillStyle = r.looted ? '#3a3f46' : '#e5533d'; g.fillRect(-18, -2, 36, 4);
+  g.fillStyle = r.looted ? '#2b3036' : '#5aa0ff'; g.beginPath(); g.ellipse(6, -4, 5, 4, 0, 0, 7); g.fill();
+  if (r.looted) { g.fillStyle = '#2b3036'; g.beginPath(); g.ellipse(-4, 2, 7, 5, 0, 0, 7); g.fill(); }
+  g.restore();
+  if (!r.looted) {
+    const k = 0.5 + 0.5 * Math.sin(t * 5 + r.id);
+    g.fillStyle = `rgba(255,90,60,${0.4 + k * 0.6})`;
+    g.beginPath(); g.arc(r.x * TILE + TILE / 2 - 8, r.y * TILE + TILE / 2 - 10, 2.5, 0, 7); g.fill();
+  }
 }

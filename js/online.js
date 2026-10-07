@@ -363,6 +363,7 @@ function applyShared(obj, first) {
       if (!me || !me.player) toast('🧍 Recuperé tu personaje desde el mundo del anfitrión.');
     }
     if (S.player) { S.player.path = null; S.player.queue = S.player.queue || []; S.player.craft = S.player.craft || []; }
+    relocateToSurface();
     NET.lastGs = obj.gs || 0;
     NET.buf = [];
     undoStack.length = 0;

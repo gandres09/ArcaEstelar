@@ -47,8 +47,8 @@ const at = (x, y) => grid[tIdx(x, y)];
 const sizeOf = (type) => (type === 'hub' ? 3 : type === 'nest' ? 2 : BUILDINGS[type]?.size || 1);
 const isBelt = (type) => BELTS.has(type);
 const hasTech = (id) => !id || !!S.techs[id];
-const isUnlocked = (type) => hasTech(BUILDINGS[type].tech) && (!BUILDINGS[type].character || !!(S && S.character));
-const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : BUILDINGS[e.type]?.hp || 100);
+const isUnlocked = (type) => !BUILDINGS[type].hidden && hasTech(BUILDINGS[type].tech) && (!BUILDINGS[type].character || !!(S && S.character));
+const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : (BUILDINGS[e.type]?.hp || 100) * (1 + 0.5 * ((e.mk || 1) - 1)));
 const isPlayer = (e) => e && e.type !== 'nest';
 
 // Con personaje, los costos salen de la mochila (y de la Nave si está cerca); ver player.js
@@ -198,6 +198,8 @@ function contents(e) {
     for (const k in e.buf) add(c, k, e.buf[k]);
     if (e.out) add(c, RECIPES[e.recipe].out, e.out);
   }
+  // Lo que se pagó por mejorarla (Mk2, Mk3) también vuelve
+  for (let m = 2; m <= (e.mk || 1); m++) { const mc = mkCost(e.type, m); for (const k in mc) add(c, k, mc[k]); }
   return c;
 }
 
@@ -355,7 +357,7 @@ function place(type, x, y, dir, opts = {}) {
 }
 
 function removeEntity(e, opts = {}) {
-  if (!e || e.type === 'hub' || e.type === 'nest' || !S.entities.includes(e)) return false;
+  if (!e || e.type === 'hub' || e.type === 'lander' || e.type === 'nest' || !S.entities.includes(e)) return false;
   if (!opts.destroyed) {
     if (!opts.silent) sfx('remove');
     if (!opts.noRefund) {
@@ -390,7 +392,7 @@ function damageEntity(e, dmg) {
   if (e.hp === undefined) e.hp = maxHp(e);
   e.hp -= dmg;
   e.hitAt = S.playTime;
-  if (e.type === 'hub') { e.hp = Math.max(1, e.hp); return; }
+  if (e.type === 'hub' || e.type === 'lander') { e.hp = Math.max(1, e.hp); return; }
   if (e.hp <= 0) {
     if (e.type === 'nest') {
       removeNest(e);
@@ -619,7 +621,7 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'shipyard': case 'starport': {
       const need = shipNeeds(t);
       if (!need[item] || (t.parts[item] || 0) >= need[item]) return false;
-      return ok(() => add(t.parts, item, 1));
+      return ok(() => { add(t.parts, item, 1); arkOrderCheck(t); });
     }
     case 'purifier':
       if (item !== 'air_filter' || t.filters >= 20) return false;
@@ -796,7 +798,7 @@ function update(dt) {
   S.dayTime += dt / DAY_LENGTH;
   if (S.dayTime >= 1) { S.dayTime -= 1; S.day++; }
   balancePower(dt);
-  const sun = sunLevel() * weatherSolar();
+  const sun = sunLevel() * weatherSolar() * (S.surface === 'moon' ? 1.5 : 1);   // en la Luna no hay aire: el sol pega más
   const tech = S.research.current && TECHS[S.research.current];
   let researchDone = false;
 
@@ -836,7 +838,7 @@ function update(dt) {
       case 'inserter': case 'fastinserter': {
         const sp = def.power ? drawPower(e, def.power) : 1;
         if (sp <= 0) { e.active = false; break; }
-        const step = dt * sp * 2 / def.swing;  // medio ciclo para ir y medio para volver
+        const step = dt * sp * mkMult(e) * 2 / def.swing;  // medio ciclo para ir y medio para volver
         const [dx, dy] = DIRS[e.dir];
         const R = def.reach || 1;
         if (e.hold) {
@@ -920,7 +922,7 @@ function update(dt) {
           if (!mt) { e.depleted = true; break; }
           e.depleted = false;
           const fx = moduleFx(e);
-          let sp = (def.power ? drawPower(e, def.power * fx.power) * fx.speed : 1) * (1 + 0.1 * infLevel('inf_drill'));
+          let sp = (def.power ? drawPower(e, def.power * fx.power) * fx.speed : 1) * (1 + 0.1 * infLevel('inf_drill')) * mkMult(e);
           if (e.type === 'miner') {
             if (e.burn <= 0 && e.fuel > 0) { e.burn = MINER_FUEL[e.fuelType]; if (--e.fuel === 0) e.fuelType = null; }
             if (e.burn <= 0) sp = 0;
@@ -951,7 +953,7 @@ function update(dt) {
         const r = e.inType && SMELT[e.inType];
         if (r && e.inCount >= r.n && e.outCount < 10 && (!e.outType || e.outType === r.out)) {
           const fx = moduleFx(e);
-          let sp = def.speed;
+          let sp = def.speed * mkMult(e);
           if (def.power) sp *= drawPower(e, def.power * fx.power) * fx.speed;
           else {
             if (e.burn <= 0 && e.fuel > 0) {
@@ -990,7 +992,7 @@ function update(dt) {
         for (const k in rc.in) if ((e.buf[k] || 0) < rc.in[k]) ready = false;
         if (ready) {
           const fx = moduleFx(e);
-          let sp = def.speed;
+          let sp = def.speed * mkMult(e);
           if (def.power) sp *= drawPower(e, def.power * fx.power) * fx.speed;
           if (sp > 0) {
             e.active = true;
@@ -1048,7 +1050,7 @@ function update(dt) {
         const lfx = moduleFx(e);
         const lp = drawPower(e, def.power * lfx.power);
         e.active = lp > 0;
-        e.prog += dt * def.speed * lp * lfx.speed * labSpeedMult() / tech.time;
+        e.prog += dt * def.speed * mkMult(e) * lp * lfx.speed * labSpeedMult() / tech.time;
         if (e.prog >= 1) {
           e.prog = 0;
           e.working = false;
@@ -1239,6 +1241,7 @@ function update(dt) {
 
 // ¿Están todas las piezas de la nave?
 function shipReady(e) {
+  if (e.type === 'starport') return arkDone();
   const need = shipNeeds(e);
   for (const k in need) if ((e.parts[k] || 0) < need[k]) return false;
   return true;
@@ -1247,6 +1250,12 @@ function shipReady(e) {
 // Avance de la nave (etapa 1) o del arca (etapa 3)
 function shipProgress(type = stageOf() >= 3 ? 'starport' : 'shipyard') {
   const yard = S.entities.find((e) => e.type === type);
+  if (type === 'starport') {
+    // Pedidos completos + lo que va del pedido actual
+    let frac = arkOrderIdx();
+    if (yard && !arkDone()) { const n = ARK_ORDERS[arkOrderIdx()].need; let h = 0, t = 0; for (const k in n) { t += n[k]; h += Math.min(n[k], yard.parts[k] || 0); } frac += h / t; }
+    return { yard, have: frac, need: ARK_ORDERS.length, frac: frac / ARK_ORDERS.length };
+  }
   const needs = type === 'starport' ? ARK : SHIP;
   let have = 0, need = 0;
   for (const k in needs) {
@@ -1374,4 +1383,53 @@ function readSignals() {
 function condOk(c) {
   const v = signals[c.ch || 0] || 0;
   return c.op === '>' ? v > c.v : c.op === '=' ? v === c.v : v < c.v;
+}
+
+// --------------------------- Mk2 y Mk3 ---------------------------
+// Las máquinas se mejoran en el lugar: más rápidas (o más daño, las torretas) y más resistentes.
+const MK_MAX = 3;
+const MK_BONUS = 0.35;   // +35 % por nivel
+const MK_TECH = { 2: 'mk2', 3: 'mk3' };
+const MK_TYPES = new Set(['miner', 'eminer', 'pumpjack', 'furnace', 'steelfurnace', 'efurnace', 'assembler', 'assembler2', 'assembler3',
+  'chem', 'refinery', 'lab', 'inserter', 'fastinserter', 'longinserter', 'stackinserter', 'turret', 'laser', 'flameturret']);
+const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
+const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];
+function mkCost(type, m) {
+  const base = BUILDINGS[type].cost, c = {};
+  for (const k in base) c[k] = Math.max(1, Math.ceil(base[k] * 0.6));
+  if (m === 2) { c.circuit = (c.circuit || 0) + 5; c.steel = (c.steel || 0) + 5; }
+  if (m === 3) { c.processor = (c.processor || 0) + 3; c.steel = (c.steel || 0) + 10; c.cristal = (c.cristal || 0) + 2; }
+  return c;
+}
+function canMkUp(e) {
+  if (!MK_TYPES.has(e.type)) return { ok: false };
+  const next = (e.mk || 1) + 1;
+  if (next > MK_MAX) return { ok: false, why: 'Ya está al máximo (Mk3).' };
+  if (!hasTech(MK_TECH[next])) return { ok: false, why: `Investigá ${TECHS[MK_TECH[next]].name}.` };
+  const c = mkCost(e.type, next);
+  if (!canAfford(c)) return { ok: false, why: `Te falta: ${missingText(c)}`, cost: c };
+  return { ok: true, cost: c, next };
+}
+function mkUpgrade(e) {
+  const r = canMkUp(e);
+  if (!r.ok) { if (r.why) toast(r.why); return false; }
+  pay(r.cost);
+  e.mk = r.next;
+  delete e.hp;   // vuelve a vida completa
+  sfx('research');
+  toast(`⬆️ ${BUILDINGS[e.type].name} mejorada a <b>${MK_ROMAN[e.mk]}</b>: ${Math.round((mkMult(e) - 1) * 100)} % más ${e.type.includes('turret') || e.type === 'laser' ? 'daño' : 'rápida'}.`);
+  return true;
+}
+
+// ¿Se completó el pedido actual del Arca? Pasa al siguiente
+function arkOrderCheck(e) {
+  if (!e || e.type !== 'starport' || arkDone()) return;
+  const need = ARK_ORDERS[arkOrderIdx()].need;
+  for (const k in need) if ((e.parts[k] || 0) < need[k]) return;
+  const done = ARK_ORDERS[arkOrderIdx()];
+  e.parts = {};
+  S.arkOrder = arkOrderIdx() + 1;
+  sfx('research');
+  if (arkDone()) toast('🚀 ¡Completaste todos los pedidos de la Nave! El Arca estelar está lista para despegar.');
+  else { const nx = ARK_ORDERS[arkOrderIdx()]; toast(`${done.icon} Pedido completo: <b>${done.name}</b>. Siguiente: ${nx.icon} <b>${nx.name}</b>.`); }
 }

@@ -597,3 +597,13 @@ img { -webkit-user-drag: none; }
 .mk-name { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--text); background: var(--panel-2); border: 1px solid transparent; border-radius: 6px; padding: 3px 6px; user-select: text; -webkit-user-select: text; }
 input.mk-name:focus { border-color: var(--accent); outline: none; }
 .mk-row .small-btn { padding: 2px 6px; }
+.ark-orders { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 6px; font-size: 18px; }
+.ark-orders span { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); }
+.ark-orders span.ok { border-color: var(--ok); }
+.ark-orders span.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.ark-orders span.muted { opacity: 0.45; }
+
+/* Viaje a la Luna: fundido a blanco */
+#travel { position: fixed; inset: 0; z-index: 40; pointer-events: none; display: flex; align-items: center; justify-content: center; opacity: 0; background: radial-gradient(circle, #fff, #cfe0ff); color: #12161b; font: 700 26px "Chakra Petch", system-ui, sans-serif; }
+#travel.go { animation: travelFade 2.2s ease-out forwards; }
+@keyframes travelFade { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }

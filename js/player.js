@@ -34,10 +34,10 @@ function signalNodes() {
   const quick = now + ':' + S.entities.length + ':' + linkLevel();
   if (linkCache.quick === quick) return linkCache.nodes;
   const L = linkLevel();
-  const hub = S.entities.find((e) => e.type === 'hub');
+  const hub = S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
   const ants = S.entities.filter((e) => e.type === 'antenna');
   const nodes = [];
-  if (hub) nodes.push({ x: hub.x + 1.5, y: hub.y + 1.5, r: SHIP_LINK[L], e: hub });
+  if (hub) { const s = sizeOf(hub.type) / 2; nodes.push({ x: hub.x + s, y: hub.y + s, r: SHIP_LINK[L], e: hub }); }
   for (const a of ants) a._linked = false;
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
@@ -275,7 +275,7 @@ function updatePlayer(dt) {
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad
-  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0));
+  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1);   // poca gravedad en la Luna
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {

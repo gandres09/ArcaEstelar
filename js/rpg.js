@@ -83,14 +83,14 @@ const SHIP_SAFE = 28;   // cerca de la nave no aparecen criaturas
 
 const rpgOn = () => playerOn();
 function shipCenter() {
-  const hub = S.entities.find((e) => e.type === 'hub');
-  return hub ? { x: hub.x + 1.5, y: hub.y + 1.5 } : { x: W / 2, y: H / 2 };
+  const hub = S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
+  return hub ? { x: hub.x + sizeOf(hub.type) / 2, y: hub.y + sizeOf(hub.type) / 2 } : { x: W / 2, y: H / 2 };
 }
 // Nivel de peligro de una zona: crece con la distancia a la nave
 function zoneLevel(x, y) {
   const c = shipCenter();
   const d = wdist(x, y, c.x, c.y);
-  return Math.max(1, Math.min(15, 1 + Math.floor((d - SHIP_SAFE) / 55)));
+  return Math.max(1, Math.min(15, 1 + Math.floor((d - SHIP_SAFE) / 45)));
 }
 const rnd01 = Math.random;
 function seededRnd(n) { return mulberry32(((S.seed | 0) ^ Math.imul(n | 0, 0x9e3779b1)) >>> 0); }
@@ -108,7 +108,9 @@ function ensureRpg(p) {
 function ensureWorldRpg() {
   if (!S.creatures) S.creatures = [];
   if (!S.drops) S.drops = [];
+  if (S.surface === 'moon') { if (!S.ruins) S.ruins = []; if (!S.lairs) S.lairs = []; }
   if (!S.lairs || !S.ruins) generateAdventure();
+  if (!S.podsGen) generatePods();
   for (const b of S.biters) if (!b.id) b.id = S.nextId++;
 }
 
@@ -212,11 +214,30 @@ function generateAdventure() {
   }
 }
 
+// Cápsulas de escape de tu nave, desparramadas por el planeta: traen cosas de fábrica
+// (circuitos, motores, módulos, ciencia). Cuanto más lejos, mejores.
+function generatePods() {
+  S.podsGen = 1;
+  const rnd = mulberry32((S.seed ^ 0x51ed27a3) >>> 0);
+  const c = shipCenter();
+  const K = (W * H) / (320 * 240);
+  const n = Math.max(8, Math.round(K * 3));
+  let made = 0;
+  for (let tries = 0; made < n && tries < 6000; tries++) {
+    const x = Math.floor(rnd() * W), y = Math.floor(rnd() * H);
+    const o = oreAt(x, y);
+    if (wdist(x, y, c.x, c.y) < SHIP_SAFE + 20 || at(x, y) || o === 'water' || o === 'oil') continue;
+    if (S.ruins.some((r) => wdist(r.x, r.y, x, y) < 18)) continue;
+    S.ruins.push({ id: S.nextId++, x, y, L: zoneLevel(x, y), looted: false, guarded: false, pod: true });
+    made++;
+  }
+}
+
 // --------------------------- Criaturas ---------------------------
 
 function spawnCreature(k, x, y, L, extra) {
   const d = CREATURES[k];
-  const hp = Math.round(d.hp * (1 + 0.45 * (L - 1)));
+  const hp = Math.round(d.hp * 1.15 * (1 + 0.5 * (L - 1)));
   const c = { id: S.nextId++, k, x: wrapX(x), y: wrapY(y), hx: x, hy: y, L, hp, mh: hp, ang: rnd01() * 6.28, cd: 0, ...extra };
   S.creatures.push(c);
   return c;
@@ -245,6 +266,7 @@ function heroes() {
 
 let spawnTimer = 0;
 function spawnAround(dt) {
+  if (S.surface === 'moon') return;
   // Solo el anfitrión (o el que juega solo) hace aparecer cosas; a los demás les llega en la foto
   if (NET.on && NET.role !== 'host') return;
   spawnTimer += dt;
@@ -272,7 +294,7 @@ function spawnAround(dt) {
     if (wdist(h.x, h.y, c.x, c.y) < SHIP_SAFE + 6) continue;
     const L = zoneLevel(h.x, h.y);
     const near = S.creatures.filter((k) => !k.lair && wdist(k.x, k.y, h.x, h.y) < 45).length;
-    const want = Math.min(12, 4 + Math.floor(L / 2));
+    const want = Math.min(14, 5 + Math.floor(L / 2));
     if (near >= want || S.creatures.length > 160) continue;
     const kind = pickCreature(L);
     const a = rnd01() * Math.PI * 2, d = 24 + rnd01() * 10;
@@ -564,6 +586,24 @@ function lootRuin(r) {
   const L = r.L;
   const got = [];
   const give = (k, n) => { if (n > 0) { giveItem(k, n); got.push(`${n} ${itemImg(k, 'ico-s')}`); } };
+  if (r.pod) {
+    // Cápsula: cosas de la fábrica y ciencia, mejores cuanto más lejos
+    give('circuit', 5 + Math.floor(rnd() * 10) + L * 2);
+    give(L >= 3 ? 'engine' : 'gear', 3 + Math.floor(rnd() * 6));
+    give('solid_fuel', 4 + Math.floor(rnd() * 8));
+    give('sci_red', 10 + Math.floor(rnd() * 10));
+    if (L >= 2) give('sci_green', 5 + Math.floor(rnd() * 10));
+    if (L >= 4) give('sci_blue', 3 + Math.floor(rnd() * 6));
+    if (L >= 4) give('processor', 2 + Math.floor(rnd() * 4));
+    if (L >= 6) give('battery', 3 + Math.floor(rnd() * 5));
+    if (L >= 6 && rnd() < 0.5) give(['speed_module', 'eff_module', 'prod_module'][Math.floor(rnd() * 3)], 1);
+    if (L >= 9) give('sci_purple', 2 + Math.floor(rnd() * 4));
+    if (L >= 7 && rnd() < 0.4) give('cristal', 1 + Math.floor(rnd() * 2));
+    gainXp(20 + L * 10);
+    sfx('research');
+    toast(`🛰️ Abriste una cápsula de escape: ${got.join(' ')}`);
+    return;
+  }
   give('iron_plate', 8 + Math.floor(rnd() * 15));
   give(L >= 3 ? 'steel' : 'copper_plate', 4 + Math.floor(rnd() * 10));
   give('circuit', Math.floor(rnd() * 6));
