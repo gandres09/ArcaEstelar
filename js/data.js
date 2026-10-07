@@ -187,6 +187,8 @@ const BUILDINGS = {
                  desc: 'Lo contrario del receptor: saca de la Nave el objeto que elijas y lo pone en la cinta de adelante (4 por segundo), desde cualquier lugar.' },
   antenna:     { name: 'Antena',              cat: 'logística', hp: 120, cost: { iron_plate: 5, copper_plate: 5, circuit: 2 }, tech: 'ship_link1',
                  desc: 'Lleva la señal de la Nave más lejos: cerca de una antena podés construir y fabricar con lo guardado en la Nave, sin sacarlo. Tiene que estar dentro de la señal de la Nave o de otra antena.' },
+  road:        { name: 'Camino',              cat: 'logística', hp: 200, cost: { brick: 2 },
+                 desc: 'Camino de ladrillos: los árboles no dejan pasar, pero por el camino se anda y se maneja un 10 % más rápido. Se tiende de punta a punta como una cinta.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 5, gear: 4 }, tech: 'logistics',
                  desc: 'Reparte objetos entre adelante, izquierda y derecha.' },
   sorter:      { name: 'Filtro',              cat: 'logística', hp: 120, cost: { iron_plate: 5, circuit: 4 }, tech: 'sorting',
@@ -325,7 +327,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;

@@ -127,7 +127,7 @@ function startNewGame(seed, peaceful, character = true) {
   setMapSize(MAP_SIZE[0], MAP_SIZE[1]);
   S = newState(seed, peaceful, character);
   S.powerRules = 1;
-  S.mapGen = 4;
+  S.mapGen = 5;
   generateMap(seed);
   loadPollution(null);
   decodeFog(null);

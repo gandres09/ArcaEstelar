@@ -33,7 +33,7 @@ let pastePos = null;     // táctil: dónde se va a pegar
 const isTouch = () => pointerType !== 'mouse';
 const sameTile = (a, b) => a && b && wrapX(a.x) === wrapX(b.x) && wrapY(a.y) === wrapY(b.y);
 const anchorFor = (type, t) => { const s = sizeOf(type); return { x: t.x - Math.floor(s / 2), y: t.y - Math.floor(s / 2) }; };
-const isLineTool = (t) => isBelt(t) || t === 'rail';
+const isLineTool = (t) => isBelt(t) || t === 'rail' || t === 'road';
 
 // Cualquier toque (también en la barra o los menús) dice si se usa el dedo o el mouse
 document.addEventListener('pointerdown', (ev) => { pointerType = ev.pointerType; if (ev.pointerType !== 'mouse') hover = null; }, true);

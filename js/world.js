@@ -60,8 +60,15 @@ function generateMap(seed) {
         if (d < rad + (rnd() - 0.5) * 2) {
           const i = tIdx(x, y);
           oreType[i] = id;
-          // Más rico en el centro del yacimiento
-          oreAmt[i] = Math.min(65000, Math.round(richness * (1.4 - 0.8 * d / (rad + 1)) * (0.8 + rnd() * 0.4)));
+          if (gen2) {
+            // Mucho en el centro (más de 2000) y poco en los bordes (unas 500)
+            const t = Math.max(0, 1 - d / (rad + 0.5));
+            const peak = Math.max(2600, richness * 1.6);
+            oreAmt[i] = Math.min(65000, Math.round((500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
+          } else {
+            // Más rico en el centro del yacimiento
+            oreAmt[i] = Math.min(65000, Math.round(richness * (1.4 - 0.8 * d / (rad + 1)) * (0.8 + rnd() * 0.4)));
+          }
         }
       }
     }
@@ -118,7 +125,13 @@ function generateMap(seed) {
   };
   // Generación 4: lo valioso queda lejos de la Nave, hay que salir a explorar (y pelear)
   const far = gen >= 4 && K > 4;
-  if (far) {
+  const farther = gen >= 5 && K > 4;   // partidas nuevas: lo valioso, bien lejos
+  if (farther) {
+    ring(5, 160, 260, 4, 3, 5, 450);
+    ring(6, 300, 420, 6, 3.5, 6.5, 500);
+    ring(5, 260, W / 2, Math.round(6 * K), 3, 6, 450);
+    ring(6, 420, W / 2, Math.round(6 * K), 4, 7, 500);
+  } else if (far) {
     ring(5, 70, 150, 4, 3, 5, 450);
     ring(6, 170, 300, 6, 3.5, 6.5, 500);
     ring(5, 150, W / 2, Math.round(6 * K), 3, 6, 450);
@@ -143,8 +156,8 @@ function generateMap(seed) {
   };
   let fields = 0, tries = 0;
   while (fields < 9 * K && tries++ < 500 * K) {
-    const d0 = far ? 90 : 32;
-    const a = rnd() * Math.PI * 2, d = d0 + rnd() * (fields < 9 ? (far ? 150 : 100) : W / 2 - d0);
+    const d0 = farther ? 230 : far ? 90 : 32;
+    const a = rnd() * Math.PI * 2, d = d0 + rnd() * (fields < 9 ? (farther ? 170 : far ? 150 : 100) : W / 2 - d0);
     const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
     if (legacy && (px < 6 || py < 6 || px > W - 7 || py > H - 7)) continue;
     oilField(px, py);
@@ -157,8 +170,8 @@ function generateMap(seed) {
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
     if (d < 26) continue;
     let id = 1 + Math.floor(rnd() * 4);
-    if (d > (far ? 120 : 35) && rnd() < 0.15) id = 5;
-    if (d > (far ? 260 : 60) && rnd() < 0.15) id = 6;
+    if (d > (farther ? 240 : far ? 120 : 35) && rnd() < 0.15) id = 5;
+    if (d > (farther ? 400 : far ? 260 : 60) && rnd() < 0.15) id = 6;
     patch(px, py, 2.5 + rnd() * 5, id, 380 * (1 + d / 45));
   }
 

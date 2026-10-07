@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  road: '#a8664a', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -973,6 +973,18 @@ function drawBuilding(g, e, x0, y0, t) {
       drawCar(g, cx, cy, 0, true, 0);
       break;
 
+    case 'road': {
+      // Ladrillos, con juntas y algo de desgaste
+      g.fillStyle = '#8a5a42'; g.fillRect(x0, y0, TILE, TILE);
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) {
+        const bx = x0 + c * 11 - (r % 2 ? 5 : 0), by = y0 + r * 8;
+        const k = hash(e.x * 7 + c, e.y * 5 + r, 300) * 30 - 15;
+        g.fillStyle = `rgb(${165 + k},${100 + k * 0.6},${74 + k * 0.4})`;
+        g.fillRect(Math.max(x0, bx + 1), by + 1, Math.min(10, x0 + TILE - bx - 1), 6);
+      }
+      g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x0, y0 + TILE - 2, TILE, 2);
+      break;
+    }
     case 'dispatcher': {
       box(g, x0, y0, '#3d4552', '#5aa0ff');
       if (e.filter) drawItem(g, e.filter, cx, cy, 6);

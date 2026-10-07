@@ -31,6 +31,7 @@ function vehicleCanBe(v, x, y) {
     if (oreAt(tx, ty) === 'water' && !d.water) return false;
     const e = at(tx, ty);
     if (e && !PASSABLE.has(e.type)) return false;
+    if (!e && v.type !== 'tank' && treeAt(tx, ty)) return false;   // el tanque los voltea; los demás chocan
   }
   return true;
 }
@@ -158,7 +159,7 @@ function driveStep(dt) {
   const hasFuel = v.burn > 0;
   if (throttle > 0 && !hasFuel && !v.noFuelMsg) { v.noFuelMsg = true; toast('⛽ Se quedó sin combustible. Cargale desde su panel (tocalo).'); }
   if (hasFuel) v.noFuelMsg = false;
-  const max = d.speed * fuelMult;
+  const max = d.speed * fuelMult * (onRoad(v.x, v.y) ? ROAD_BONUS : 1);
   // Girar hacia donde querés ir; si es para atrás, primero frena
   if (want !== null && hasFuel) {
     let da = want - v.ang;
@@ -192,6 +193,13 @@ function driveStep(dt) {
       hitTarget(t, Math.abs(v.v) * d.ram, true);
       v.v *= 0.8;
       if (v.type !== 'tank') hurtVehicle(v, 4);
+    }
+  }
+  // El tanque voltea los árboles que pisa (y da la madera)
+  if (v.type === 'tank' && Math.abs(v.v) > 0.5) {
+    for (const [ox, oy] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6]]) {
+      const tx = Math.floor(v.x + ox), ty = Math.floor(v.y + oy);
+      if (!at(tx, ty) && treeAt(tx, ty) && chopTree(tx, ty)) { netPush({ k: 'c', x: tx, y: ty }); giveItem('wood', WOOD_PER_TREE); }
     }
   }
   p.x = v.x; p.y = v.y; p.ang = v.ang;

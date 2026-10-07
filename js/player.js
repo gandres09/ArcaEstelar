@@ -81,12 +81,15 @@ function giveItem(k, n = 1) {
 
 // --------------------------- Movimiento ---------------------------
 
-const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate']);
+const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate', 'road']);
 function walkable(x, y) {
   if (oreAt(x, y) === 'water') return false;
   const e = at(x, y);
-  return !e || PASSABLE.has(e.type);
+  if (!e) return !treeAt(x, y);   // los árboles no dejan pasar: hay que talarlos o rodearlos
+  return PASSABLE.has(e.type);
 }
+const onRoad = (x, y) => { const e = at(Math.floor(x), Math.floor(y)); return !!e && e.type === 'road'; };
+const ROAD_BONUS = 1.1;
 
 function canStand(x, y) {
   const r = PLAYER_RADIUS;
@@ -116,7 +119,8 @@ function unstick(p) {
 }
 
 // Camino a pie (A*), hasta quedar a `near` casillas del destino
-function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
+function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000, viaTrees = false) {
+  const ok = viaTrees ? (x, y) => walkable(x, y) || (!at(x, y) && treeAt(x, y) && oreAt(x, y) !== 'water') : walkable;
   const idx = (x, y) => tIdx(x, y);
   sx = wrapX(sx); sy = wrapY(sy); tx = wrapX(tx); ty = wrapY(ty);
   const heap = [];
@@ -140,9 +144,10 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const x = wrapX(cx + dx), y = wrapY(cy + dy);
-      if (!walkable(x, y)) continue;
-      if (dx && dy && (!walkable(cx + dx, cy) || !walkable(cx, cy + dy))) continue;
-      const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1);
+      if (!ok(x, y)) continue;
+      if (dx && dy && (!walkable(cx + dx, cy) || !walkable(cx, cy + dy))) continue;   // en diagonal no se cuela entre árboles
+      const tree = viaTrees && !walkable(x, y);
+      const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1) * (onRoad(x, y) ? 0.85 : 1) + (tree ? 6 : 0);   // prefiere los caminos; talar cuesta
       if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + wdist(x, y, tx, ty)); }
     }
   }
@@ -151,7 +156,8 @@ function walkPath(sx, sy, tx, ty, near = 0.6, maxNodes = 8000) {
 
 function walkTo(tx, ty, near = 0.6) {
   const p = S.player;
-  const path = walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near);
+  // Si el bosque no deja pasar, va talando lo que le tapa el paso
+  const path = walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near) || walkPath(Math.floor(p.x), Math.floor(p.y), tx, ty, near, 8000, true);
   p.path = path && path.length ? path : null;
   if (!path) toast('No hay camino hasta ahí.');
   return !!path;
@@ -275,7 +281,7 @@ function updatePlayer(dt) {
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad
-  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1);   // poca gravedad en la Luna
+  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1) * (onRoad(p.x, p.y) ? ROAD_BONUS : 1);   // poca gravedad en la Luna; el camino ayuda
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {
@@ -283,6 +289,16 @@ function updatePlayer(dt) {
     p.path = null; p.mine = null;
     const l = Math.hypot(inp.x, inp.y);
     vx = inp.x / l * pspd; vy = inp.y / l * pspd;
+  } else if (p.path && p.path.length && !walkable(Math.floor(p.path[0].x), Math.floor(p.path[0].y)) && treeAt(Math.floor(p.path[0].x), Math.floor(p.path[0].y)) && !at(Math.floor(p.path[0].x), Math.floor(p.path[0].y))) {
+    // Un árbol en el camino: lo tala y sigue
+    const tx = Math.floor(p.path[0].x), ty = Math.floor(p.path[0].y);
+    p.ang = Math.atan2(wdy(ty + 0.5 - p.y), wdx(tx + 0.5 - p.x));
+    p.chopT = (p.chopT || 0) + dt;
+    p.mining = true;
+    if (p.chopT >= CHOP_TIME) {
+      p.chopT = 0;
+      if (chopTree(tx, ty)) { netPush({ k: 'c', x: tx, y: ty }); giveItem('wood', WOOD_PER_TREE); countProduced('wood', WOOD_PER_TREE); sfx('remove', tx, ty); }
+    }
   } else if (p.path && p.path.length) {
     // Avanza por los puntos del camino sin pasarse
     let budget = pspd * dt;

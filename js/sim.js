@@ -1404,7 +1404,7 @@ function condOk(c) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'tank', 'sensor', 'lamp', 'armory', 'nest']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'tank', 'sensor', 'lamp', 'armory', 'nest']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

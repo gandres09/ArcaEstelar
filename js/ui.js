@@ -9,7 +9,7 @@ const $ = (id) => document.getElementById(id);
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
   ['underground', 'inserter', 'fastinserter', 'longinserter', 'stackinserter'],
-  ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver', 'dispatcher', 'antenna'],
+  ['road', 'splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver', 'dispatcher', 'antenna'],
   ['miner', 'eminer', 'pumpjack'],
   ['furnace', 'steelfurnace', 'efurnace'],
   ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
