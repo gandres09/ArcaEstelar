@@ -247,6 +247,8 @@ const BUILDINGS = {
                  desc: 'Genera 60 kW de día, 30 kW al atardecer y al amanecer, y nada de noche.' },
   accumulator: { name: 'Acumulador',          cat: 'energía', capacity: 5000, rate: 300, hp: 150, cost: { battery: 5, iron_plate: 2 }, tech: 'batteries',
                  desc: 'Guarda 5 MJ cuando sobra energía y la devuelve cuando falta (hasta 300 kW).' },
+  lightningrod:{ name: 'Pararrayos',          cat: 'energía', hp: 300, cost: { steel: 3, copper_plate: 6 }, tech: 'electricity',
+                 desc: 'En las tormentas eléctricas atrae los rayos: protege todo lo que está a 10 casillas.' },
   lamp:        { name: 'Lámpara',             cat: 'energía', power: 5, hp: 60, cost: { iron_plate: 1, circuit: 1, cable: 3 }, tech: 'electricity',
                  desc: 'Ilumina de noche. Usa 5 kW.' },
 
@@ -296,7 +298,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;

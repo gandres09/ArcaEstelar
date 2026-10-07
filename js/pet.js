@@ -188,7 +188,7 @@ function initPet() {
     if (!b || ev.button !== 0) return;
     const d = S.player && S.player.pet;
     switch (b.dataset.pet) {
-      case 'close': box.hidden = true; return;
+      case 'close': ev.preventDefault(); ev.stopPropagation(); box.hidden = true; return;
       case 'adopt': petAdopt(); break;
       case 'feed': petFeed(); break;
       case 'pet': petPet(); break;

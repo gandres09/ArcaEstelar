@@ -15,7 +15,7 @@ const KEY_GROUPS = [
   ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
   ['lab', 'beacon', 'armory'],
   ['pole', 'mediumpole', 'substation', 'bigpole', 'radar'],
-  ['offshore', 'pump', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
+  ['offshore', 'pump', 'lightningrod', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
   ['wall', 'gate', 'turret', 'flameturret', 'laser', 'artillery'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
@@ -402,7 +402,11 @@ function updateTopbar() {
   const ph = dayPhase();
   const hours = Math.floor(((S.dayTime + 0.25) % 1) * 24);
   $('clock').textContent = `${ph.icon} Día ${S.day} · ${String(hours).padStart(2, '0')} h`;
-  $('clock').title = `${ph.name}: paneles solares al ${Math.round(sunLevel() * 100)} %`;
+  $('clock').title = `${ph.name}: paneles solares al ${Math.round(sunLevel() * weatherSolar() * 100)} %`;
+  const wn = weatherNow();
+  $('weather').textContent = wn.w.icon;
+  $('weather').title = `${wn.w.name}. ${wn.w.desc} Después: ${WEATHERS[wn.next].icon} ${WEATHERS[wn.next].name} (en ${Math.ceil(wn.left / 60)} min).`;
+  weatherNotice();
   $('evo').hidden = S.peaceful;
   $('evo').textContent = `🐛 ${(S.evo * 100).toFixed(1)} %`;
   const r = S.research.current;
@@ -733,6 +737,11 @@ function inspectorContent(e) {
       const back = at(e.x - dx, e.y - dy), net = isPipe(back) && fnets[back._fnet];
       h += row('Toma de', isPipe(back) ? 'una cañería' : '<span class="bad">nada (poné una cañería atrás)</span>') +
         row('Líquido', net && net.amount >= 1 ? itemLabel(net.fluid, Math.floor(net.amount)) : 'vacío') + row('Estado', e.active ? 'bombeando' : 'quieta') + powerRow(e);
+      break;
+    }
+    case 'lightningrod': {
+      const wn = weatherNow();
+      h += row('Protege', `${ROD_RADIUS} casillas a la redonda`) + row('Rayos atrapados', S.rodHits || 0) + row('Clima', `${wn.w.icon} ${wn.w.name}`);
       break;
     }
     case 'antenna': {

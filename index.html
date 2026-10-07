@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=1791334548">
+  <link rel="stylesheet" href="style.css?v=1791389066">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -16,6 +16,7 @@
     <div class="chips">
       <span id="era" class="chip" title="Era de tu fábrica"></span>
       <span id="clock" class="chip" title="Hora del día"></span>
+      <button id="weather" type="button" class="chip btn-chip" title="Clima"></button>
       <span id="evo" class="chip" title="Evolución de los enemigos"></span>
       <button id="research-chip" type="button" class="chip btn-chip" title="Investigación en curso"></button>
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
@@ -227,6 +228,7 @@
         <li>El mapa es enorme y <b>da la vuelta</b>: si salís por el norte, volvés por el sur (y lo mismo de este a oeste).</li>
         <li>Los yacimientos se agotan. El cuarzo, el titanio y el petróleo están <b>lejos</b> de la Nave (en las partidas nuevas, el titanio a más de 140 casillas): hay que salir a explorar.</li>
         <li>Hay día y noche. Los paneles solares no generan de noche y rinden la mitad al atardecer y al amanecer.</li>
+        <li><b>Clima:</b> ☀️ despejado, 🌧️ lluvia (los paneles rinden menos y se limpia la polución), 🌫️ niebla (se ve poco y las torretas alcanzan menos) y ⛈️ tormenta eléctrica (caen rayos: poné <b>Pararrayos</b>). Tocá el ícono del clima arriba para ver qué viene.</li>
         <li>Las máquinas contaminan. Cuando la polución llega a los <b>nidos</b>, los bichos atacan. Defendete con muros y torretas.</li>
         <li><b>Árboles:</b> tocalos con la mano para talarlos (4 de madera cada uno; el personaje sigue con los de al lado). Construir encima también los tala. La madera es combustible y sirve para el <b>Cofre de madera</b> y el <b>Vivero</b>. Ojo: los bosques absorben polución, y el Vivero vuelve a plantar.</li>
         <li>Las máquinas eléctricas tienen que estar cerca de un <b>poste</b> conectado a un generador.</li>
@@ -331,27 +333,28 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=1791334548"></script>
-  <script src="js/world.js?v=1791334548"></script>
-  <script src="js/sim.js?v=1791334548"></script>
-  <script src="js/enemies.js?v=1791334548"></script>
-  <script src="js/trains.js?v=1791334548"></script>
-  <script src="js/robots.js?v=1791334548"></script>
-  <script src="js/fluids.js?v=1791334548"></script>
-  <script src="js/player.js?v=1791334548"></script>
-  <script src="js/online.js?v=1791334548"></script>
-  <script src="js/p2p.js?v=1791334548"></script>
-  <script src="js/cloud.js?v=1791334548"></script>
-  <script src="js/pet.js?v=1791334548"></script>
-  <script src="js/rpg.js?v=1791334548"></script>
-  <script src="js/render.js?v=1791334548"></script>
-  <script src="js/rpgdraw.js?v=1791334548"></script>
-  <script src="js/audio.js?v=1791334548"></script>
-  <script src="js/ui.js?v=1791334548"></script>
-  <script src="js/progress.js?v=1791334548"></script>
-  <script src="js/blueprints.js?v=1791334548"></script>
-  <script src="js/input.js?v=1791334548"></script>
-  <script src="js/dragdrop.js?v=1791334548"></script>
-  <script src="js/main.js?v=1791334548"></script>
+  <script src="js/data.js?v=1791389066"></script>
+  <script src="js/world.js?v=1791389066"></script>
+  <script src="js/sim.js?v=1791389066"></script>
+  <script src="js/weather.js?v=1791389066"></script>
+  <script src="js/enemies.js?v=1791389066"></script>
+  <script src="js/trains.js?v=1791389066"></script>
+  <script src="js/robots.js?v=1791389066"></script>
+  <script src="js/fluids.js?v=1791389066"></script>
+  <script src="js/player.js?v=1791389066"></script>
+  <script src="js/online.js?v=1791389066"></script>
+  <script src="js/p2p.js?v=1791389066"></script>
+  <script src="js/cloud.js?v=1791389066"></script>
+  <script src="js/pet.js?v=1791389066"></script>
+  <script src="js/rpg.js?v=1791389066"></script>
+  <script src="js/render.js?v=1791389066"></script>
+  <script src="js/rpgdraw.js?v=1791389066"></script>
+  <script src="js/audio.js?v=1791389066"></script>
+  <script src="js/ui.js?v=1791389066"></script>
+  <script src="js/progress.js?v=1791389066"></script>
+  <script src="js/blueprints.js?v=1791389066"></script>
+  <script src="js/input.js?v=1791389066"></script>
+  <script src="js/dragdrop.js?v=1791389066"></script>
+  <script src="js/main.js?v=1791389066"></script>
 </body>
 </html>

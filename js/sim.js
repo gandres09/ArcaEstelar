@@ -788,7 +788,7 @@ function update(dt) {
   S.dayTime += dt / DAY_LENGTH;
   if (S.dayTime >= 1) { S.dayTime -= 1; S.day++; }
   balancePower(dt);
-  const sun = sunLevel();
+  const sun = sunLevel() * weatherSolar();
   const tech = S.research.current && TECHS[S.research.current];
   let researchDone = false;
 
@@ -1222,6 +1222,7 @@ function update(dt) {
   NET.sim++;
   updateTrains(dt);
   updateRobots(dt);
+  updateWeather(dt);
   updateEnemies(dt);
   NET.sim--;
   if (NET.on) NET.shadow = { ...S.inv };

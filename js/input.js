@@ -20,6 +20,7 @@ let handMining = null;   // { x, y, prog }
 let downAt = null;       // inicio del toque/clic
 const pointers = new Map();
 let pinch = null;
+function resetTouches() { pointers.clear(); pinch = null; downAt = null; }
 const keys = new Set();
 
 // Planes en curso

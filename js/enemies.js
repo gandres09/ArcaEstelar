@@ -42,8 +42,9 @@ function diffusePollution() {
       next[i] -= spread * 4;
     }
   }
-  // El terreno absorbe de a poco, y los bosques bastante más
-  for (let i = 0; i < next.length; i++) next[i] = Math.max(0, next[i] - 0.06 - (forestCell[i] || 0) * 0.15 - next[i] * 0.004);
+  // El terreno absorbe de a poco, los bosques bastante más, y la lluvia lava el aire
+  const wash = 0.004 + weatherWash();
+  for (let i = 0; i < next.length; i++) next[i] = Math.max(0, next[i] - 0.06 - (forestCell[i] || 0) * 0.15 - next[i] * wash);
   pollution = next;
 }
 
@@ -305,7 +306,7 @@ function turretStep(e, dt) {
   e.cd -= dt;
   if (e.cd > 0) return;
   const tx = e.x + 0.5, ty = e.y + 0.5;
-  let target = null, bd = def.range;
+  let target = null, bd = def.range * weatherRange();
   for (const b of S.biters) {
     if (b.dead) continue;
     const d = wdist(tx, ty, b.x, b.y);
@@ -350,7 +351,7 @@ function flameStep(e, dt) {
   e.cd -= dt;
   if (e.cd > 0 || (e.fuel <= 0 && !(e.flames > 0))) return;
   const tx = e.x + 0.5, ty = e.y + 0.5;
-  let target = null, bd = def.range;
+  let target = null, bd = def.range * weatherRange();
   for (const b of S.biters) { if (b.dead) continue; const d = wdist(tx, ty, b.x, b.y); if (d < bd) { bd = d; target = b; } }
   if (!target) return;
   e.aim = Math.atan2(wdy(target.y - ty), wdx(target.x - tx));

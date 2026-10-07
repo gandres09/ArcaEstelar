@@ -19,9 +19,22 @@ function adaptQuality(dt) {
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, quality);
-  cw = window.innerWidth; ch = window.innerHeight;
+  // El tamaño real de la pantalla (en el iPhone, al girar, innerWidth tarda en actualizarse)
+  cw = window.innerWidth || document.documentElement.clientWidth;
+  ch = window.innerHeight || document.documentElement.clientHeight;
+  // El lienzo mide exactamente lo mismo que usamos para convertir toques en casillas
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
   canvas.width = Math.round(cw * dpr);
   canvas.height = Math.round(ch * dpr);
+}
+// Al girar el celular: se vuelve a medir varias veces (el navegador termina de acomodarse de a poco)
+// y se olvidan los dedos que estaban apoyados, para que no quede un pellizco "trabado"
+function onRotate() {
+  if (typeof resetTouches === 'function') resetTouches();
+  window.scrollTo(0, 0);
+  resize();
+  for (const ms of [120, 350, 800]) setTimeout(() => { window.scrollTo(0, 0); resize(); }, ms);
 }
 
 // Los campos que empiezan con _ son temporales (redes, pares de túneles, objetivos)
@@ -235,6 +248,8 @@ async function importGame() {
 async function init() {
   resize();
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', onRotate);
+  if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', onRotate);
   const fresh = !(await loadAsync());
   if (fresh) {
     startNewGame((Math.random() * 2 ** 31) | 0, false);
@@ -327,6 +342,10 @@ async function init() {
   initRpgUi();
   $('btn-gear').addEventListener('click', () => openModal('gear'));
   $('torch-chip').addEventListener('click', toggleTorch);
+  $('weather').addEventListener('click', () => {
+    const n = weatherNow(), nx = WEATHERS[n.next];
+    toast(`${n.w.icon} <b>${n.w.name}</b>. ${n.w.desc}<br><span class="muted">Después: ${nx.icon} ${nx.name}, en unos ${Math.ceil(n.left / 60)} min.</span>`);
+  });
   // Atajo al nombre de jugador (vive en la ventana En línea)
   $('btn-name').addEventListener('click', () => {
     openModal('online');
