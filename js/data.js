@@ -248,7 +248,7 @@ const BUILDINGS = {
   accumulator: { name: 'Acumulador',          cat: 'energía', capacity: 5000, rate: 300, hp: 150, cost: { battery: 5, iron_plate: 2 }, tech: 'batteries',
                  desc: 'Guarda 5 MJ cuando sobra energía y la devuelve cuando falta (hasta 300 kW).' },
   lightningrod:{ name: 'Pararrayos',          cat: 'energía', hp: 300, cost: { steel: 3, copper_plate: 6 }, tech: 'electricity',
-                 desc: 'En las tormentas eléctricas atrae los rayos: protege todo lo que está a 10 casillas.' },
+                 desc: 'En las tormentas eléctricas atrae los rayos: protege todo lo que está a 30 casillas. La Nave ya protege 25 a su alrededor.' },
   lamp:        { name: 'Lámpara',             cat: 'energía', power: 5, hp: 60, cost: { iron_plate: 1, circuit: 1, cable: 3 }, tech: 'electricity',
                  desc: 'Ilumina de noche. Usa 5 kW.' },
 

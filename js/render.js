@@ -2009,6 +2009,17 @@ function drawOverlays(ctx) {
     ctx.strokeStyle = gh.ok ? '#5cc47a' : '#e5534b';
     ctx.lineWidth = 2;
     ctx.strokeRect(gh.x * TILE + 1, gh.y * TILE + 1, TILE * s - 2, TILE * s - 2);
+    if (gh.type === 'lightningrod') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,220,120,0.06)'; ctx.strokeStyle = 'rgba(255,220,120,0.55)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(gh.x * TILE + TILE / 2, gh.y * TILE + TILE / 2, ROD_RADIUS * TILE, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      for (const e of S.entities) if (e.type === 'lightningrod' || e.type === 'hub') {
+        const s2 = sizeOf(e.type) / 2;
+        ctx.strokeStyle = 'rgba(255,220,120,0.3)';
+        ctx.beginPath(); ctx.arc((e.x + s2) * TILE, (e.y + s2) * TILE, (e.type === 'hub' ? SHIP_ROD : ROD_RADIUS) * TILE, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
     if (gh.type === 'antenna') {
       ctx.save();
       for (const n of signalNodes()) {

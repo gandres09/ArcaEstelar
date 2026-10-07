@@ -13,10 +13,11 @@ const WEATHERS = {
   fog:   { name: 'Niebla', icon: '🌫️', solar: 0.75, dark: 0.04, wash: 0, range: 0.6,
            desc: 'Se ve poco y las torretas alcanzan menos.' },
   storm: { name: 'Tormenta eléctrica', icon: '⛈️', solar: 0.3, dark: 0.3, wash: 0.009, range: 0.8,
-           desc: '¡Caen rayos! Dañan lo que tocan; un pararrayos protege todo lo que está a 10 casillas.' },
+           desc: '¡Caen rayos! Dañan lo que tocan. La Nave protege 25 casillas a su alrededor y cada pararrayos, 30.' },
 };
 const WEATHER_LEN = 150;        // segundos que dura cada tramo de clima
-const ROD_RADIUS = 10;          // casillas que protege un pararrayos
+const ROD_RADIUS = 30;          // casillas que protege un pararrayos
+const SHIP_ROD = 25;            // la Nave trae su propio pararrayos
 
 function weatherAt(i) {
   if (i < 2) return 'clear';    // los primeros minutos, siempre lindo
@@ -46,8 +47,9 @@ function strikeAt(x, y, real) {
   sfx('boom', x, y);
   if (!real) return;
   // ¿Hay un pararrayos cerca? Se lleva el rayo y no pasa nada
-  const rod = S.entities.find((e) => e.type === 'lightningrod' && wdist(e.x + 0.5, e.y + 0.5, x, y) <= ROD_RADIUS);
-  if (rod) { bolts[bolts.length - 1].x = rod.x + 0.5; bolts[bolts.length - 1].y = rod.y + 0.2; rod.hitAt = S.playTime; S.rodHits = (S.rodHits || 0) + 1; return; }
+  const rod = S.entities.find((e) => (e.type === 'lightningrod' && wdist(e.x + 0.5, e.y + 0.5, x, y) <= ROD_RADIUS) ||
+    (e.type === 'hub' && wdist(e.x + 1.5, e.y + 1.5, x, y) <= SHIP_ROD));
+  if (rod) { const s = sizeOf(rod.type) / 2; bolts[bolts.length - 1].x = rod.x + s; bolts[bolts.length - 1].y = rod.y + 0.2; rod.hitAt = S.playTime; S.rodHits = (S.rodHits || 0) + 1; return; }
   spawnExplosion(x, y, 0.7);
   if (playerOn() && wdist(S.player.x, S.player.y, x, y) < 1.4) hurtPlayer(30, 'un rayo');
   for (const b of S.biters) if (!b.dead && wdist(b.x, b.y, x, y) < 1.6) hitBiter(b, 120);
