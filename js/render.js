@@ -18,6 +18,8 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
+  longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
@@ -431,7 +433,7 @@ function drawCrashedShip(g, x0, y0, t) {
 function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
-  switch (e.type) {
+  switch (kindOf(e.type)) {
     case 'belt': drawBeltBase(g, e, cx, cy, t, 2, '#c9a23a', '#e8c867'); break;
     case 'fastbelt': drawBeltBase(g, e, cx, cy, t, 4, '#b8463a', '#f08a7a'); break;
     case 'expressbelt': drawBeltBase(g, e, cx, cy, t, 8, '#3a86c4', '#8fcaf5'); break;
@@ -613,9 +615,9 @@ function drawBuilding(g, e, x0, y0, t) {
     }
 
     case 'furnace': case 'efurnace': {
-      const elec = e.type === 'efurnace';
-      box(g, x0, y0, elec ? '#6f7882' : '#7b4a3a', null);
-      g.fillStyle = elec ? '#4d555e' : '#5a3328';
+      const elec = !!def.power, steel = e.type === 'steelfurnace';
+      box(g, x0, y0, elec ? '#6f7882' : steel ? '#5d6670' : '#7b4a3a', steel ? '#a9b4c0' : null);
+      g.fillStyle = elec ? '#4d555e' : steel ? '#454c55' : '#5a3328';
       for (let r = 0; r < 4; r++) g.fillRect(x0 + 2, y0 + 8 + r * 6, TILE - 4, 1);
       const glow = e.active ? 0.6 + 0.4 * Math.sin(t * 10 + e.x) : 0;
       g.fillStyle = e.active ? `rgba(255,${120 + glow * 80},40,${0.7 + glow * 0.3})` : '#2a1a14';
@@ -625,8 +627,22 @@ function drawBuilding(g, e, x0, y0, t) {
     }
 
     case 'assembler': case 'assembler2': case 'chem': {
-      const adv = e.type === 'assembler2', chem = e.type === 'chem';
-      box(g, x0, y0, chem ? '#2f5e3a' : adv ? '#55307a' : '#35537e', chem ? '#9be0a8' : adv ? '#e0b84a' : '#7ea4d6');
+      const adv = kindOf(e.type) === 'assembler2', chem = kindOf(e.type) === 'chem', a3 = e.type === 'assembler3', refi = e.type === 'refinery';
+      if (refi) {
+        // Refinería: 2×2, con dos torres
+        box(g, x0, y0, '#3d5530', '#9be0a8', 2, TILE * 2);
+        for (const [tx2, h] of [[x0 + 16, 34], [x0 + 46, 26]]) {
+          g.fillStyle = '#6f7a62'; rrect(g, tx2 - 7, y0 + 56 - h, 14, h, 4); g.fill();
+          g.fillStyle = '#c9d6b8'; g.fillRect(tx2 - 7, y0 + 60 - h, 14, 3); g.fillRect(tx2 - 7, y0 + 68 - h, 14, 3);
+          if (e.active) { g.fillStyle = `rgba(255,170,60,${0.5 + 0.5 * Math.sin(t * 9 + tx2)})`; g.beginPath(); g.arc(tx2, y0 + 54 - h, 3, 0, 7); g.fill(); }
+        }
+        const cx2 = x0 + TILE, cy2 = y0 + TILE;
+        if (e.recipe) { drawItem(g, RECIPES[e.recipe].out, cx2, cy2 + 6, 6); drawProgress(g, x0, y0 + TILE, e.prog / RECIPES[e.recipe].time); }
+        drawArrow(g, cx2, cy2, e.dir, '#e2f5d5');
+        break;
+      }
+      box(g, x0, y0, chem ? '#2f5e3a' : a3 ? '#1f5f5c' : adv ? '#55307a' : '#35537e', chem ? '#9be0a8' : a3 ? '#7fe0d6' : adv ? '#e0b84a' : '#7ea4d6');
+      if (a3) { g.strokeStyle = '#7fe0d6'; g.lineWidth = 1.5; g.strokeRect(x0 + 6, y0 + 6, TILE - 12, TILE - 12); }
       if (chem) {
         g.fillStyle = '#9be0a8';
         g.beginPath(); g.arc(x0 + 8, y0 + 8, 3, 0, Math.PI * 2); g.arc(x0 + TILE - 8, y0 + 8, 3, 0, Math.PI * 2); g.fill();
@@ -727,11 +743,77 @@ function drawBuilding(g, e, x0, y0, t) {
     }
 
     case 'wall':
+      if (e.type === 'gate') {
+        // Compuerta: se abre (se achica) cuando hay alguien cerca
+        const near = playerOn() && wdist(S.player.x, S.player.y, e.x + 0.5, e.y + 0.5) < 2;
+        g.fillStyle = '#5a564e'; g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
+        const k = near ? 0.25 : 1;
+        g.fillStyle = '#8f8676'; g.fillRect(x0 + 2, y0 + 2, (TILE - 4) * k / 2, TILE - 4); g.fillRect(x0 + TILE - 2 - (TILE - 4) * k / 2, y0 + 2, (TILE - 4) * k / 2, TILE - 4);
+        g.fillStyle = '#e0b84a';
+        for (let i = 0; i < 4; i++) { g.fillRect(x0 + 2, y0 + 4 + i * 7, (TILE - 4) * k / 2, 3); g.fillRect(x0 + TILE - 2 - (TILE - 4) * k / 2, y0 + 4 + i * 7, (TILE - 4) * k / 2, 3); }
+        break;
+      }
       g.fillStyle = '#8f8676';
       g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
       g.fillStyle = '#6f6758';
       for (let r = 0; r < 4; r++) for (let c = 0; c < 2; c++) g.fillRect(x0 + 2 + c * 15 + (r % 2) * 7, y0 + 2 + r * 7.5, 13, 6);
       break;
+
+    case 'beacon': {
+      box(g, x0, y0, '#2c3550', '#6f8fd8', 3, TILE * 2);
+      const bx = x0 + TILE, by = y0 + TILE;
+      const on = e.active;
+      g.fillStyle = '#4a5578'; g.beginPath(); g.arc(bx, by, 16, 0, 7); g.fill();
+      g.strokeStyle = on ? `rgba(140,190,255,${0.5 + 0.4 * Math.sin(t * 4)})` : '#5b6585'; g.lineWidth = 2;
+      g.beginPath(); g.arc(bx, by, 22, 0, 7); g.stroke();
+      g.fillStyle = on ? '#bfe0ff' : '#7f8aa8'; g.beginPath(); g.moveTo(bx, by - 12); g.lineTo(bx + 6, by + 8); g.lineTo(bx - 6, by + 8); g.closePath(); g.fill();
+      (e.modules || []).forEach((m, i) => drawItem(g, m, x0 + 12 + i * 40, y0 + TILE * 2 - 10, 5));
+      break;
+    }
+
+    case 'pump': {
+      box(g, x0, y0, '#3d4f60', '#7da0c0');
+      g.fillStyle = '#7da0c0'; g.beginPath(); g.arc(cx, cy, 7, 0, 7); g.fill();
+      g.strokeStyle = '#d8ecff'; g.lineWidth = 2;
+      g.beginPath(); g.arc(cx, cy, 4, t * (e.active ? 6 : 0), t * (e.active ? 6 : 0) + 4.5); g.stroke();
+      drawArrow(g, cx, cy, e.dir, '#d8ecff');
+      break;
+    }
+
+    case 'flameturret': {
+      g.fillStyle = 'rgba(0,0,0,0.3)'; rrect(g, x0 + 4, y0 + 5, TILE - 6, TILE - 6, 5); g.fill();
+      g.fillStyle = '#4a3a2c'; rrect(g, x0 + 2, y0 + 2, TILE - 4, TILE - 4, 5); g.fill();
+      g.fillStyle = '#c0392b'; g.beginPath(); g.arc(cx, cy, 10, 0, 7); g.fill();
+      g.save(); g.translate(cx, cy); g.rotate(e.aim || -Math.PI / 2);
+      g.fillStyle = '#7d858f'; g.fillRect(2, -3, 14, 6);
+      g.fillStyle = '#ffb347'; g.beginPath(); g.arc(16, 0, 2.5, 0, 7); g.fill();
+      g.restore();
+      if (e.id && !e.fuel && !(e.flames > 0)) {
+        g.font = '700 9px Barlow, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const w = g.measureText('sin petróleo').width + 8;
+        g.fillStyle = 'rgba(20,22,26,0.85)'; rrect(g, cx - w / 2, y0 + TILE - 9, w, 12, 6); g.fill();
+        g.fillStyle = '#ff8a80'; g.fillText('sin petróleo', cx, y0 + TILE - 2.5);
+      }
+      break;
+    }
+
+    case 'artillery': {
+      box(g, x0, y0, '#3f4a2c', '#9aab6a', 3, TILE * 2);
+      const ax = x0 + TILE, ay = y0 + TILE;
+      g.fillStyle = '#5d6b3f'; g.beginPath(); g.arc(ax, ay, 18, 0, 7); g.fill();
+      g.save(); g.translate(ax, ay); g.rotate(e.aim || -Math.PI / 2);
+      g.fillStyle = '#9aab6a'; g.fillRect(4, -4.5, 30, 9);
+      g.fillStyle = '#2b3020'; g.fillRect(30, -5.5, 5, 11);
+      g.restore();
+      g.fillStyle = '#c9d6a0'; g.beginPath(); g.arc(ax, ay, 8, 0, 7); g.fill();
+      if (e.id && !e.ammo) {
+        g.font = '700 9px Barlow, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const w = g.measureText('sin proyectiles').width + 8;
+        g.fillStyle = 'rgba(20,22,26,0.85)'; rrect(g, ax - w / 2, y0 + TILE * 2 - 10, w, 12, 6); g.fill();
+        g.fillStyle = '#ff8a80'; g.fillText('sin proyectiles', ax, y0 + TILE * 2 - 3.5);
+      }
+      break;
+    }
 
     case 'turret': case 'laser': {
       const laser = e.type === 'laser';
@@ -787,21 +869,23 @@ function drawBuilding(g, e, x0, y0, t) {
     }
 
     case 'inserter': case 'fastinserter': {
-      const fast = e.type === 'fastinserter';
-      g.fillStyle = '#2b2f36';
-      g.beginPath(); g.arc(cx, cy, 6, 0, Math.PI * 2); g.fill();
+      const R = def.reach || 1;
+      g.fillStyle = e.type === 'stackinserter' ? '#24402c' : '#2b2f36';
+      g.beginPath(); g.arc(cx, cy, e.type === 'stackinserter' ? 7.5 : 6, 0, Math.PI * 2); g.fill();
       const ph = e.hold ? e.t : (e.ret || 0);
       const [dx, dy] = DIRS[e.dir];
-      const ex = cx + dx * (-12 + 24 * ph), ey = cy + dy * (-12 + 24 * ph);
+      const reachPx = 12 + (R - 1) * 20;
+      const ex = cx + dx * (-reachPx + 2 * reachPx * ph), ey = cy + dy * (-reachPx + 2 * reachPx * ph);
       // Codo del brazo, un poco hacia el costado
       const mx = (cx + ex) / 2 - dy * 6, my = (cy + ey) / 2 + dx * 6;
-      g.strokeStyle = fast ? '#5aa0ff' : '#e0b84a';
+      g.strokeStyle = TYPE_COLOR[e.type] || '#e0b84a';
       g.lineWidth = 3.5; g.lineCap = 'round';
       g.beginPath(); g.moveTo(cx, cy); g.lineTo(mx, my); g.lineTo(ex, ey); g.stroke();
       g.lineCap = 'butt';
       g.fillStyle = '#d8dee6';
       g.beginPath(); g.arc(cx, cy, 2.5, 0, Math.PI * 2); g.fill();
       if (e.hold) drawItem(g, e.hold, ex, ey, 4.5);
+      if (e.hold && e.n > 1) { g.fillStyle = '#fff'; g.font = '700 8px Barlow, sans-serif'; g.textAlign = 'center'; g.fillText('×' + e.n, ex + 6, ey - 5); }
       if (e.filter) drawItem(g, e.filter, x0 + 6, y0 + 6, 3.5);
       // marca de hacia dónde deja
       drawArrow(g, cx, cy, e.dir, 'rgba(255,255,255,0.35)', 16);
@@ -930,6 +1014,20 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
 
     case 'pole':
+      if (e.type === 'substation') {
+        box(g, x0, y0, '#4a525c', '#c0c8d0', 3, TILE * 2);
+        g.strokeStyle = '#c0c8d0'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(x0 + 18, y0 + 46); g.lineTo(x0 + 18, y0 + 14); g.moveTo(x0 + 46, y0 + 46); g.lineTo(x0 + 46, y0 + 14);
+        g.moveTo(x0 + 12, y0 + 18); g.lineTo(x0 + 52, y0 + 18); g.stroke();
+        g.fillStyle = '#7fd1ff'; for (const xx of [12, 32, 52]) { g.beginPath(); g.arc(x0 + xx, y0 + 16, 2.5, 0, 7); g.fill(); }
+        break;
+      }
+      if (e.type === 'mediumpole') {
+        g.fillStyle = '#7d858f'; g.fillRect(cx - 2.5, cy - 12, 5, 24);
+        g.fillStyle = '#9aa3ad'; g.fillRect(cx - 10, cy - 10, 20, 3); g.fillRect(cx - 7, cy - 4, 14, 2);
+        g.fillStyle = '#e0b84a'; g.fillRect(cx - 10, cy - 12, 3, 3); g.fillRect(cx + 7, cy - 12, 3, 3);
+        break;
+      }
       g.fillStyle = '#6b4a24';
       g.fillRect(cx - 2, cy - 11, 4, 22);
       g.fillRect(cx - 9, cy - 9, 18, 3);
@@ -1523,7 +1621,7 @@ function drawShots(g) {
 const lightCanvas = document.createElement('canvas');
 
 function lightRadius(e) {
-  switch (e.type) {
+  switch (kindOf(e.type)) {
     case 'lamp': return e.lit ? 7 : 0;
     case 'hub': return 6;
     case 'shipyard': return 5;
@@ -1532,7 +1630,8 @@ function lightRadius(e) {
     case 'uplink': return 2;
     case 'furnace': case 'efurnace': case 'generator': case 'boiler': return e.active ? 1.6 : 0;
     case 'radar': return 1.5;
-    case 'laser': case 'turret': return 1.2;
+    case 'laser': case 'turret': case 'flameturret': return 1.2;
+    case 'beacon': return e.active ? 2 : 0;
     default: return 0;
   }
 }
@@ -1855,7 +1954,7 @@ function drawOverlays(ctx) {
     ctx.strokeStyle = gh.ok ? '#5cc47a' : '#e5534b';
     ctx.lineWidth = 2;
     ctx.strokeRect(gh.x * TILE + 1, gh.y * TILE + 1, TILE * s - 2, TILE * s - 2);
-    if (gh.type === 'pole' || gh.type === 'bigpole') {
+    if (kindOf(gh.type) === 'pole' || gh.type === 'bigpole') {
       const d = BUILDINGS[gh.type];
       ctx.strokeStyle = 'rgba(120,180,255,0.6)';
       ctx.setLineDash([6, 6]);
@@ -1873,11 +1972,11 @@ function drawOverlays(ctx) {
       ctx.strokeRect((gh.x - r) * TILE + 1, (gh.y - r) * TILE + 1, (r * 2 + 1) * TILE - 2, (r * 2 + 1) * TILE - 2);
       ctx.setLineDash([]);
     }
-    if (gh.type === 'turret' || gh.type === 'laser') {
-      ctx.strokeStyle = 'rgba(255,120,90,0.5)';
+    if (gh.type === 'turret' || gh.type === 'laser' || gh.type === 'flameturret' || gh.type === 'artillery' || gh.type === 'beacon') {
+      ctx.strokeStyle = gh.type === 'beacon' ? 'rgba(120,170,255,0.6)' : 'rgba(255,120,90,0.5)';
       ctx.setLineDash([6, 6]);
       ctx.beginPath();
-      ctx.arc(gh.x * TILE + TILE / 2, gh.y * TILE + TILE / 2, BUILDINGS[gh.type].range * TILE, 0, Math.PI * 2);
+      ctx.arc(gh.x * TILE + TILE * s / 2, gh.y * TILE + TILE * s / 2, (BUILDINGS[gh.type].range + (gh.type === 'beacon' ? 1 : 0)) * TILE, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
     }

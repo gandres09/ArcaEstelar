@@ -55,7 +55,7 @@ function giveItem(k, n = 1) {
 
 // --------------------------- Movimiento ---------------------------
 
-const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station']);
+const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate']);
 function walkable(x, y) {
   if (oreAt(x, y) === 'water') return false;
   const e = at(x, y);

@@ -344,6 +344,49 @@ function turretStep(e, dt) {
   }
 }
 
+// Torreta lanzallamas: quema al bicho más cercano y a los que están alrededor
+function flameStep(e, dt) {
+  const def = BUILDINGS.flameturret;
+  e.cd -= dt;
+  if (e.cd > 0 || (e.fuel <= 0 && !(e.flames > 0))) return;
+  const tx = e.x + 0.5, ty = e.y + 0.5;
+  let target = null, bd = def.range;
+  for (const b of S.biters) { if (b.dead) continue; const d = wdist(tx, ty, b.x, b.y); if (d < bd) { bd = d; target = b; } }
+  if (!target) return;
+  e.aim = Math.atan2(wdy(target.y - ty), wdx(target.x - tx));
+  if (!(e.flames > 0)) { e.fuel--; e.flames = 12; }   // 1 barril de petróleo = 12 llamaradas
+  e.flames--;
+  e.cd = 0.25;
+  const dmg = def.dmg * weaponMult();
+  for (const b of S.biters) if (!b.dead && wdist(target.x, target.y, b.x, b.y) < 1.6) hitBiter(b, b === target ? dmg : dmg * 0.6);
+  shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, flame: true });
+  sfx('shot', e.x, e.y);
+}
+
+// Artillería: bombardea solita el nido más cercano dentro de su alcance
+function artilleryStep(e, dt) {
+  const def = BUILDINGS.artillery;
+  e.cd -= dt;
+  if (e.cd > 0 || e.ammo <= 0) return;
+  const tx = e.x + 1, ty = e.y + 1;
+  let nest = null, bd = def.range;
+  for (const n of S.entities) {
+    if (n.type !== 'nest') continue;
+    const d = wdist(tx, ty, n.x + 1, n.y + 1);
+    if (d < bd) { bd = d; nest = n; }
+  }
+  if (!nest) return;
+  e.aim = Math.atan2(wdy(nest.y + 1 - ty), wdx(nest.x + 1 - tx));
+  e.ammo--;
+  e.cd = def.rate;
+  const nx = nest.x + 1, ny = nest.y + 1;
+  for (const n of S.entities.slice()) if (n.type === 'nest' && wdist(nx, ny, n.x + 1, n.y + 1) <= def.blast) damageEntity(n, def.dmg * weaponMult());
+  for (const b of S.biters) if (!b.dead && wdist(nx, ny, b.x, b.y) <= def.blast) hitBiter(b, def.dmg);
+  spawnExplosion(nx, ny, 2);
+  shots.push({ x1: tx, y1: ty, x2: tx + wdx(nx - tx), y2: ty + wdy(ny - ty), t: 0, laser: false });
+  sfx('boom', e.x, e.y);
+}
+
 // --------------------------- Paso principal ---------------------------
 
 function updateEnemies(dt) {
@@ -358,7 +401,11 @@ function updateEnemies(dt) {
   if (tick) { nestStep(1); expandNests(1); }
 
   for (const b of S.biters) if (!b.dead) biterStep(b, dt);
-  for (const e of S.entities) if (e.type === 'turret' || e.type === 'laser') turretStep(e, dt);
+  for (const e of S.entities) {
+    if (e.type === 'turret' || e.type === 'laser') turretStep(e, dt);
+    else if (e.type === 'flameturret') flameStep(e, dt);
+    else if (e.type === 'artillery') artilleryStep(e, dt);
+  }
   if (S.biters.some((b) => b.dead)) {
     for (const b of S.biters) if (b.dead) S.kills = (S.kills || 0) + 1;
     for (const b of S.biters) if (b.dead) { spawnSplat(b.x, b.y, BITERS[b.kind].color); sfx('splat', b.x, b.y); }

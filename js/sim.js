@@ -114,11 +114,13 @@ function smoothPhase(t, key) {
 
 function makeEntity(type, x, y, dir = 0) {
   const e = { id: 0, type, x, y, dir: NO_DIR.has(type) ? 0 : dir };
-  switch (type) {
+  switch (kindOf(type)) {
     case 'belt': case 'fastbelt': case 'expressbelt': e.l = [null, null]; e.p = [0, 0]; break;
     case 'underground': e.l = [null, null]; e.p = [0, 0]; e.mode = 'in'; break;
     case 'splitter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.prio = null; break;
-    case 'inserter': case 'fastinserter': e.hold = null; e.t = 0; e.ret = 0; e.filter = null; break;
+    case 'inserter': case 'fastinserter': e.hold = null; e.n = 0; e.t = 0; e.ret = 0; e.filter = null; break;
+    case 'flameturret': e.fuel = 0; e.cd = 0; break;
+    case 'artillery': e.ammo = 0; e.cd = 0; break;
     case 'sorter': e.l = [null, null]; e.p = [0, 0]; e.rr = 0; e.filter = null; break;
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': e.store = {}; e.total = 0; break;
     case 'requesterchest': e.store = {}; e.total = 0; e.req = {}; break;
@@ -443,7 +445,7 @@ function pairUndergrounds() {
 
 // --------------------------- Red eléctrica ---------------------------
 
-const isPole = (e) => e.type === 'pole' || e.type === 'bigpole';
+const isPole = (e) => kindOf(e.type) === 'pole' || e.type === 'bigpole';
 
 function rebuildPower() {
   powerDirty = false;
@@ -487,6 +489,23 @@ function rebuildPower() {
   }
   for (const n of nets) n.accCount = 0;
   for (const e of S.entities) if (e.type === 'accumulator' && nets[e._net]) nets[e._net].accCount++;
+  linkBeacons();
+}
+
+// Qué máquinas alcanza cada faro (se recalcula junto con la red eléctrica, al construir o desarmar)
+function linkBeacons() {
+  const beacons = S.entities.filter((e) => e.type === 'beacon');
+  for (const e of S.entities) if (e._beacons) e._beacons = null;
+  if (!beacons.length) return;
+  for (const e of S.entities) {
+    if (!MODULE_SLOTS[e.type] || e.type === 'beacon') continue;
+    const s = sizeOf(e.type);
+    for (const b of beacons) {
+      const R = BUILDINGS.beacon.range;
+      const ex = wdx(e.x - b.x), ey = wdy(e.y - b.y);
+      if (ex <= 1 + R && ex + s - 1 >= -R && ey <= 1 + R && ey + s - 1 >= -R) (e._beacons = e._beacons || []).push(b);
+    }
+  }
 }
 
 // Al empezar cada paso se reparte la energía según lo que pasó en el paso anterior
@@ -512,10 +531,14 @@ function balancePower(dt) {
 // Efecto combinado de los módulos de una máquina
 function moduleFx(e) {
   const fx = { speed: 1, power: 1, prod: 0, poll: 1 };
-  if (!e.modules) return fx;
-  for (const m of e.modules) {
+  if (e.modules) for (const m of e.modules) {
     const d = MODULES[m];
     fx.speed += d.speed || 0; fx.power += d.power || 0; fx.prod += d.prod || 0; fx.poll += d.poll || 0;
+  }
+  // Faros cercanos: la mitad del efecto de sus módulos (si tienen energía)
+  if (e._beacons) for (const b of e._beacons) {
+    if (!b.modules || !(b.sat > 0)) continue;
+    for (const m of b.modules) { const d = MODULES[m]; fx.speed += (d.speed || 0) * 0.5 * b.sat; fx.power += (d.power || 0) * 0.5; }
   }
   fx.power = Math.max(0.2, fx.power);
   fx.speed = Math.max(0.2, fx.speed);
@@ -536,7 +559,7 @@ function drawPower(e, kw) {
 // lane: el carril de donde viene (si viene de una cinta), o -1
 function accept(t, item, src, dry = false, lane = -1) {
   const ok = (fn) => { if (!dry) fn(); return true; };
-  switch (t.type) {
+  switch (kindOf(t.type)) {
     case 'pipe': case 'tank':
       return fluidAccept(t, item, dry);
     case 'hub': case 'receiver':
@@ -557,7 +580,7 @@ function accept(t, item, src, dry = false, lane = -1) {
       if (t.total >= BUILDINGS[t.type].capacity) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'furnace': case 'efurnace': {
-      if (t.type === 'furnace' && FURNACE_FUEL[item]) {
+      if (!BUILDINGS[t.type].power && FURNACE_FUEL[item]) {
         if (t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
         return ok(() => { t.fuelType = item; t.fuel++; });
       }
@@ -602,13 +625,19 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'uplink':
       if (item !== 'orbital_charge' || t.charges >= 10) return false;
       return ok(() => { t.charges++; });
+    case 'flameturret':
+      if (item !== 'oil' || t.fuel >= 50) return false;
+      return ok(() => { t.fuel++; });
+    case 'artillery':
+      if (item !== 'artillery_shell' || t.ammo >= 10) return false;
+      return ok(() => { t.ammo++; });
   }
   return false;
 }
 
 // Lo que podría querer recibir un edificio (para sacarlo de la Nave)
 function wantedBy(dst) {
-  switch (dst.type) {
+  switch (kindOf(dst.type)) {
     case 'assembler': case 'assembler2': case 'chem': return dst.recipe ? Object.keys(RECIPES[dst.recipe].in) : [];
     case 'furnace': return [...Object.keys(SMELT), 'coal', 'solid_fuel', 'wood'];
     case 'efurnace': return Object.keys(SMELT);
@@ -619,6 +648,8 @@ function wantedBy(dst) {
     case 'shipyard': case 'starport': return Object.keys(shipNeeds(dst));
     case 'purifier': return ['air_filter'];
     case 'uplink': return ['orbital_charge'];
+    case 'flameturret': return ['oil'];
+    case 'artillery': return ['artillery_shell'];
     default: return [];
   }
 }
@@ -626,7 +657,7 @@ function wantedBy(dst) {
 // El brazo saca de src un objeto que dst acepte (y que pase su filtro)
 function takeFrom(src, dst, ins) {
   const want = (k) => k && (!ins.filter || ins.filter === k) && accept(dst, k, ins, true);
-  switch (src.type) {
+  switch (kindOf(src.type)) {
     case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter': {
       // Toma el objeto más adelantado de los dos carriles
       const order = (src.p[0] || 0) >= (src.p[1] || 0) ? [0, 1] : [1, 0];
@@ -660,13 +691,20 @@ function takeFrom(src, dst, ins) {
 
 function pushTo(e, dir, item, lane = -1) {
   const [dx, dy] = DIRS[dir];
-  const t = at(e.x + dx, e.y + dy);
+  const s = sizeOf(e.type);
+  // Las máquinas grandes sacan por el medio del lado que apunta la flecha
+  const m = Math.floor((s - 1) / 2);
+  const t = s === 1 ? at(e.x + dx, e.y + dy) : at(e.x + (dx > 0 ? s : dx < 0 ? -1 : m), e.y + (dy > 0 ? s : dy < 0 ? -1 : m));
   return !!t && t !== e && t.type !== 'nest' && accept(t, item, e, false, lane);
 }
 
-// En qué carril de la cinta t cae algo que viene de src (-1: cualquiera)
-//  - de atrás: el mismo carril · cinta que entra por un costado: el carril de ese lado
-//  - curva (una sola cinta entra de costado): conserva el carril · brazo o máquina de costado: el carril de su lado
+// En qué carril de la cinta t cae algo que viene de src (-1: cualquiera), como en Factorio:
+//  - de atrás: el mismo carril
+//  - cinta que entra por un costado (carga lateral): el carril de ese lado
+//  - curva (una sola cinta entra de costado y nada de atrás): conserva el carril
+//  - brazo de costado: el carril de enfrente (el lejano) · máquina de costado: el carril de su lado
+const feedsInto = (b, t) => b && LANED.has(b.type) && (b.type !== 'underground' || b.mode === 'out') &&
+  at(b.x + DIRS[b.dir][0], b.y + DIRS[b.dir][1]) === t;
 function laneInto(t, src, lane) {
   if (!src || src.type === 'splitter' || src.type === 'sorter' || t.type === 'splitter' || t.type === 'sorter') return lane;
   const s = sizeOf(src.type);
@@ -678,10 +716,13 @@ function laneInto(t, src, lane) {
   const fromRight = ddx === -lx && ddy === -ly;
   if (!fromLeft && !fromRight) return lane;
   if (LANED.has(src.type) && lane >= 0) {
+    // Es curva solo si no entra nada de atrás ni del otro costado
+    if (t.type === 'underground') return fromLeft ? 0 : 1;
     const behind = at(t.x - fx, t.y - fy);
-    const fedStraight = behind && LANED.has(behind.type) && behind.dir === t.dir && behind.type !== 'underground';
-    return fedStraight ? (fromLeft ? 0 : 1) : lane;
+    const other = fromLeft ? at(t.x - lx, t.y - ly) : at(t.x + lx, t.y + ly);
+    return feedsInto(behind, t) || feedsInto(other, t) ? (fromLeft ? 0 : 1) : lane;
   }
+  if (src.type === 'inserter' || src.type === 'fastinserter' || INSERTERS.has(src.type)) return fromLeft ? 1 : 0;
   return fromLeft ? 0 : 1;   // queda del lado por donde llegó
 }
 
@@ -759,7 +800,7 @@ function update(dt) {
       e.off = !condOk(e.cond);
       if (e.off) { e.active = false; if (e.type === 'lamp') e.lit = false; continue; }
     }
-    switch (e.type) {
+    switch (kindOf(e.type)) {
       case 'belt': case 'fastbelt': case 'expressbelt':
         for (let k = 0; k < 2; k++) {
           if (!e.l[k]) continue;
@@ -789,19 +830,32 @@ function update(dt) {
         if (sp <= 0) { e.active = false; break; }
         const step = dt * sp * 2 / def.swing;  // medio ciclo para ir y medio para volver
         const [dx, dy] = DIRS[e.dir];
+        const R = def.reach || 1;
         if (e.hold) {
           e.t = Math.min(1, e.t + step);
           if (e.t >= 1) {
-            const dst = at(e.x + dx, e.y + dy);
-            if (dst && dst.type !== 'nest' && dst !== e && accept(dst, e.hold, e)) { e.hold = null; e.ret = 1; }
+            const dst = at(e.x + dx * R, e.y + dy * R);
+            // Deja lo que lleva (el brazo de carga, de a uno hasta vaciarse)
+            while (e.hold && dst && dst.type !== 'nest' && dst !== e && accept(dst, e.hold, e)) {
+              if ((e.n || 1) > 1) e.n--;
+              else { e.hold = null; e.n = 0; e.ret = 1; }
+            }
           }
         } else if (e.ret > 0) {
           e.ret = Math.max(0, e.ret - step);
         } else {
-          const src = at(e.x - dx, e.y - dy), dst = at(e.x + dx, e.y + dy);
-          if (src && dst && src !== dst && src.type !== 'nest' && dst.type !== 'nest') {
+          const src = at(e.x - dx * R, e.y - dy * R), dst = at(e.x + dx * R, e.y + dy * R);
+          if (src && dst && src !== dst && src !== e && dst !== e && src.type !== 'nest' && dst.type !== 'nest') {
             const k = takeFrom(src, dst, e);
-            if (k) { e.hold = k; e.t = 0; }
+            if (k) {
+              e.hold = k; e.t = 0; e.n = 1;
+              // El brazo de carga junta más del mismo objeto
+              for (let i = 1; i < (def.stack || 1); i++) {
+                const ins = { filter: k };
+                if (takeFrom(src, { type: 'chest', total: 0, store: {} }, ins) !== k) break;
+                e.n++;
+              }
+            }
           }
         }
         e.active = !!e.hold || e.ret > 0;
@@ -947,6 +1001,30 @@ function update(dt) {
         if (e.out > 0 && pushTo(e, e.dir, rc.out)) e.out--;
         break;
       }
+
+      case 'pump': {
+        // Pasa líquido de la cañería de atrás a lo que tiene adelante
+        e.active = false;
+        const [dx, dy] = DIRS[e.dir];
+        const back = at(e.x - dx, e.y - dy), front = at(e.x + dx, e.y + dy);
+        if (!isPipe(back) || !front) break;
+        if (fluidDirty) rebuildFluids();
+        const net = fnets[back._fnet];
+        if (!net || net.amount < 1) break;
+        const sp = drawPower(e, def.power);
+        e.acc = (e.acc || 0) + dt * def.rate * sp;
+        while (e.acc >= 1 && net.amount >= 1) {
+          const ok = isPipe(front) ? fluidAccept(front, net.fluid, false) : accept(front, net.fluid, e);
+          if (!ok) { e.acc = Math.min(e.acc, 1); break; }
+          net.amount -= 1; e.acc -= 1; e.active = true;
+        }
+        break;
+      }
+
+      case 'beacon':
+        e.sat = e.modules && e.modules.length ? drawPower(e, def.power) : 0;
+        e.active = e.sat > 0;
+        break;
 
       case 'lab': {
         e.active = false;
@@ -1253,7 +1331,7 @@ function orbitalStrike(x, y, r) {
 
 const SIGNAL_COLORS = ['#e5534b', '#5cc47a', '#3f86e0', '#f0c040', '#b45fe0', '#3cc4c4', '#f08a3a', '#e8e8e8'];
 const SIGNAL_NAMES = ['rojo', 'verde', 'azul', 'amarillo', 'violeta', 'celeste', 'naranja', 'blanco'];
-const CONDITIONABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
+const CONDITIONABLE = new Set(['longinserter', 'stackinserter', 'steelfurnace', 'assembler3', 'refinery', 'pump', 'beacon', 'belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
   'furnace', 'efurnace', 'assembler', 'assembler2', 'chem', 'lab', 'lamp', 'generator', 'boiler', 'steam_engine', 'splitter', 'sorter', 'radar', 'purifier', 'nursery']);
 let signals = new Array(8).fill(0);
 

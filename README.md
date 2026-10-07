@@ -153,6 +153,10 @@ El juego también funciona como página común, por ejemplo en GitHub Pages
 escribe en **Unirme**. La conexión es directa entre los navegadores (WebRTC con
 PeerJS para el primer contacto); la compu de quien crea la sala lleva la partida.
 
+## Máquinas de Factorio
+
+Además de las básicas: brazo largo, brazo de carga, horno de acero, Ensambladora 3, Refinería (2×2), Faro (reparte la mitad del efecto de sus módulos a 3 casillas), Bomba de cañería, poste mediano, Subestación (2×2), Compuerta, torreta lanzallamas (petróleo) y torreta de artillería (proyectiles, contra nidos a 60 casillas). Los carriles de las cintas siguen las reglas de Factorio: los brazos dejan en el carril lejano y una T con dos laterales llena un carril con cada uno.
+
 ## Aventura
 
 Con personaje, el planeta tiene combate y botín:

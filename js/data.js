@@ -50,6 +50,7 @@ const ITEMS = {
   prod_module:    { name: 'Módulo de productividad', color: '#e0743a', shape: 'module' },
   eff_module:     { name: 'Módulo de eficiencia',    color: '#5cc47a', shape: 'module' },
   ammo:           { name: 'Munición',           color: '#c9a227', shape: 'ammo' },
+  artillery_shell:{ name: 'Proyectil de artillería', color: '#8a9a5b', shape: 'ammo' },
 
   sci_red:        { name: 'Ciencia roja',       color: '#e0473b', shape: 'flask' },
   sci_green:      { name: 'Ciencia verde',      color: '#4cc25a', shape: 'flask' },
@@ -148,6 +149,7 @@ const RECIPES = {
   warp_drive:   { machine: 'asm',  tier: 2, in: { fusion_core: 1, thruster: 2, quantum_processor: 4 }, out: 'warp_drive', n: 1, time: 30, tech: 'warp_drive' },
   habitat:      { machine: 'asm',  tier: 2, in: { hull: 3, life_support: 2, plastic: 20 },  out: 'habitat',      n: 1, time: 20,  tech: 'starship' },
   shield:       { machine: 'asm',  tier: 2, in: { superconductor: 6, battery: 10, quantum_processor: 2 }, out: 'shield', n: 1, time: 20, tech: 'starship' },
+  artillery_shell: { machine: 'asm', tier: 2, in: { steel: 2, sulfur: 2, ammo: 2 },         out: 'artillery_shell', n: 1, time: 8, tech: 'artillery' },
 };
 const RECIPE_ORDER = Object.keys(RECIPES);
 
@@ -167,6 +169,10 @@ const BUILDINGS = {
                  desc: 'Toma de atrás y deja adelante, solo lo que el destino puede recibir. De la Nave saca lo que la máquina necesita.' },
   fastinserter:{ name: 'Brazo rápido',        cat: 'logística', swing: 0.45, power: 20, hp: 100, cost: { iron_plate: 2, gear: 2, circuit: 2 }, tech: 'logistics2',
                  desc: 'Como el brazo, casi 3 veces más rápido. Usa 20 kW.' },
+  longinserter:{ name: 'Brazo largo',         cat: 'logística', as: 'inserter', swing: 1.0, reach: 2, hp: 80, cost: { iron_plate: 3, gear: 3, circuit: 1 }, tech: 'inserters2',
+                 desc: 'Toma a 2 casillas para atrás y deja a 2 casillas para adelante: pasa por arriba de una cinta o de otra máquina.' },
+  stackinserter:{ name: 'Brazo de carga',     cat: 'logística', as: 'inserter', swing: 0.5, stack: 4, power: 40, hp: 120, cost: { iron_plate: 5, gear: 5, circuit: 5, processor: 1 }, tech: 'inserters3',
+                 desc: 'Rápido y lleva hasta 4 objetos iguales por vuelta. Usa 40 kW.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 5, gear: 4 }, tech: 'logistics',
                  desc: 'Reparte objetos entre adelante, izquierda y derecha.' },
   sorter:      { name: 'Filtro',              cat: 'logística', hp: 120, cost: { iron_plate: 5, circuit: 4 }, tech: 'sorting',
@@ -190,12 +196,20 @@ const BUILDINGS = {
                  desc: 'Funde minerales. Quema carbón o combustible sólido.' },
   efurnace:    { name: 'Horno eléctrico',     cat: 'producción', speed: 2, power: 180, hp: 300, poll: 1, cost: { steel: 10, circuit: 5, brick: 10 }, tech: 'electric_smelting',
                  desc: 'Funde al doble de velocidad y sin combustible. Usa 180 kW.' },
+  steelfurnace:{ name: 'Horno de acero',      cat: 'producción', as: 'furnace', speed: 2, hp: 300, poll: 4, cost: { steel: 6, brick: 10 }, tech: 'advanced_smelting',
+                 desc: 'Funde al doble de velocidad que el de piedra. Quema carbón, madera o combustible sólido.' },
   assembler:   { name: 'Ensambladora',        cat: 'producción', speed: 1, tier: 1, machine: 'asm', power: 75, hp: 200, poll: 4, cost: { iron_plate: 15, copper_plate: 10 },
                  desc: 'Fabrica piezas simples. Usa 75 kW: conectala con postes a un generador.' },
   assembler2:  { name: 'Ensambladora avanzada', cat: 'producción', speed: 2, tier: 2, machine: 'asm', power: 200, hp: 300, poll: 3, cost: { steel: 10, circuit: 10, gear: 10 }, tech: 'advanced_assembly',
                  desc: 'Fabrica cualquier receta al doble de velocidad. Usa 200 kW.' },
+  assembler3:  { name: 'Ensambladora 3',      cat: 'producción', as: 'assembler2', speed: 3, tier: 3, machine: 'asm', power: 375, hp: 400, poll: 2, cost: { steel: 15, processor: 6, speed_module: 2 }, tech: 'production3',
+                 desc: 'Fabrica cualquier receta al triple de velocidad. Lleva 4 módulos. Usa 375 kW.' },
   chem:        { name: 'Planta química',      cat: 'producción', speed: 1, tier: 1, machine: 'chem', power: 210, hp: 300, poll: 4, cost: { steel: 5, gear: 5, circuit: 5 }, tech: 'oil',
                  desc: 'Procesa petróleo: plástico, azufre, baterías y combustible de cohete. Usa 210 kW.' },
+  refinery:    { name: 'Refinería',           cat: 'producción', as: 'chem', size: 2, speed: 3, tier: 1, machine: 'chem', power: 420, hp: 500, poll: 6, cost: { steel: 15, gear: 10, circuit: 10, brick: 10 }, tech: 'advanced_oil',
+                 desc: 'Hace todas las recetas del petróleo (plástico, azufre, lubricante, baterías…) al triple de velocidad. Ocupa 2×2. Usa 420 kW.' },
+  beacon:      { name: 'Faro',                cat: 'producción', size: 2, power: 240, range: 3, hp: 200, cost: { steel: 10, circuit: 20, processor: 10, cable: 10 }, tech: 'effect_transmission',
+                 desc: 'Ponele módulos de velocidad o eficiencia: les pasa la mitad de su efecto a todas las máquinas que estén a 3 casillas o menos. Usa 240 kW.' },
   lab:         { name: 'Laboratorio',         cat: 'producción', speed: 1, power: 60, hp: 150, cost: { iron_plate: 10, gear: 10, copper_plate: 10 },
                  desc: 'Investiga usando packs de ciencia. Más laboratorios, más rápido. Usa 60 kW.' },
   armory:      { name: 'Armería',             cat: 'producción', size: 2, hp: 300, character: true, cost: { iron_plate: 20, stone: 10, wood: 10 },
@@ -205,10 +219,16 @@ const BUILDINGS = {
                  desc: 'Lee lo que hay en el edificio al que apunta (cofre, Nave, tanque, acumulador, cinta) y lo manda a un canal de la red de señales.' },
   pole:        { name: 'Poste eléctrico',     cat: 'energía', reach: 7, supply: 2, hp: 80, cost: { iron_plate: 2, copper_plate: 2 },
                  desc: 'Conecta con postes a 7 casillas y alimenta lo que esté a 2 casillas.' },
+  mediumpole:  { name: 'Poste mediano',       cat: 'energía', as: 'pole', reach: 9, supply: 3, hp: 100, cost: { steel: 2, copper_plate: 2 }, tech: 'electric_distribution',
+                 desc: 'Conecta con postes a 9 casillas y alimenta lo que esté a 3.' },
+  substation:  { name: 'Subestación',         cat: 'energía', as: 'pole', size: 2, reach: 18, supply: 8, hp: 300, cost: { steel: 10, processor: 5, copper_plate: 5 }, tech: 'electric_distribution2',
+                 desc: 'Alimenta todo lo que esté a 8 casillas y conecta a 18. Ideal para zonas llenas de máquinas.' },
   bigpole:     { name: 'Torre de alta tensión', cat: 'energía', reach: 24, supply: 1, hp: 150, cost: { steel: 5, copper_plate: 5 }, tech: 'big_poles',
                  desc: 'Lleva energía lejos: conecta a 24 casillas.' },
   pipe:        { name: 'Cañería',             cat: 'energía', capacity: 100, hp: 100, cost: { iron_plate: 1 }, tech: 'fluid_handling',
                  desc: 'Lleva líquidos (agua, petróleo, vapor, lubricante). Se conecta sola y entrega a las máquinas que la tocan.' },
+  pump:        { name: 'Bomba',               cat: 'energía', power: 30, rate: 20, hp: 150, cost: { iron_plate: 5, gear: 3, circuit: 2 }, tech: 'fluid_handling',
+                 desc: 'Pasa líquido de la cañería de atrás a lo que tenga adelante (otra cañería o una máquina), hasta 20 por segundo. Separa las redes. Usa 30 kW.' },
   tank:        { name: 'Tanque',              cat: 'energía', size: 2, capacity: 2500, hp: 400, cost: { steel: 20, iron_plate: 10 }, tech: 'fluid_handling',
                  desc: 'Guarda 2.500 de un líquido como parte de la red de cañerías.' },
   generator:   { name: 'Generador a carbón',  cat: 'energía', output: 900, hp: 300, poll: 25, cost: { iron_plate: 20, stone: 10 },
@@ -232,6 +252,12 @@ const BUILDINGS = {
                  desc: 'Frena a los enemigos.' },
   turret:      { name: 'Torreta',             cat: 'defensa', range: 9, rate: 5, dmg: 5, hp: 400, cost: { iron_plate: 10, gear: 10, copper_plate: 10 }, tech: 'defense',
                  desc: 'Dispara a enemigos a 9 casillas. Usa munición (por cinta o desde su panel).' },
+  gate:        { name: 'Compuerta',           cat: 'defensa', as: 'wall', hp: 350, cost: { brick: 5, steel: 2, circuit: 2 }, tech: 'gates',
+                 desc: 'Un muro que se abre para vos y tus amigos (y para los trenes) pero no para los bichos.' },
+  flameturret: { name: 'Torreta lanzallamas', cat: 'defensa', range: 8, dmg: 6, hp: 900, cost: { steel: 20, gear: 15, engine: 5 }, tech: 'flamethrower',
+                 desc: 'Quema todo lo que entra a 8 casillas y daña a los que están alrededor. Usa petróleo: pegala a una cañería o dale barriles con brazos.' },
+  artillery:   { name: 'Torreta de artillería', cat: 'defensa', size: 2, range: 60, dmg: 400, blast: 3, rate: 8, hp: 2000, cost: { steel: 60, gear: 40, engine: 10, processor: 10 }, tech: 'artillery',
+                 desc: 'Sola, bombardea los nidos que estén a 60 casillas o menos. Usa proyectiles de artillería.' },
   laser:       { name: 'Torreta láser',       cat: 'defensa', range: 12, rate: 2, dmg: 18, power: 400, hp: 600, cost: { steel: 20, circuit: 20, battery: 12 }, tech: 'laser_turrets',
                  desc: 'Dispara con electricidad a 12 casillas. Usa 400 kW al disparar.' },
 
@@ -265,7 +291,10 @@ const BUILDINGS = {
                  desc: 'Convierte una casilla de agua en tierra firme.' },
 };
 const TOOL_ORDER = Object.keys(BUILDINGS);
-const NO_DIR = new Set(['signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+// Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
+const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
+const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
+const NO_DIR = new Set(['mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'tank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -276,6 +305,8 @@ const TECHS = {
                        desc: 'Cables y circuitos.' },
   inserters:         { name: 'Brazos',               packs: ['sci_red'], units: 10, time: 8, req: [],
                        desc: 'Brazos que pasan objetos entre cintas, cofres, máquinas y la Nave.' },
+  inserters2:        { name: 'Brazos largos',        packs: ['sci_red'], units: 20, time: 8, req: ['inserters', 'electronics'],
+                       desc: 'Brazo largo: toma y deja a 2 casillas.' },
   logistics:         { name: 'Logística',            packs: ['sci_red'], units: 20, time: 8, req: [],
                        desc: 'Divisor y cinta subterránea.' },
   defense:           { name: 'Defensa',              packs: ['sci_red'], units: 20, time: 8, req: [],
@@ -304,6 +335,14 @@ const TECHS = {
                        desc: 'Horno eléctrico: el doble de rápido y sin combustible.' },
   advanced_assembly: { name: 'Ensamblaje avanzado',  packs: ['sci_red', 'sci_green'], units: 75, time: 12, req: ['electricity'],
                        desc: 'Ensambladora avanzada y motores.' },
+  advanced_smelting: { name: 'Fundición avanzada',   packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['steel', 'logistic_science'],
+                       desc: 'Horno de acero: el doble de rápido que el de piedra.' },
+  gates:             { name: 'Compuertas',           packs: ['sci_red', 'sci_green'], units: 30, time: 12, req: ['defense', 'logistic_science'],
+                       desc: 'Muros que se abren para vos pero no para los bichos.' },
+  electric_distribution: { name: 'Distribución eléctrica', packs: ['sci_red', 'sci_green'], units: 40, time: 12, req: ['electricity'],
+                       desc: 'Poste mediano: más alcance que el de madera.' },
+  flamethrower:      { name: 'Lanzallamas',          packs: ['sci_red', 'sci_green'], units: 60, time: 15, req: ['oil', 'defense'],
+                       desc: 'Torreta lanzallamas que quema petróleo.' },
   big_poles:         { name: 'Alta tensión',         packs: ['sci_red', 'sci_green'], units: 50, time: 12, req: ['electricity'],
                        desc: 'Torres que llevan energía a 24 casillas.' },
   railway:           { name: 'Trenes',               packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['logistics2', 'advanced_assembly'],
@@ -322,6 +361,18 @@ const TECHS = {
                        desc: 'Módulos de velocidad, productividad y eficiencia para máquinas eléctricas y laboratorios.' },
   batteries:         { name: 'Baterías',             packs: ['sci_red', 'sci_green', 'sci_blue'], units: 75, time: 20, req: ['chemical_science'],
                        desc: 'Baterías y acumuladores.' },
+  inserters3:        { name: 'Brazos de carga',      packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science', 'logistics2'],
+                       desc: 'Brazo de carga: lleva 4 objetos por vuelta.' },
+  production3:       { name: 'Ensamblaje 3',         packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['modules', 'advanced_assembly'],
+                       desc: 'Ensambladora 3: el triple de rápida, con 4 módulos.' },
+  advanced_oil:      { name: 'Refinado avanzado',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science', 'oil'],
+                       desc: 'Refinería: todas las recetas del petróleo, al triple.' },
+  effect_transmission: { name: 'Transmisión de efectos', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['modules'],
+                       desc: 'Faro: comparte módulos con las máquinas de alrededor.' },
+  electric_distribution2: { name: 'Subestaciones',   packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['electric_distribution', 'chemical_science'],
+                       desc: 'Subestación: alimenta un área enorme.' },
+  artillery:         { name: 'Artillería',           packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 25, req: ['weapons2', 'advanced_assembly'],
+                       desc: 'Torreta de artillería que bombardea nidos lejanos, y sus proyectiles.' },
   logistics3:        { name: 'Logística 3',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['logistics2', 'chemical_science'],
                        desc: 'Cinta exprés.' },
   weapons2:          { name: 'Armas 2',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['weapons1', 'chemical_science'],
@@ -373,7 +424,7 @@ const TECHS = {
 const TECH_ORDER = Object.keys(TECHS);
 
 // Módulos: ranuras por máquina y efecto de cada uno
-const MODULE_SLOTS = { assembler2: 2, chem: 2, efurnace: 2, eminer: 2, lab: 2 };
+const MODULE_SLOTS = { assembler2: 2, assembler3: 4, chem: 2, refinery: 3, efurnace: 2, eminer: 2, lab: 2, beacon: 2 };
 const MODULES = {
   speed_module: { speed: 0.2, power: 0.5 },
   prod_module:  { speed: -0.15, power: 0.4, prod: 0.1, poll: 0.1 },

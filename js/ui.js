@@ -8,15 +8,15 @@ const $ = (id) => document.getElementById(id);
 // Teclas numéricas: repetir la tecla cambia de variante
 const KEY_GROUPS = [
   ['belt', 'fastbelt', 'expressbelt'],
-  ['underground', 'inserter', 'fastinserter'],
+  ['underground', 'inserter', 'fastinserter', 'longinserter', 'stackinserter'],
   ['splitter', 'sorter', 'woodchest', 'chest', 'steelchest', 'receiver'],
   ['miner', 'eminer', 'pumpjack'],
-  ['furnace', 'efurnace'],
-  ['assembler', 'assembler2', 'chem'],
-  ['lab', 'armory'],
-  ['pole', 'bigpole', 'radar'],
-  ['offshore', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
-  ['wall', 'turret', 'laser'],
+  ['furnace', 'steelfurnace', 'efurnace'],
+  ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
+  ['lab', 'beacon', 'armory'],
+  ['pole', 'mediumpole', 'substation', 'bigpole', 'radar'],
+  ['offshore', 'pump', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
+  ['wall', 'gate', 'turret', 'flameturret', 'laser', 'artillery'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
 const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos', 'gear'];
@@ -465,7 +465,7 @@ function inspectorContent(e) {
   let h = `<div class="insp-head"><b>${e.type === 'hub' ? 'Nave estrellada' : def.name}</b>` +
     `${NO_DIR.has(e.type) ? '' : ` <span class="muted">${DIR_ARROWS[e.dir]}</span>`}` +
     `<button type="button" class="close" data-act="close">✕</button></div>`;
-  switch (e.type) {
+  switch (kindOf(e.type)) {
     case 'armory':
       h += armoryHtml();
       break;
@@ -494,7 +494,7 @@ function inspectorContent(e) {
     }
     case 'furnace': case 'efurnace': {
       h += row('Entrada', itemLabel(e.inType, e.inCount)) + row('Salida', itemLabel(e.outType, e.outCount));
-      if (e.type === 'furnace') {
+      if (!def.power) {
         h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'quemando' : '<span class="bad">sin combustible</span>'));
       } else h += powerRow(e);
       const r = e.inType && SMELT[e.inType];
@@ -503,7 +503,7 @@ function inspectorContent(e) {
         .map(([k, r]) => `${r.n}×${itemImg(k, 'ico-s')}→${itemImg(r.out, 'ico-s')}`).join(' ') + '</div>';
       h += pickRow(e, 'Cargar mineral', Object.keys(SMELT).filter((k) => hasTech(SMELT[k].tech)), 50,
         e.inCount ? 'Para cambiar de mineral, primero sacá el que tiene adentro.' : '');
-      if (e.type === 'furnace') h += fuelPicker(e, 10);
+      if (!def.power) h += fuelPicker(e, 10);
       h += '<div class="actions">' + (e.inCount ? `<button type="button" data-act="ctake" data-v="${e.inType}">Sacar mineral</button>` : '') +
         '<button type="button" data-act="collect">Recoger</button></div>';
       break;
@@ -542,8 +542,8 @@ function inspectorContent(e) {
       const [dx, dy] = DIRS[e.dir];
       const src = at(e.x - dx, e.y - dy), dst = at(e.x + dx, e.y + dy);
       const nm = (x) => (!x ? '<span class="bad">nada</span>' : x.type === 'hub' ? 'Nave' : BUILDINGS[x.type]?.name || x.type);
-      h += row('Toma de', nm(src)) + row('Deja en', nm(dst)) + row('Lleva', itemLabel(e.hold)) +
-        row('Velocidad', `${(1 / def.swing).toFixed(1)} objetos/s`) + (def.power ? powerRow(e) : '');
+      h += row('Toma de', nm(src)) + row('Deja en', nm(dst)) + row('Lleva', e.hold ? itemLabel(e.hold, e.n > 1 ? e.n : undefined) : itemLabel(null)) +
+        row('Velocidad', `${((def.stack || 1) / def.swing).toFixed(1)} objetos/s`) + (def.reach > 1 ? row('Alcance', `${def.reach} casillas`) : '') + (def.power ? powerRow(e) : '');
       if (src && src.type === 'receiver' && !hasTech('logistic_network')) h += '<p class="bad small">Para sacar de un receptor hace falta investigar Red logística.</p>';
       h += row('Filtro', e.filter ? itemLabel(e.filter) : 'ninguno');
       h += '<div class="pick-title">Elegí un objeto para que solo pase ese</div><div class="picker">';
@@ -674,6 +674,7 @@ function inspectorContent(e) {
       break;
     }
     case 'pole': case 'bigpole':
+      if (def.supply) h += row('Alimenta', `a ${def.supply} casillas`) + row('Conecta', `a ${def.reach} casillas`);
       h += nets[e._net] ? row('Postes en la red', nets[e._net].poles) + netRows(nets[e._net]) : '';
       break;
     case 'lamp':
@@ -705,8 +706,29 @@ function inspectorContent(e) {
       h += row('Alcance', `${def.range} casillas`) + row('Daño', `${Math.round(def.dmg * weaponMult())} por disparo`) + powerRow(e);
       break;
     case 'wall':
-      h += '<p>Frena a los bichos mientras las torretas disparan.</p>';
+      h += e.type === 'gate' ? '<p>Se abre para vos y tus amigos; los bichos la tienen que romper.</p>' : '<p>Frena a los bichos mientras las torretas disparan.</p>';
       break;
+    case 'flameturret':
+      h += row('Petróleo', `${e.fuel} barriles` + (e.flames > 0 ? ` + ${e.flames} llamaradas` : '')) + row('Alcance', `${def.range} casillas`) +
+        row('Daño', `${Math.round(def.dmg * weaponMult())} por llamarada, y a los de alrededor`) +
+        '<p class="muted small">Pegala a una cañería con petróleo o cargale barriles con brazos o a mano.</p>' + pickRow(e, 'Cargar petróleo', ['oil'], 50);
+      break;
+    case 'artillery':
+      h += row('Proyectiles', `${e.ammo} / 10`) + row('Alcance', `${def.range} casillas (solo nidos)`) + row('Recarga', `${def.rate} s`) +
+        pickRow(e, 'Cargar proyectiles', ['artillery_shell'], 10);
+      break;
+    case 'pump': {
+      const [dx, dy] = DIRS[e.dir];
+      const back = at(e.x - dx, e.y - dy), net = isPipe(back) && fnets[back._fnet];
+      h += row('Toma de', isPipe(back) ? 'una cañería' : '<span class="bad">nada (poné una cañería atrás)</span>') +
+        row('Líquido', net && net.amount >= 1 ? itemLabel(net.fluid, Math.floor(net.amount)) : 'vacío') + row('Estado', e.active ? 'bombeando' : 'quieta') + powerRow(e);
+      break;
+    }
+    case 'beacon': {
+      const n = S.entities.filter((m) => m._beacons && m._beacons.includes(e)).length;
+      h += row('Máquinas alcanzadas', n) + (e.modules && e.modules.length ? powerRow(e) : '<p class="muted small">Ponele módulos de velocidad o eficiencia (los de productividad no sirven en el faro).</p>');
+      break;
+    }
     case 'shipyard': case 'starport': {
       const needs = shipNeeds(e);
       h += `<p>Piezas ${e.type === 'starport' ? 'del Arca estelar' : 'de la nave'}:</p>`;
@@ -927,6 +949,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'prio': e.prio = v || null; break;
     case 'drain': emptyFluidNet(e); break;
     case 'mod':
+      if (e.type === 'beacon' && v === 'prod_module') { toast('El faro no reparte productividad: usá velocidad o eficiencia.'); break; }
       if (avail(v) >= 1 && (e.modules || []).length < MODULE_SLOTS[e.type]) { takeItem(v, 1); (e.modules = e.modules || []).push(v); }
       break;
     case 'unmod':
