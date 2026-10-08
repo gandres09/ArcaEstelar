@@ -87,7 +87,7 @@ function walkable(x, y) {
   if (isLiquidO(oreAt(x, y))) return false;
   const e = at(x, y);
   if (!e) return !treeAt(x, y) && !cliffAt(x, y);   // árboles y acantilados no dejan pasar
-  return PASSABLE.has(e.type);
+  return PASSABLE.has(e.type) || INSERTERS.has(e.type);   // los brazos se pasan por arriba
 }
 // Pisos: camino +10 %, hormigón +20 %, hormigón refinado +30 %
 const FLOOR_BONUS = { road: 1.1, concrete_floor: 1.2, refined_floor: 1.3 };
