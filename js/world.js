@@ -61,10 +61,10 @@ function generateMap(seed) {
           const i = tIdx(x, y);
           oreType[i] = id;
           if (gen2) {
-            // Mucho en el centro (más de 2000) y poco en los bordes (unas 500)
+            // Mucho en el centro y poco en los bordes (x3: unas 1500 en el borde, 7000+ en el centro)
             const t = Math.max(0, 1 - d / (rad + 0.5));
             const peak = Math.max(2600, richness * 1.6);
-            oreAmt[i] = Math.min(65000, Math.round((500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
+            oreAmt[i] = Math.min(65000, Math.round(3 * (500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
           } else {
             // Más rico en el centro del yacimiento
             oreAmt[i] = Math.min(65000, Math.round(richness * (1.4 - 0.8 * d / (rad + 1)) * (0.8 + rnd() * 0.4)));

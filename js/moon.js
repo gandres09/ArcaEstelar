@@ -30,7 +30,7 @@ function generateMoonMap(seed) {
         const i = tIdx(x, y);
         oreType[i] = id(ore);
         const t = Math.max(0, 1 - d / (rad + 0.5)), peak = Math.max(2600, rich * 1.6);
-        oreAmt[i] = Math.min(65000, Math.round((500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
+        oreAmt[i] = Math.min(65000, Math.round(3 * (500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
       }
     }
   };

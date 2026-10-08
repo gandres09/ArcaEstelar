@@ -715,12 +715,12 @@ function inspectorContent(e) {
         fuelPicker(e, 20);
       break;
     case 'receiver':
-      h += '<p>Todo lo que le llega va al inventario de la Nave.</p>';
+      h += '<p>Todo lo que le llega va al inventario de la Nave.</p>' + powerRow(e) + (e.sat > 0.3 ? '' : '<p class="bad small">Sin energía no recibe nada: conectalo con postes.</p>');
       break;
     case 'dispatcher': {
       h += '<p>Saca de la <b>Nave</b> el objeto elegido y lo deja en lo que tenga adelante (una cinta, un cofre o una máquina), desde cualquier lugar del mapa.</p>' +
         row('Saca', e.filter ? `${itemLabel(e.filter)} <span class="muted">(hay ${Math.floor(S.inv[e.filter] || 0)} en la Nave)</span>` : '<span class="bad">nada: elegí un objeto</span>') +
-        row('Velocidad', `${(BUILDINGS.dispatcher.rate * mkMult(e)).toFixed(1)} por segundo`);
+        row('Velocidad', `${(BUILDINGS.dispatcher.rate * mkMult(e)).toFixed(1)} por segundo`) + powerRow(e);
       const inNave = ITEM_ORDER.filter((k) => (S.inv[k] || 0) >= 1 && !FLUIDS.has(k));
       h += '<div class="pick-title">Qué sacar de la Nave</div><div class="picker">' +
         `<button type="button" class="pick ${!e.filter ? 'on' : ''}" data-act="filter" data-v="">✕</button>` +

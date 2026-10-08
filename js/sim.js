@@ -574,7 +574,9 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'pipe': case 'tank':
       return fluidAccept(t, item, dry);
     case 'hub': case 'receiver':
-      return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); });
+      // El receptor necesita energía para mandar las cosas a la Nave
+      if (t.type === 'receiver' && !(t.sat > 0.3)) return false;
+      return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); if (t.type === 'receiver') t.busyT = 1; });
     case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter': {
       if (t.type === 'underground' && t.mode !== 'in') return false;
       const [dx, dy] = DIRS[t.dir];
@@ -698,7 +700,8 @@ function takeFrom(src, dst, ins) {
       if (src.out > 0 && want('steam')) { src.out--; return 'steam'; }
       return null;
     case 'receiver':
-      if (!hasTech('logistic_network')) return null;
+      if (!hasTech('logistic_network') || !(src.sat > 0.3)) return null;
+      src.busyT = 1;
     // fallthrough: con la red logística, el receptor da acceso al inventario
     case 'hub':
       for (const k of wantedBy(dst)) if ((S.inv[k] || 0) >= 1 && want(k)) { S.inv[k]--; return k; }
@@ -1039,11 +1042,21 @@ function update(dt) {
         break;
       }
 
+      case 'receiver': {
+        // Consume de lleno mientras recibe; casi nada en espera (y sin energía no recibe)
+        e.busyT = Math.max(0, (e.busyT || 0) - dt);
+        e.sat = drawPower(e, e.busyT > 0 ? def.power : def.power * 0.05);
+        e.active = e.busyT > 0;
+        break;
+      }
+
       case 'dispatcher': {
-        // Saca de la Nave el objeto elegido y lo deja adelante
+        // Saca de la Nave el objeto elegido y lo deja adelante (con energía)
         e.active = false;
         if (!e.filter) break;
-        e.t = Math.min(4, (e.t || 0) + dt * BUILDINGS.dispatcher.rate * mkMult(e));
+        const dsp = drawPower(e, def.power);
+        if (dsp <= 0) break;
+        e.t = Math.min(4, (e.t || 0) + dt * BUILDINGS.dispatcher.rate * mkMult(e) * dsp);
         while (e.t >= 1 && (S.inv[e.filter] || 0) >= 1 && pushTo(e, e.dir, e.filter)) { S.inv[e.filter]--; e.t--; e.active = true; }
         e.t = Math.min(e.t, 1);
         break;
