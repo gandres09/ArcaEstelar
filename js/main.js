@@ -419,7 +419,16 @@ async function init() {
   netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => {
     if (p2pFromUrl()) return;
     // Con ?servidor=1 en el link, esta compu arranca sola como servidor
-    if (new URLSearchParams(location.search).get('servidor') === '1') { closeModals(); setTimeout(() => startServerMode(false), 1500); } else serverAutoStart();
+    const sv = new URLSearchParams(location.search).get('servidor');
+    if (sv === 'nuevo') {
+      // Servidor nuevo desde cero: mapa enorme, bases separadas (aliados o enemigos). Una sola vez:
+      // el link pasa a ser ?servidor=1, así recargar no borra el mundo.
+      closeModals();
+      const seed = (Math.random() * 2 ** 31) | 0;
+      startNewGame(seed, false, true, { ...defaultMapOpts(), size: 'enorme', multiBase: true });
+      try { history.replaceState(null, '', location.pathname + '?servidor=1'); } catch (_) { /* nada */ }
+      setTimeout(() => startServerMode(false), 1500);
+    } else if (sv === '1') { closeModals(); setTimeout(() => startServerMode(false), 1500); } else serverAutoStart();
   });
   $('btn-server').addEventListener('click', () => startServerMode(false));
   // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
