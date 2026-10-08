@@ -81,14 +81,17 @@ function giveItem(k, n = 1) {
 
 // --------------------------- Movimiento ---------------------------
 
-const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate', 'road', 'landmine']);
+const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate', 'road', 'landmine', 'concrete_floor', 'refined_floor']);
 function walkable(x, y) {
   if (oreAt(x, y) === 'water') return false;
   const e = at(x, y);
   if (!e) return !treeAt(x, y) && !cliffAt(x, y);   // árboles y acantilados no dejan pasar
   return PASSABLE.has(e.type);
 }
-const onRoad = (x, y) => { const e = at(Math.floor(x), Math.floor(y)); return !!e && e.type === 'road'; };
+// Pisos: camino +10 %, hormigón +20 %, hormigón refinado +30 %
+const FLOOR_BONUS = { road: 1.1, concrete_floor: 1.2, refined_floor: 1.3 };
+const floorAt = (x, y) => { const e = at(Math.floor(x), Math.floor(y)); return (e && FLOOR_BONUS[e.type]) || 1; };
+const onRoad = (x, y) => floorAt(x, y) > 1;
 const ROAD_BONUS = 1.1;
 
 function canStand(x, y) {
@@ -298,7 +301,7 @@ function updatePlayer(dt) {
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad
-  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1) * (onRoad(p.x, p.y) ? ROAD_BONUS : 1);   // poca gravedad en la Luna; el camino ayuda
+  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1) * floorAt(p.x, p.y);   // poca gravedad en la Luna; el camino ayuda
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {

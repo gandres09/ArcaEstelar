@@ -851,9 +851,9 @@ function inspectorContent(e) {
       break;
     }
     case 'turret':
-      h += row('Munición', `${e.ammo} cargadores` + (e.shots ? ` + ${e.shots} balas` : '')) + row('Alcance', `${def.range} casillas`) +
-        row('Daño', `${Math.round(def.dmg * weaponMult())} por disparo`) +
-        '<div class="actions"><button type="button" data-act="ammo">Cargar munición</button></div>';
+      h += row('Munición', e.ammo ? itemLabel(e.ammoType || 'ammo', e.ammo) : '<span class="bad">sin munición</span>') + (e.shots ? row('En el arma', `${e.shots} balas`) : '') + row('Alcance', `${def.range} casillas`) +
+        row('Daño', `${Math.round(def.dmg * weaponMult() * mkMult(e) * (TURRET_AMMO[e.ammoType || 'ammo'] || 1))} por disparo`) +
+        pickRow(e, 'Cargar munición', Object.keys(TURRET_AMMO), 20, e.ammo ? 'Para cambiar de munición, que se gaste la que tiene.' : '');
       break;
     case 'laser':
       h += row('Alcance', `${def.range} casillas`) + row('Daño', `${Math.round(def.dmg * weaponMult())} por disparo`) + powerRow(e);
@@ -1333,7 +1333,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       if (!feedFrom(e, ['orbital_charge'], 10)) toast('No tenés cargas orbitales. Se fabrican en una ensambladora avanzada.');
       break;
     case 'ammo': {
-      const n = feedFrom(e, ['ammo'], 20);
+      const n = feedFrom(e, Object.keys(TURRET_AMMO), 20);
       if (!n) toast('No tenés munición en el inventario. Fabricala en una ensambladora.');
       break;
     }

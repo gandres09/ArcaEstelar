@@ -164,7 +164,7 @@ function driveStep(dt) {
   const hasFuel = v.burn > 0;
   if (throttle > 0 && !hasFuel && !v.noFuelMsg) { v.noFuelMsg = true; toast('⛽ Se quedó sin combustible. Cargale desde su panel (tocalo).'); }
   if (hasFuel) v.noFuelMsg = false;
-  const max = d.speed * fuelMult * (onRoad(v.x, v.y) ? ROAD_BONUS : 1);
+  const max = d.speed * fuelMult * floorAt(v.x, v.y);
   // Girar hacia donde querés ir; si es para atrás, primero frena
   if (want !== null && hasFuel) {
     let da = want - v.ang;

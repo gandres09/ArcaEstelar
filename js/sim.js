@@ -202,7 +202,7 @@ function contents(e) {
   if (e.type === 'purifier' && e.filters) add(c, 'air_filter', e.filters);
   if (e.type === 'uplink' && e.charges) add(c, 'orbital_charge', e.charges);
   if (e.packs) for (const k in e.packs) add(c, k, e.packs[k]);
-  if (e.type === 'turret' && e.ammo) add(c, 'ammo', e.ammo);
+  if (e.type === 'turret' && e.ammo) add(c, e.ammoType || 'ammo', e.ammo);
   if (e.modules) for (const m of e.modules) add(c, m, 1);
   if (e.recipe) {
     for (const k in e.buf) add(c, k, e.buf[k]);
@@ -647,8 +647,8 @@ function accept(t, item, src, dry = false, lane = -1) {
       if (item !== 'steam' || t.steam >= 10) return false;
       return ok(() => { t.steam++; });
     case 'turret':
-      if (item !== 'ammo' || t.ammo >= 20) return false;
-      return ok(() => { t.ammo++; });
+      if (!TURRET_AMMO[item] || t.ammo >= 20 || (t.ammo > 0 && (t.ammoType || 'ammo') !== item)) return false;
+      return ok(() => { t.ammoType = item; t.ammo++; });
     case 'shipyard': case 'starport': {
       if (t.type === 'starport') return false;   // los pedidos del Arca se entregan con el botón
       const need = shipNeeds(t);
@@ -684,7 +684,7 @@ function wantedBy(dst) {
     case 'furnace': return [...Object.keys(SMELT), 'coal', 'solid_fuel', 'wood'];
     case 'efurnace': return Object.keys(SMELT);
     case 'lab': return PACKS;
-    case 'turret': return ['ammo'];
+    case 'turret': return Object.keys(TURRET_AMMO);
     case 'boiler': return ['water', 'coal', 'solid_fuel', 'wood'];
     case 'reactor': return ['fuel_cell'];
     case 'heatex': return ['water'];
@@ -1552,7 +1552,7 @@ function heatStep(dt) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor', 'concrete_floor', 'refined_floor', 'landmine']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

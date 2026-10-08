@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  road: '#a8664a', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  road: '#a8664a', concrete_floor: '#9a9a94', refined_floor: '#6a6e72', landmine: '#5a2a20', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', centrifuge: '#7be05a', reactor: '#9aa3ad', heatex: '#d07a3a', heatpipe: '#c06a2a', steam_turbine: '#b8c6d2', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -1091,6 +1091,16 @@ function drawBuilding(g, e, x0, y0, t) {
       drawCar(g, cx, cy, 0, true, 0);
       break;
 
+    case 'concrete_floor': case 'refined_floor': {
+      const ref = e.type === 'refined_floor';
+      g.fillStyle = ref ? '#5e6266' : '#8e8e88'; g.fillRect(x0, y0, TILE, TILE);
+      const k = hash(e.x, e.y, 310) * 14 - 7;
+      g.fillStyle = ref ? `rgb(${104 + k},${108 + k},${112 + k})` : `rgb(${158 + k},${157 + k},${150 + k})`;
+      g.fillRect(x0 + 1, y0 + 1, TILE - 2, TILE - 2);
+      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1; g.strokeRect(x0 + 0.5, y0 + 0.5, TILE - 1, TILE - 1);
+      if (ref) { g.strokeStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.moveTo(x0 + 4, y0 + TILE / 2); g.lineTo(x0 + TILE - 4, y0 + TILE / 2); g.stroke(); }
+      break;
+    }
     case 'road': {
       // Ladrillos, con juntas y algo de desgaste
       g.fillStyle = '#8a5a42'; g.fillRect(x0, y0, TILE, TILE);

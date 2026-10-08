@@ -357,7 +357,7 @@ function turretStep(e, dt) {
 
   let fire = false;
   if (e.type === 'turret') {
-    if (e.shots <= 0 && e.ammo > 0) { e.ammo--; e.shots = 10; }
+    if (e.shots <= 0 && e.ammo > 0) { e.ammo--; e.shots = 10; e.shotMul = TURRET_AMMO[e.ammoType || 'ammo'] || 1; }
     if (e.shots > 0) { e.shots--; fire = true; e.cd = 1 / def.rate; }
   } else {
     const sp = drawPower(e, def.power);
@@ -365,7 +365,7 @@ function turretStep(e, dt) {
   }
   if (!fire) return;
   sfx(e.type === 'laser' ? 'laser' : 'shot', e.x, e.y);
-  const dmg = def.dmg * weaponMult() * mkMult(e);
+  const dmg = def.dmg * weaponMult() * mkMult(e) * (e.type === 'turret' ? e.shotMul || 1 : 1);
   if (target) {
     hitBiter(target, dmg);
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });

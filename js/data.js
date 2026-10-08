@@ -61,6 +61,11 @@ const ITEMS = {
   speed_module:   { name: 'Módulo de velocidad',     color: '#4aa3df', shape: 'module' },
   prod_module:    { name: 'Módulo de productividad', color: '#e0743a', shape: 'module' },
   eff_module:     { name: 'Módulo de eficiencia',    color: '#5cc47a', shape: 'module' },
+  piercing_ammo:  { name: 'Munición perforante', color: '#c95a2a', shape: 'ammo' },
+  uranium_ammo:   { name: 'Munición de uranio', color: '#7be05a', shape: 'ammo' },
+  barrel:         { name: 'Barril vacío',       color: '#8a96a3', shape: 'barrel' },
+  concrete:       { name: 'Hormigón',           color: '#9a9a94', shape: 'plate' },
+  refined_concrete:{ name: 'Hormigón refinado', color: '#6a6e72', shape: 'plate' },
   grenade:        { name: 'Granada',            color: '#4a5a3a', shape: 'ammo' },
   cluster_grenade:{ name: 'Granada de racimo',  color: '#6a4a3a', shape: 'ammo' },
   poison_capsule: { name: 'Cápsula de veneno',  color: '#7ac43a', shape: 'module' },
@@ -110,6 +115,10 @@ const ITEMS = {
   cristal:        { name: 'Cristal antiguo',    color: '#62e0d0', shape: 'part' },
   corazon:        { name: 'Corazón de bestia',  color: '#d9455f', shape: 'part' },
 };
+// Barriles llenos: uno por cada líquido (5 unidades en un solo objeto)
+const BARREL_FLUIDS = ['water', 'oil', 'lubricant', 'petroleum_gas', 'heavy_oil', 'light_oil', 'sulfuric_acid'];
+const BARREL_N = 5;
+for (const f of BARREL_FLUIDS) ITEMS['barrel_' + f] = { name: 'Barril de ' + ITEMS[f].name.toLowerCase(), color: ITEMS[f].color, shape: 'barrel', barrel: f };
 const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
 
@@ -185,6 +194,11 @@ const RECIPES = {
   reprocessing: { machine: 'centri', tier: 1, in: { used_cell: 5 },                         out: 'u238',         n: 3, time: 60,  tech: 'nuclear_power' },
   kovarex:      { machine: 'centri', tier: 1, in: { u235: 40, u238: 5 },                    out: 'u235',         n: 41, time: 60, tech: 'kovarex', alt: { out: 'u238', n: 2, p: 1 } },
   // Armas del personaje
+  piercing_ammo: { machine: 'asm', tier: 1, in: { ammo: 1, steel: 1, copper_plate: 5 },  out: 'piercing_ammo', n: 1, time: 3, tech: 'military2' },
+  uranium_ammo: { machine: 'asm',  tier: 1, in: { piercing_ammo: 1, u238: 1 },              out: 'uranium_ammo', n: 1, time: 10, tech: 'uranium_ammo' },
+  barrel:       { machine: 'asm',  tier: 1, in: { steel: 1 },                               out: 'barrel',       n: 1, time: 1,  tech: 'fluid_handling' },
+  concrete:     { machine: 'asm',  tier: 1, in: { brick: 5, iron_ore: 1, water: 10 },      out: 'concrete',     n: 10, time: 10, tech: 'concrete' },
+  refined_concrete: { machine: 'asm', tier: 2, in: { concrete: 20, iron_stick: 8, steel: 1, water: 10 }, out: 'refined_concrete', n: 10, time: 15, tech: 'concrete' },
   grenade:      { machine: 'asm',  tier: 1, in: { coal: 10, iron_plate: 5 },              out: 'grenade',      n: 1, time: 8,  tech: 'military2' },
   cluster_grenade: { machine: 'asm', tier: 1, in: { grenade: 7, explosives: 5, steel: 5 }, out: 'cluster_grenade', n: 1, time: 8, tech: 'military3' },
   poison_capsule: { machine: 'asm', tier: 1, in: { steel: 3, circuit: 3, coal: 10 },       out: 'poison_capsule', n: 1, time: 8, tech: 'military3' },
@@ -211,6 +225,11 @@ const RECIPES = {
   artillery_shell: { machine: 'asm', tier: 2, in: { steel: 2, sulfur: 2, ammo: 2 },         out: 'artillery_shell', n: 1, time: 8, tech: 'artillery' },
   cannon_shell: { machine: 'asm',  tier: 2, in: { steel: 1, sulfur: 1, ammo: 1 },           out: 'cannon_shell', n: 2, time: 4,   tech: 'vehicles4' },
 };
+// Llenar y vaciar barriles (vaciar devuelve también el barril)
+for (const f of BARREL_FLUIDS) {
+  RECIPES['fill_' + f] = { machine: 'asm', tier: 1, in: { [f]: BARREL_N, barrel: 1 }, out: 'barrel_' + f, n: 1, time: 0.2, tech: 'fluid_handling' };
+  RECIPES['empty_' + f] = { machine: 'asm', tier: 1, in: { ['barrel_' + f]: 1 }, out: f, n: BARREL_N, time: 0.2, tech: 'fluid_handling', alt: { out: 'barrel', n: 1, p: 1 } };
+}
 const RECIPE_ORDER = Object.keys(RECIPES);
 
 // Edificios.
@@ -239,6 +258,10 @@ const BUILDINGS = {
                  desc: 'Lleva la señal de la Nave más lejos: cerca de una antena podés construir y fabricar con lo guardado en la Nave, sin sacarlo. Tiene que estar dentro de la señal de la Nave o de otra antena. Usa 100 kW: sin energía no hay señal.' },
   road:        { name: 'Camino',              cat: 'logística', hp: 200, cost: { brick: 2 },
                  desc: 'Camino de ladrillos: los árboles no dejan pasar, pero por el camino se anda y se maneja un 10 % más rápido. Se tiende de punta a punta como una cinta.' },
+  concrete_floor: { name: 'Piso de hormigón', cat: 'logística', hp: 300, cost: { concrete: 1 }, tech: 'concrete',
+                 desc: 'Se camina y se maneja un 20 % más rápido. Se tiende de punta a punta.' },
+  refined_floor: { name: 'Piso de hormigón refinado', cat: 'logística', hp: 400, cost: { refined_concrete: 1 }, tech: 'concrete',
+                 desc: 'El piso más rápido: un 30 % más rápido caminando o manejando.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 7, gear: 2, circuit: 5 }, tech: 'logistics',
                  desc: 'Reparte objetos entre adelante, izquierda y derecha.' },
   sorter:      { name: 'Filtro',              cat: 'logística', hp: 120, cost: { iron_plate: 5, circuit: 4 }, tech: 'sorting',
@@ -311,9 +334,9 @@ const BUILDINGS = {
                  desc: 'Con agua y carbón hace vapor (hasta 1,8 por segundo). Sale por la flecha.' },
   steam_engine:{ name: 'Máquina de vapor',    cat: 'energía', output: 900, hp: 300, cost: { gear: 8, iron_plate: 15 }, tech: 'steam_power',
                  desc: 'Convierte vapor en hasta 900 kW. El vapor que le sobra pasa a la siguiente por la flecha.' },
-  centrifuge:  { name: 'Centrífuga',          cat: 'producción', as: 'assembler2', size: 2, speed: 1, tier: 1, machine: 'centri', power: 350, poll: 4, hp: 350, cost: { steel: 50, processor: 100, gear: 100, brick: 100 }, tech: 'uranium_processing',
+  centrifuge:  { name: 'Centrífuga',          cat: 'producción', as: 'assembler2', size: 2, speed: 1, tier: 1, machine: 'centri', power: 350, poll: 4, hp: 350, cost: { steel: 50, processor: 100, gear: 100, concrete: 100 }, tech: 'uranium_processing',
                  desc: 'Separa el uranio: de 10 de mineral sale U-238 (y a veces, 1 de cada 100, el valioso U-235). También reprocesa celdas gastadas y hace el enriquecimiento Kovarex. Usa 350 kW.' },
-  reactor:     { name: 'Reactor nuclear',     cat: 'energía', size: 3, heat: 40000, hp: 500, cost: { steel: 500, processor: 500, copper_plate: 500, brick: 500 }, tech: 'nuclear_power',
+  reactor:     { name: 'Reactor nuclear',     cat: 'energía', size: 3, heat: 40000, hp: 500, cost: { steel: 500, processor: 500, copper_plate: 500, concrete: 500 }, tech: 'nuclear_power',
                  desc: 'Quema celdas de uranio (200 s cada una) y da 40 MW de calor a los intercambiadores pegados o unidos con tuberías de calor. Cada reactor vecino encendido suma +100 %. Anda también en la Luna.' },
   heatex:      { name: 'Intercambiador de calor', cat: 'energía', size: 2, rate: 10, hp: 200, cost: { steel: 10, copper_plate: 100, iron_plate: 10 }, tech: 'nuclear_power',
                  desc: 'Con el calor del reactor (a más de 500 °C) convierte agua en vapor: hasta 10 por segundo (10 MW). Sale por la flecha.' },
@@ -342,7 +365,7 @@ const BUILDINGS = {
                  desc: 'Un muro que se abre para vos y tus amigos (y para los trenes) pero no para los bichos.' },
   flameturret: { name: 'Torreta lanzallamas', cat: 'defensa', range: 8, dmg: 6, hp: 900, cost: { steel: 30, gear: 15, iron_plate: 10, engine: 5 }, tech: 'flamethrower',
                  desc: 'Quema todo lo que entra a 8 casillas y daña a los que están alrededor. Usa petróleo: pegala a una cañería o dale barriles con brazos.' },
-  artillery:   { name: 'Torreta de artillería', cat: 'defensa', size: 2, range: 60, dmg: 400, blast: 3, rate: 8, hp: 2000, cost: { steel: 60, gear: 40, processor: 20, brick: 60 }, tech: 'artillery',
+  artillery:   { name: 'Torreta de artillería', cat: 'defensa', size: 2, range: 60, dmg: 400, blast: 3, rate: 8, hp: 2000, cost: { steel: 60, gear: 40, processor: 20, concrete: 60 }, tech: 'artillery',
                  desc: 'Sola, bombardea los nidos que estén a 60 casillas o menos. Usa proyectiles de artillería.' },
   laser:       { name: 'Torreta láser',       cat: 'defensa', range: 12, rate: 2, dmg: 18, power: 400, hp: 600, cost: { steel: 20, circuit: 20, battery: 12 }, tech: 'laser_turrets',
                  desc: 'Dispara con electricidad a 12 casillas. Usa 400 kW al disparar.' },
@@ -395,7 +418,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -468,14 +491,18 @@ const TECHS = {
                        desc: 'Silicio a partir de cuarzo, y procesadores.' },
   chemical_science:  { name: 'Ciencia azul',         packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['silicon'],
                        desc: 'Receta del pack de ciencia azul.' },
-  uranium_processing: { name: 'Uranio',            packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 20, req: ['chemical_science', 'oil'],
+  uranium_processing: { name: 'Uranio',            packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 20, req: ['chemical_science', 'oil', 'concrete'],
                        desc: 'Centrífuga y procesamiento de uranio. El mineral de uranio se extrae con taladros eléctricos y ácido sulfúrico (por cañería).' },
   nuclear_power:     { name: 'Energía nuclear',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 400, time: 25, req: ['uranium_processing'],
                        desc: 'Reactor, intercambiador de calor, tubería de calor, turbina de vapor, celdas de combustible y su reprocesamiento.' },
   kovarex:           { name: 'Enriquecimiento Kovarex', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 600, time: 30, req: ['nuclear_power'],
                        desc: 'En la centrífuga: 40 de U-235 + 5 de U-238 dan 41 de U-235 + 2 de U-238. Así se multiplica el U-235.' },
+  concrete:          { name: 'Hormigón',              packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['advanced_assembly', 'fluid_handling'],
+                       desc: 'Hormigón (ladrillos + mineral de hierro + agua) y pisos más rápidos que el camino. Lo usan los edificios grandes.' },
+  uranium_ammo:      { name: 'Munición de uranio',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['uranium_processing', 'military3'],
+                       desc: 'La munición más fuerte para torretas: perforante + U-238.' },
   military2:         { name: 'Armas 2: granadas',     packs: ['sci_red', 'sci_green'], units: 40, time: 15, req: ['defense', 'logistic_science'],
-                       desc: 'Granadas para tu personaje: se usan desde la barra de combate (arriba de la de construir).' },
+                       desc: 'Granadas para tu personaje (se usan desde la barra de combate) y munición perforante para torretas.' },
   land_mines:        { name: 'Minas terrestres',      packs: ['sci_red', 'sci_green'], units: 50, time: 15, req: ['military2'],
                        desc: 'Minas que explotan cuando pasa un enemigo.' },
   rocketry_weapons:  { name: 'Lanzacohetes',          packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['military2', 'electronics'],
@@ -634,6 +661,8 @@ function setMapSize(w, h) {
   W = w; H = h;
   PW = Math.ceil(W / POLL_CELL); PH = Math.ceil(H / POLL_CELL);
 }
+// Munición de las torretas: cuánto más daño hace cada una
+const TURRET_AMMO = { ammo: 1, piercing_ammo: 1.6, uranium_ammo: 2.4 };
 const BITERS = {
   small:  { name: 'Bicho chico',   hp: 15,  dmg: 7,  speed: 1.6, cost: 4,  size: 5,  color: '#b5803a' },
   medium: { name: 'Bicho mediano', hp: 80,  dmg: 15, speed: 1.4, cost: 20, size: 7,  color: '#8b4f9e' },
