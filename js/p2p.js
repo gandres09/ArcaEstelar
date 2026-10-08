@@ -381,7 +381,10 @@ async function p2pJoin(rawCode) {
   if (P2P.peer) p2pClose(true);
   p2pSetStatus('Conectando…');
   try { await p2pLoadLib(); } catch (e) { p2pSetStatus('', e.message); return false; }
-  P2P.uid = P2P.asUid || p2pUid();   // con el link del dueño, entrás como el dueño (tu misma base)
+  // Con el link del dueño (o si alguna vez lo usaste en esta compu) entrás como el dueño: tu misma base
+  let asUid = P2P.asUid;
+  try { if (asUid) localStorage.setItem('mini-fabrica-p2p-yo-' + code, asUid); else asUid = localStorage.getItem('mini-fabrica-p2p-yo-' + code); } catch (_) { /* nada */ }
+  P2P.uid = asUid || p2pUid();
   const ok = await new Promise((res) => {
     const peer = new window.Peer(undefined, p2pPeerOptions());
     let done = false;
