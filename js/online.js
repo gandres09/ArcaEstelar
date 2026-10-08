@@ -132,9 +132,8 @@ function netApply(a) {
       case 'nf': if (a.u && !(S.factionOf || {})[a.u]) createFaction(a.u, a.t, a.n); return true;
       case 'cf': {
         if (!a.u || !S.factions || !S.factions[a.f] || (S.factionOf || {})[a.u]) return true;
-        if (Object.values(S.factionOf).includes(a.f)) return true;   // ya la tomó otro
         S.factionOf[a.u] = a.f;
-        if (a.n) S.factions[a.f].name = a.n;
+        if (a.n && !S.factions[a.f].name) S.factions[a.f].name = a.n;
         return true;
       }
       case 'gift': if (S.factions && S.factions[a.to] && ITEMS[a.i] && a.n > 0) add(S.factions[a.to].inv, a.i, a.n); return true;
@@ -149,6 +148,7 @@ function netApply(a) {
         e.n = a.n; e.at = Date.now();
         if (a.d) e.d = a.d;
         if (a.i) e.i = a.i;
+        if (Array.isArray(a.pos) && a.pos.length === 3 && Number.isFinite(a.pos[0]) && Number.isFinite(a.pos[1])) e.pos = a.pos;
         if (Array.isArray(a.g) && a.gp >= 0 && a.gp < 10) {
           e.gn = a.gn;
           if (!Array.isArray(e.pages)) e.pages = [];
@@ -188,6 +188,7 @@ function netTick(dt) {
   else netClientProcess(peers);
   NET.shadow = { ...S.inv };
   netUpdateAvatars(peers, dt);
+  netBackupPos();
 
   const now = performance.now();
   if (now - NET.presAt > 120) { NET.presAt = now; netSendPresence(); }
@@ -374,6 +375,8 @@ function netMySurfaceView(obj, first) {
   if (first) {
     mine = 'earth';
     try { const me = JSON.parse(localStorage.getItem(NET_ME_KEY) || 'null'); if (me && me.seed === st.seed && me.player && me.player.surf) mine = me.player.surf; } catch (_) { /* nada */ }
+    const cp = netGuestCopy(st);
+    if (cp && cp.d.surf && (cp.d.surf === hostSf || (st.surf && st.surf[cp.d.surf]))) mine = cp.d.surf;
   }
   if (mine === hostSf) return obj;
   const o = st.surf && st.surf[mine];
@@ -428,6 +431,8 @@ function applyShared(obj, first) {
       for (const k in d) if (d[k] != null) S.player[k] = d[k];
       if (!me || !me.player) toast('🧍 Recuperé tu personaje desde el mundo del anfitrión.');
     }
+    // Entré de un dispositivo nuevo y no se sabe dónde estaba: aparezco en mi base
+    if (S.player && !(me && me.player) && !(restored && copy.d.x != null)) setTimeout(() => { if (myF()) goToMyBase(); }, 700);
     if (S.player) { S.player.path = null; S.player.queue = S.player.queue || []; S.player.craft = S.player.craft || []; }
     relocateToSurface();
     NET.lastGs = obj.gs || 0;
@@ -457,7 +462,7 @@ function applyShared(obj, first) {
   NET.lastGs = Math.max(NET.lastGs, after);
   NET.shadow = { ...S.inv };
   netRemapRefs();
-  if (first || !same) setTimeout(checkNeedBase, 600);
+  if (first || !same || (multiBase() && !myF())) setTimeout(checkNeedBase, 600);
 }
 
 // Después de cambiar todo el estado, las referencias viejas apuntan a los edificios nuevos
@@ -606,6 +611,7 @@ function netWorldHostAlive(wid) {
 
 function netStart() {
   NET.on = true;
+  if (S && S.factions && typeof myF === 'function') myF();   // el dueño queda anotado en su base desde la primera foto
   NET.shadow = { ...S.inv };
   NET.hostSeenAt = performance.now();
   document.body.classList.add('online');
@@ -673,11 +679,23 @@ function netBackupMine() {
   for (let i = 1; i < pages.length; i++) netPush({ k: 'me', u, n, gn: pages.length, gp: i, g: pages[i] });
   if (JSON.stringify(S.pinv || {}).length < 2000) netPush({ k: 'me', u, n, i: S.pinv || {} });
 }
+// Dónde quedó mi personaje (para volver ahí aunque entre desde otra compu o el celular)
+let netPosAt = 0, netPosLast = '';
+function netBackupPos() {
+  if (NET.role === 'host' || !S.player || Date.now() - netPosAt < 4000) return;
+  netPosAt = Date.now();
+  const pos = [Math.round(S.player.x * 10) / 10, Math.round(S.player.y * 10) / 10, surfName()];
+  const k = pos.join(',');
+  if (k === netPosLast || (!NET.uid && !NET.nick)) return;
+  netPosLast = k;
+  netPush({ k: 'me', u: NET.uid || null, n: NET.nick || null, pos });
+}
 // La copia guardada de un invitado, ya armada
 function guestData(e) {
   if (!e || !e.d) return null;
   const gear = e.pages && e.pages.length === e.gn && e.pages.every(Array.isArray) ? e.pages.flat() : null;
-  return { ...e.d, ...(gear ? { gear } : {}), pinv: e.i || null };
+  const pos = Array.isArray(e.pos) ? { x: e.pos[0], y: e.pos[1], surf: e.pos[2] || 'earth' } : {};
+  return { ...e.d, ...pos, ...(gear ? { gear } : {}), pinv: e.i || null };
 }
 function netGuestCopy(st) {
   const g = st && st.guests;

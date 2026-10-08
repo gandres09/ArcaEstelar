@@ -79,6 +79,22 @@ function serverDropPlayer() {
   S.player = null;
   if (S.factionOf && NET.uid && S.factionOf[NET.uid]) { delete S.factionOf[NET.uid]; NET.presAt = 0; }
 }
+// Olvida quién es quién y borra las bases armadas aparte (queda solo la principal)
+function serverResetPlayers() {
+  if (!S || !S.factions) return;
+  for (const e of S.entities.slice()) if (e.f && e.f !== 'f0') removeEntity(e, { silent: true, noRefund: true });
+  for (const f of Object.keys(S.factions)) if (f !== 'f0') delete S.factions[f];
+  S.factionOf = {};
+  S.guests = {};
+  S.basePatches = [];
+  S.factions.f0.name = null;
+  useFaction('f0');
+  NET.lastSnap = 0;
+  save();
+  renderServerPanel();
+  toast('🧹 Listo: al entrar, cada uno elige de nuevo dónde juega.');
+}
+
 function serverGuard() {
   if (S && S.player) serverDropPlayer();
   if (NET.on && NET.role !== 'host' && NET.canWrite && performance.now() - NET.leaseAt > 5000) {
@@ -102,6 +118,7 @@ function renderServerPanel() {
     document.body.appendChild(el);
     el.addEventListener('click', async (ev) => {
       if (ev.target.closest('[data-srv="stop"]')) stopServerMode();
+      if (ev.target.closest('[data-srv="reset"]') && confirm('¿Olvidar a los jugadores y borrar las bases que armaron aparte? La base principal queda como está. Cada uno elige de nuevo al entrar.')) serverResetPlayers();
       const c = ev.target.closest('[data-copy]');
       if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast('Link copiado.'); } catch (_) { prompt('Copiá el link:', c.dataset.copy); } }
     });
@@ -118,7 +135,7 @@ function renderServerPanel() {
     <p class="muted small">Esta compu no tiene personaje: los únicos que juegan son los que entran.</p>`
     : '<p class="muted small">Ustedes entran desde el celular o desde otra compu: vos con <b>🌐 → Entrar a mi mundo</b>, tu amigo con <b>🌐 → Unirme</b>.</p>'}
     <p class="muted small">Dejá esta pestaña abierta (la podés minimizar) y configurá la compu para que no se suspenda.</p>
-    <div class="actions"><button type="button" data-srv="stop">Dejar de ser servidor</button></div>`;
+    <div class="actions"><button type="button" data-srv="stop">Dejar de ser servidor</button>${multiBase() ? '<button type="button" data-srv="reset">🧹 Empezar de cero con los jugadores</button>' : ''}</div>`;
 }
 setInterval(() => { if (SERVER.on) renderServerPanel(); }, 5000);
 

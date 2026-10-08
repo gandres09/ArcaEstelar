@@ -29,6 +29,8 @@ function p2pUid() {
   return id;
 }
 
+const p2pNameUid = (n) => 'n_' + String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '').slice(0, 24);
+
 function p2pNewCode() {
   let c = '';
   for (let i = 0; i < 8; i++) c += P2P_ALPHA[Math.floor(Math.random() * P2P_ALPHA.length)];
@@ -255,8 +257,8 @@ function p2pNickOf(uid) {
 const p2pUser = {
   id: async () => P2P.uid,
   me: async () => ({ id: P2P.uid, name: '', color: '#3987e5' }),
-  can: async () => true,
-  canEdit: async () => true,
+  can: async () => P2P.host,       // el mundo lo lleva solo la compu que abrió la sala
+  canEdit: async () => P2P.host,
   isOwner: async () => P2P.host,
   search: async () => [],
   profiles: async (ids) => Object.fromEntries([].concat(ids).map((i) => [i, { id: i, name: p2pNickOf(i), color: '#3987e5', isMe: i === P2P.uid }])),
@@ -388,10 +390,16 @@ async function p2pJoin(rawCode) {
   if (P2P.peer) p2pClose(true);
   p2pSetStatus('Conectando…');
   try { await p2pLoadLib(); } catch (e) { p2pSetStatus('', e.message); return false; }
-  // Con el link del dueño (o si alguna vez lo usaste en esta compu) entrás como el dueño: tu misma base
-  let asUid = P2P.asUid;
-  try { if (asUid) localStorage.setItem('mini-fabrica-p2p-yo-' + code, asUid); else asUid = localStorage.getItem('mini-fabrica-p2p-yo-' + code); } catch (_) { /* nada */ }
-  P2P.uid = asUid || p2pUid();
+  // Sin cuentas: cada jugador es su nombre. Así, desde la compu o desde el celular, sos el mismo
+  // (tu base, tu personaje y donde lo dejaste).
+  if (!NET.nick) { try { NET.nick = cleanNick(localStorage.getItem(NICK_KEY)); } catch (_) { /* nada */ } }
+  if (!NET.nick) {
+    const n = cleanNick(prompt('¿Cómo te llamás en el juego? Usá siempre el mismo nombre (en la compu y en el celular) para seguir con tu personaje y tu base.') || '');
+    if (n.length < 2) { p2pSetStatus('', 'Para entrar escribí tu nombre de jugador.'); return false; }
+    NET.nick = n;
+    try { localStorage.setItem(NICK_KEY, n); } catch (_) { /* nada */ }
+  }
+  P2P.uid = P2P.asUid || p2pNameUid(NET.nick);
   const ok = await new Promise((res) => {
     const peer = new window.Peer(undefined, p2pPeerOptions());
     let done = false;

@@ -62,7 +62,12 @@ const isFoeF = (a, b) => multiBase() && a && b && a !== b && teamOf(a) !== teamO
 const isFoeE = (e) => multiBase() && isPlayer(e) && isFoeF(myF(), fOf(e));
 const hubOf = (f) => S.entities.find((e) => (e.type === 'hub' || e.type === 'lander') && fOf(e) === f);
 const teamColor = (f) => TEAM_COLORS[(teamOf(f) - 1) % TEAM_COLORS.length];
-const factionName = (f) => (S.factions[f] && S.factions[f].name) || (f === 'f0' ? 'Anfitrión' : 'Jugador ' + f.slice(1));
+// El nombre de una base: los jugadores que la usan (o el que le pusieron)
+function factionName(f) {
+  const who = Object.keys(S.factionOf || {}).filter((u) => S.factionOf[u] === f).map((u) => (typeof netNameOf === 'function' ? netNameOf(u) : '')).filter((n) => n && n !== 'Jugador');
+  if (who.length) return who.join(' y ');
+  return (S.factions[f] && S.factions[f].name) || (f === 'f0' ? 'Base principal' : 'Base ' + f.slice(1));
+}
 
 // --------------------------- Bases nuevas ---------------------------
 
@@ -140,48 +145,40 @@ function createFaction(uid, team, name) {
 
 // --------------------------- Elegir equipo al entrar ---------------------------
 
-let teamAsked = false;
 function checkNeedBase() {
-  if (!multiBase() || !S.character || !NET.on || myF() || teamAsked) return;
-  teamAsked = true;
-  const host = factionName('f0');
+  if (!multiBase() || !S.character || !NET.on || myF() || document.getElementById('team-pick') || (typeof SERVER !== 'undefined' && SERVER.on)) return;
+  const users = Object.keys(S.factionOf || {}).filter((u) => S.factionOf[u] === 'f0');
+  const mainWho = users.length ? `con ${escapeHtml(factionName('f0'))}` : '(está libre)';
   const box = document.createElement('div');
   box.id = 'team-pick';
   box.className = 'modal';
-  box.innerHTML = `<div class="modal-box panel"><h1>🏳️ Tu base</h1>
-    <p>En este mundo cada jugador tiene su propia Nave, su inventario y su investigación. Tu base aparece a unas ${BASE_DIST} casillas de las demás.</p>
+  box.innerHTML = `<div class="modal-box panel"><h1>🏳️ ¿Dónde jugás?</h1>
     <div class="actions" style="flex-direction:column;align-items:stretch">
-      ${freeBase() ? `<button type="button" class="primary" data-team="claim">🏠 Tomar la base principal (la que ya está armada)</button>` : ''}
-      <button type="button" class="${freeBase() ? '' : 'primary'}" data-team="ally">🤝 Aliado de ${escapeHtml(host)}: no se pueden atacar y se pueden mandar cosas</button>
-      <button type="button" data-team="enemy">⚔️ Enemigo: vale todo (torretas, armas y robots contra el otro)</button>
-    </div></div>`;
+      <button type="button" class="primary" data-team="main">🤝 <b>Jugar en la base principal</b> ${mainWho}<br><span class="small">Comparten la Nave, el inventario y la investigación.</span></button>
+      <button type="button" data-team="ally">🏳️ Armar mi propia base aliada<br><span class="small">Lejos (${BASE_DIST} casillas), con tu propia Nave. No se pueden atacar y se pueden mandar cosas.</span></button>
+      <button type="button" data-team="enemy">⚔️ Armar mi propia base enemiga<br><span class="small">Lejos, con tu propia Nave. Vale todo: torretas, armas y robots contra el otro.</span></button>
+    </div>
+    <p class="muted small">Se elige una sola vez: la próxima vez que entres (desde cualquier compu, con tu mismo nombre) seguís donde estabas.</p></div>`;
   document.body.appendChild(box);
   box.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-team]');
     if (!b) return;
-    if (b.dataset.team === 'claim') { box.remove(); claimBase(freeBase()); return; }
-    const maxTeam = Math.max(...Object.values(S.factions).map((F) => F.team || 1));
-    const team = b.dataset.team === 'ally' ? teamOf('f0') : maxTeam + 1;
     box.remove();
-    joinWithBase(team);
+    if (b.dataset.team === 'main') { claimBase('f0'); return; }
+    const maxTeam = Math.max(...Object.values(S.factions).map((F) => F.team || 1));
+    joinWithBase(b.dataset.team === 'ally' ? teamOf('f0') : maxTeam + 1);
   });
 }
-// Una base que no es de nadie (por ejemplo, la del mundo que abrió la compu servidor)
-function freeBase() {
-  if (!S.factions) return null;
-  const owned = new Set(Object.values(S.factionOf || {}));
-  return Object.keys(S.factions).find((f) => !owned.has(f) && hubOf(f)) || null;
-}
+// Sumarse a una base que ya existe (se comparte con quien ya esté)
 function claimBase(f) {
-  if (!f) return;
+  if (!f || !S.factions[f]) return;
   S.factionOf[NET.uid] = f;
-  if (NET.nick && S.factions[f]) S.factions[f].name = NET.nick;
+  if (NET.nick && !S.factions[f].name) S.factions[f].name = NET.nick;
   netPush({ k: 'cf', u: NET.uid, f, n: NET.nick || null });
   useMine();
   goToMyBase();
-  toast('🏠 ¡La base principal es tuya!');
+  toast('🤝 ¡Estás en la base principal!');
 }
-
 function joinWithBase(team) {
   const nick = NET.nick || null;
   const fid = createFaction(NET.uid, team, nick);
