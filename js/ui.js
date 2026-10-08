@@ -1616,6 +1616,7 @@ function showWin(final = true) {
 
 function updateUI() {
   document.body.classList.toggle('has-player', playerOn());   // también con el panel lateral cerrado (celular)
+  updateCombatBar();
   netUpdateChip();
   updateToolbar();
   updateTopbar();

@@ -602,6 +602,10 @@ window.addEventListener('keydown', (ev) => {
     toggleTorch();
   } else if (k === 'm') {
     if (hover && !isTouch()) placeMarkerAtTile(hover); else startMarkMode();
+  } else if (k === 'g' && playerOn()) {
+    // Usar la primera arma de la barra de combate
+    const k2 = COMBAT_ORDER.find((x) => canUseCombat(x));
+    if (k2) useCombatItem(k2); else toast('No tenés armas para tirar (granadas, cápsulas, cohetes).');
   } else if (k === 'e' && playerOn()) {
     // Subir al vehículo más cercano, o bajarse
     if (myVehicle()) exitVehicle();

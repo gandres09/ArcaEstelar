@@ -389,6 +389,12 @@ async function init() {
   initMarkers();
   initRpgUi();
   $('btn-gear').addEventListener('click', () => openModal('gear'));
+  $('combat-bar').addEventListener('pointerdown', (ev) => {
+    const b = ev.target.closest('[data-combat]');
+    if (!b) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (useCombatItem(b.dataset.combat)) { combatKey = ''; updateCombatBar(); }
+  });
   $('torch-chip').addEventListener('click', toggleTorch);
   $('weather').addEventListener('click', () => {
     const n = weatherNow(), nx = WEATHERS[n.next];

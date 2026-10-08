@@ -142,7 +142,7 @@ function spawnBiter(nest, kind) {
 function nearestPlayerEntity(x, y, maxD, pollutersOnly) {
   let best = null, bd = maxD;
   for (const e of S.entities) {
-    if (isEnemyB(e)) continue;
+    if (isEnemyB(e) || e.type === 'landmine') continue;   // las minas no las ven
     if (pollutersOnly && !BUILDINGS[e.type]?.poll) continue;
     const c = center(e);
     const d = wdist(x, y, c.x, c.y);
@@ -232,7 +232,7 @@ function biterStep(b, dt) {
     }
     return;
   }
-  const step = k.speed * dt;
+  const step = k.speed * slowMul(b) * dt;
   let nx = b.x + (dx / dist) * step, ny = b.y + (dy / dist) * step;
   // Los bichos no nadan: si hay agua en el medio, buscan un camino que la rodee
   if (b.path && b.path.length) {
@@ -445,7 +445,7 @@ function playerEntityNear(x, y, r) {
   const R = Math.ceil(r);
   for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
     const t = at(x + dx, y + dy);
-    if (!t || !isPlayer(t)) continue;
+    if (!t || !isPlayer(t) || t.type === 'landmine') continue;
     const d = Math.hypot(dx, dy);
     if (d < bd) { bd = d; best = t; }
   }
@@ -494,6 +494,7 @@ function updateEnemies(dt) {
     else if (e.type === 'flameturret') flameStep(e, dt);
     else if (e.type === 'artillery') artilleryStep(e, dt);
     else if (e.type === 'worm') wormStep(e, dt);
+    else if (e.type === 'landmine') landmineStep(e);
   }
   if (S.biters.some((b) => b.dead)) {
     for (const b of S.biters) if (b.dead) S.kills = (S.kills || 0) + 1;

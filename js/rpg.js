@@ -321,7 +321,7 @@ function creatureStep(c, dt, hs) {
     // Pasea cerca de donde apareció; el jefe vuelve a su guarida y se cura
     if (d.boss || c.guard) {
       const hx = wdx(c.hx - c.x), hy = wdy(c.hy - c.y), hd = Math.hypot(hx, hy);
-      if (hd > 1) { c.x = wrapX(c.x + hx / hd * d.speed * 0.6 * dt); c.y = wrapY(c.y + hy / hd * d.speed * 0.6 * dt); c.ang = Math.atan2(hy, hx); c.mv = true; }
+      if (hd > 1) { c.x = wrapX(c.x + hx / hd * d.speed * 0.6 * slowMul(c) * dt); c.y = wrapY(c.y + hy / hd * d.speed * 0.6 * slowMul(c) * dt); c.ang = Math.atan2(hy, hx); c.mv = true; }
       else c.mv = false;
       if (d.boss) c.hp = Math.min(c.mh, c.hp + c.mh * 0.05 * dt);
       return;
@@ -349,7 +349,7 @@ function creatureStep(c, dt, hs) {
     }
     return;
   }
-  const sp = d.speed * dt * (c.hitT ? 0.6 : 1);
+  const sp = d.speed * dt * (c.hitT ? 0.6 : 1) * slowMul(c);
   const nx = c.x + dx / dist * sp, ny = c.y + dy / dist * sp;
   if (walkableFor(nx, ny)) { c.x = wrapX(nx); c.y = wrapY(ny); }
   else if (walkableFor(nx, c.y)) c.x = wrapX(nx);
@@ -546,7 +546,7 @@ function rpgBiterHook(b, dt) {
     }
     return true;
   }
-  const nx = b.x + dx / d * k.speed * dt, ny = b.y + dy / d * k.speed * dt;
+  const nx = b.x + dx / d * k.speed * slowMul(b) * dt, ny = b.y + dy / d * k.speed * slowMul(b) * dt;
   if (walkableFor(nx, ny)) { b.x = wrapX(nx); b.y = wrapY(ny); }
   return true;
 }
@@ -633,6 +633,7 @@ function updateRpg(dt) {
   const hs = heroes();
   for (const c of S.creatures.slice()) if (!c.dead) creatureStep(c, dt, hs);
   for (const c of S.creatures) if (c.atk) c.atk = Math.max(0, c.atk - dt);
+  updateWeapons(dt);
   if (!playerOn()) return;
   if (!S.player.vehicle) playerCombat(dt);
   petCombat(dt);

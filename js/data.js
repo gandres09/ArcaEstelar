@@ -61,6 +61,16 @@ const ITEMS = {
   speed_module:   { name: 'Módulo de velocidad',     color: '#4aa3df', shape: 'module' },
   prod_module:    { name: 'Módulo de productividad', color: '#e0743a', shape: 'module' },
   eff_module:     { name: 'Módulo de eficiencia',    color: '#5cc47a', shape: 'module' },
+  grenade:        { name: 'Granada',            color: '#4a5a3a', shape: 'ammo' },
+  cluster_grenade:{ name: 'Granada de racimo',  color: '#6a4a3a', shape: 'ammo' },
+  poison_capsule: { name: 'Cápsula de veneno',  color: '#7ac43a', shape: 'module' },
+  slowdown_capsule:{ name: 'Cápsula de lentitud', color: '#6aa0f0', shape: 'module' },
+  defender_capsule:{ name: 'Cápsula de defensor', color: '#5aa0ff', shape: 'module' },
+  destroyer_capsule:{ name: 'Cápsula de destructores', color: '#b45fe0', shape: 'module' },
+  rocket_launcher:{ name: 'Lanzacohetes',       color: '#5a6a4a', shape: 'part' },
+  rocket:         { name: 'Cohete',             color: '#d9534f', shape: 'ammo' },
+  explosive_rocket:{ name: 'Cohete explosivo',  color: '#f08a3a', shape: 'ammo' },
+  atomic_bomb:    { name: 'Bomba atómica',      color: '#e8d84a', shape: 'ammo' },
   ammo:           { name: 'Munición',           color: '#c9a227', shape: 'ammo' },
   artillery_shell:{ name: 'Proyectil de artillería', color: '#8a9a5b', shape: 'ammo' },
   cannon_shell:   { name: 'Bala de cañón',      color: '#6b7a4a', shape: 'ammo' },
@@ -174,6 +184,17 @@ const RECIPES = {
   fuel_cell:    { machine: 'asm',  tier: 1, in: { iron_plate: 10, u235: 1, u238: 19 },    out: 'fuel_cell',    n: 10, time: 10, tech: 'nuclear_power' },
   reprocessing: { machine: 'centri', tier: 1, in: { used_cell: 5 },                         out: 'u238',         n: 3, time: 60,  tech: 'nuclear_power' },
   kovarex:      { machine: 'centri', tier: 1, in: { u235: 40, u238: 5 },                    out: 'u235',         n: 41, time: 60, tech: 'kovarex', alt: { out: 'u238', n: 2, p: 1 } },
+  // Armas del personaje
+  grenade:      { machine: 'asm',  tier: 1, in: { coal: 10, iron_plate: 5 },              out: 'grenade',      n: 1, time: 8,  tech: 'military2' },
+  cluster_grenade: { machine: 'asm', tier: 1, in: { grenade: 7, explosives: 5, steel: 5 }, out: 'cluster_grenade', n: 1, time: 8, tech: 'military3' },
+  poison_capsule: { machine: 'asm', tier: 1, in: { steel: 3, circuit: 3, coal: 10 },       out: 'poison_capsule', n: 1, time: 8, tech: 'military3' },
+  slowdown_capsule: { machine: 'asm', tier: 1, in: { steel: 2, circuit: 2, coal: 5 },      out: 'slowdown_capsule', n: 1, time: 8, tech: 'military3' },
+  defender_capsule: { machine: 'asm', tier: 1, in: { circuit: 3, gear: 3, ammo: 3 },       out: 'defender_capsule', n: 1, time: 8, tech: 'combat_robotics' },
+  destroyer_capsule: { machine: 'asm', tier: 1, in: { defender_capsule: 4, speed_module: 1 }, out: 'destroyer_capsule', n: 1, time: 15, tech: 'combat_robotics2' },
+  rocket_launcher: { machine: 'asm', tier: 1, in: { iron_plate: 5, gear: 5, circuit: 5 },  out: 'rocket_launcher', n: 1, time: 10, tech: 'rocketry_weapons' },
+  rocket:       { machine: 'asm',  tier: 1, in: { explosives: 1, iron_plate: 2 },          out: 'rocket',       n: 1, time: 4,  tech: 'rocketry_weapons' },
+  explosive_rocket: { machine: 'asm', tier: 1, in: { rocket: 1, explosives: 2 },           out: 'explosive_rocket', n: 1, time: 8, tech: 'explosive_rocketry' },
+  atomic_bomb:  { machine: 'asm',  tier: 2, in: { explosives: 10, processor: 10, u235: 30 }, out: 'atomic_bomb', n: 1, time: 50, tech: 'atomic_bomb' },
   // Etapa 2
   air_filter:   { machine: 'asm',  tier: 1, in: { coal: 2, plastic: 1, steel: 1 },          out: 'air_filter',   n: 2, time: 5,   tech: 'air_purification' },
   explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'cliff_explosives' },
@@ -311,6 +332,8 @@ const BUILDINGS = {
   lamp:        { name: 'Lámpara',             cat: 'energía', power: 5, hp: 60, cost: { iron_plate: 1, circuit: 1, cable: 3 }, tech: 'electricity',
                  desc: 'Ilumina de noche. Usa 5 kW.' },
 
+  landmine:    { name: 'Mina terrestre',      cat: 'defensa', hp: 15, cost: { steel: 1, explosives: 2 }, tech: 'land_mines',
+                 desc: 'Casi invisible: los bichos no la ven. Explota cuando pasa un enemigo (300 de daño alrededor). Con robots, se vuelve a poner sola.' },
   wall:        { name: 'Muro',                cat: 'defensa', hp: 350, cost: { brick: 5 }, tech: 'defense',
                  desc: 'Frena a los enemigos.' },
   turret:      { name: 'Torreta',             cat: 'defensa', range: 9, rate: 5, dmg: 5, hp: 400, cost: { iron_plate: 20, gear: 10, copper_plate: 10 }, tech: 'defense',
@@ -372,7 +395,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -451,6 +474,22 @@ const TECHS = {
                        desc: 'Reactor, intercambiador de calor, tubería de calor, turbina de vapor, celdas de combustible y su reprocesamiento.' },
   kovarex:           { name: 'Enriquecimiento Kovarex', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 600, time: 30, req: ['nuclear_power'],
                        desc: 'En la centrífuga: 40 de U-235 + 5 de U-238 dan 41 de U-235 + 2 de U-238. Así se multiplica el U-235.' },
+  military2:         { name: 'Armas 2: granadas',     packs: ['sci_red', 'sci_green'], units: 40, time: 15, req: ['defense', 'logistic_science'],
+                       desc: 'Granadas para tu personaje: se usan desde la barra de combate (arriba de la de construir).' },
+  land_mines:        { name: 'Minas terrestres',      packs: ['sci_red', 'sci_green'], units: 50, time: 15, req: ['military2'],
+                       desc: 'Minas que explotan cuando pasa un enemigo.' },
+  rocketry_weapons:  { name: 'Lanzacohetes',          packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['military2', 'electronics'],
+                       desc: 'Lanzacohetes y cohetes: mucho daño de lejos (ideal para gusanos).' },
+  combat_robotics:   { name: 'Robots de combate',     packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['military2', 'electronics'],
+                       desc: 'Cápsula de defensor: un robot que te sigue y dispara durante 60 s.' },
+  military3:         { name: 'Armas 3: cápsulas',     packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['military2', 'chemical_science'],
+                       desc: 'Granada de racimo, cápsula de veneno (nube que daña) y cápsula de lentitud.' },
+  combat_robotics2:  { name: 'Destructores',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['combat_robotics', 'modules'],
+                       desc: 'Cápsula de destructores: 5 robots fuertes durante 90 s.' },
+  explosive_rocketry:{ name: 'Cohetes explosivos',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['rocketry_weapons', 'military3'],
+                       desc: 'Cohetes que explotan en un área grande.' },
+  atomic_bomb:       { name: 'Bomba atómica',         packs: ['sci_red', 'sci_green', 'sci_blue'], units: 800, time: 30, req: ['kovarex', 'explosive_rocketry'],
+                       desc: 'Un cohete con 30 de U-235. Borra todo en 18 casillas… incluida tu fábrica si está cerca.' },
   logistic_network:  { name: 'Red logística',        packs: ['sci_red', 'sci_green', 'sci_blue'], units: 75, time: 20, req: ['chemical_science', 'receivers'],
                        desc: 'Los brazos pueden sacar del inventario de la Nave a través de cualquier Receptor.' },
   modules:           { name: 'Módulos',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],

@@ -668,6 +668,11 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
+    case 'landmine':
+      g.fillStyle = 'rgba(30,30,26,0.55)'; g.beginPath(); g.arc(cx, cy, 7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = Math.floor(t * 2 + e.x) % 3 ? '#5a2a20' : '#e5534b'; g.beginPath(); g.arc(cx, cy, 2, 0, Math.PI * 2); g.fill();
+      break;
+
     case 'woodchest':
       box(g, x0, y0, '#9a6a3a', '#5a3a1c', 5);
       g.fillStyle = 'rgba(60,35,15,0.6)';
@@ -2091,6 +2096,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
       if (b.x * TILE < vx0 - 20 || b.x * TILE > vx1 + 20 || b.y * TILE < vy0 - 20 || b.y * TILE > vy1 + 20 || !biterVisible(b)) continue;
       drawBiter(ctx, b, time);
     }
+    drawWeapons(ctx, time);
   }
   drawAdventure(ctx, vx0, vy0, vx1, vy1, lod, time);
   drawTrains(ctx, lod);

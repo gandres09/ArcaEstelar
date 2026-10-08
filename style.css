@@ -639,3 +639,13 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 .wire-row { align-items: center; flex-wrap: wrap; }
 .wire-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin: 2px 0; }
 .wire-item .mini { padding: 0 6px; min-height: 0; line-height: 1.4; }
+
+/* Barra de combate: armas del personaje */
+#combat-bar {
+  position: fixed; left: 8px; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); z-index: 6;
+  display: flex; gap: 4px; padding: 4px; flex-wrap: wrap; max-width: 50vw;
+}
+#combat-bar[hidden] { display: none; }
+#combat-bar button { position: relative; width: 42px; height: 42px; padding: 0; display: grid; place-items: center; }
+#combat-bar button.off { opacity: 0.45; }
+#combat-bar button span { position: absolute; right: 2px; bottom: 0; font-size: 10px; font-weight: 700; text-shadow: 0 0 2px #000; }
