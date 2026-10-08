@@ -457,10 +457,16 @@ async function init() {
       }
     }
     stepPixelMap(document.hidden ? 0 : 6);
-    // En modo servidor con la pestaña oculta, la simulación la lleva el reloj del servidor
-    if (!(SERVER.on && document.hidden)) {
+    // En modo servidor la simulación la lleva siempre el reloj del servidor (a tiempo real)
+    if (!SERVER.on) {
       netTick(dt);
       if (!launchAnim || launchAnim.t < 8) { update(dt); updateBackground(dt); }
+      // De anfitrión, si el navegador frena los cuadros (pestaña tapada), se recupera el tiempo perdido:
+      // si no, el mundo de todos va más lento y las fotos "borran" lo que los demás ya vieron
+      if (NET.on && NET.role === 'host' && realDt > 0.1) {
+        let left = Math.min(2, realDt) - dt;
+        while (left > 0.001) { const st = Math.min(0.1, left); left -= st; if (!launchAnim || launchAnim.t < 8) { update(st); updateBackground(st); } }
+      }
     }
     sampleProduction(dt);
     updateLaunch(dt);

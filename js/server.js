@@ -57,11 +57,11 @@ function stopServerMode() {
   toast('Esta compu dejó de ser el servidor.');
 }
 
-// Con la pestaña oculta, el bucle normal no corre: lo empuja este reloj (en pasos de 0,05 s)
+// La simulación del servidor la empuja este reloj, a tiempo real (en pasos de 0,05 s),
+// esté la pestaña a la vista, tapada o minimizada
 function serverTick() {
   if (!SERVER.on) return;
   const now = performance.now();
-  if (!document.hidden) { SERVER.last = now; return; }   // a la vista, avanza el bucle normal
   let el = Math.min(2, (now - SERVER.last) / 1000);
   SERVER.last = now;
   while (el > 0.001) {
