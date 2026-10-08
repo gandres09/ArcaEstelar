@@ -329,13 +329,16 @@ function p2pHostDropPeer(peer) {
 function p2pSetStatus(s, err) { P2P.status = s; P2P.error = err || ''; if (!$('online').hidden) netRenderModal(); }
 
 // Crear sala: este navegador es el anfitrión y el código es su dirección
-async function p2pCreate() {
+// fixed: un código que no cambia (la compu servidor), así el link de siempre sigue sirviendo
+async function p2pCreate(fixed) {
   if (P2P.peer) return true;
   p2pSetStatus('Creando sala…');
   try { await p2pLoadLib(); } catch (e) { p2pSetStatus('', e.message); return false; }
   P2P.uid = p2pUid();
-  for (let tries = 0; tries < 4; tries++) {
-    const code = p2pNewCode();
+  for (let tries = 0; tries < (fixed ? 25 : 4); tries++) {
+    const code = fixed || p2pNewCode();
+    // Recién recargada, la dirección vieja puede seguir ocupada unos segundos
+    if (fixed && tries) { p2pSetStatus('Recuperando la sala ' + p2pPretty(fixed) + '…'); await new Promise((r) => setTimeout(r, 4000)); }
     const ok = await new Promise((res) => {
       const peer = new window.Peer(P2P_PREFIX + code, p2pPeerOptions());
       peer.on('open', (id) => { P2P.peer = peer; P2P.me = id; P2P.code = code; P2P.host = true; res(true); });
@@ -378,7 +381,7 @@ async function p2pJoin(rawCode) {
   if (P2P.peer) p2pClose(true);
   p2pSetStatus('Conectando…');
   try { await p2pLoadLib(); } catch (e) { p2pSetStatus('', e.message); return false; }
-  P2P.uid = p2pUid();
+  P2P.uid = P2P.asUid || p2pUid();   // con el link del dueño, entrás como el dueño (tu misma base)
   const ok = await new Promise((res) => {
     const peer = new window.Peer(undefined, p2pPeerOptions());
     let done = false;
@@ -419,8 +422,35 @@ async function p2pStartGame() {
 
 function p2pLostHost() {
   if (!P2P.peer) return;
-  toast('🔌 Se cortó la conexión con el anfitrión.');
+  const code = P2P.code;
+  toast('🔌 Se cortó la conexión con el anfitrión. Reintento solo…');
   p2pClose();
+  p2pRetry(code, 0);
+}
+// Si el servidor se reinició (o se cortó internet), se vuelve a entrar solo durante unos minutos
+function p2pRetry(code, n) {
+  if (!code || n > 24 || P2P.peer) return;
+  setTimeout(async () => {
+    if (P2P.peer) return;
+    if (!(await p2pJoin(code))) p2pRetry(code, n + 1);
+  }, n ? 8000 : 3000);
+}
+
+// Links para entrar directo a la sala (el del dueño entra con su misma base)
+function p2pLinks() {
+  const base = location.origin + location.pathname;
+  return { friend: `${base}?sala=${P2P.code}`, owner: `${base}?sala=${P2P.code}&yo=${encodeURIComponent(P2P.uid)}` };
+}
+// Al abrir el juego con ?sala=… se entra solo
+function p2pFromUrl() {
+  if (!P2P.standalone) return false;
+  const q = new URLSearchParams(location.search);
+  const code = p2pClean(q.get('sala'));
+  if (code.length !== 8) return false;
+  const yo = q.get('yo');
+  if (yo && /^[A-Za-z0-9_-]{2,40}$/.test(yo)) P2P.asUid = yo;
+  setTimeout(() => p2pJoin(code), 800);
+  return true;
 }
 
 // Cerrar la sala o salir

@@ -1172,7 +1172,7 @@ function netBindUi() {
     const b = ev.target.closest('button');
     if (!b) return;
     if (b.dataset.share) {
-      if (NET.worlds[myWorldId()] && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo'; b.classList.add('danger'); return; }
+      if (NET.worlds[myWorldId()] && !netWorldHostAlive(myWorldId()) && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '¿Seguro? Tocá de nuevo'; b.classList.add('danger'); return; }
       netShareCurrent();
     }
     if (b.dataset.leave) netLeave();

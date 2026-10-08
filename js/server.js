@@ -7,10 +7,21 @@
 // =====================================================================
 
 const SERVER_KEY = 'mini-fabrica-servidor';
+const SERVER_CODE_KEY = 'mini-fabrica-servidor-sala';
 const SERVER = { on: false, worker: null, timer: 0, last: 0, t0: 0, wake: null, ticks: 0, audio: null };
 
 async function startServerMode(auto) {
-  if (!NET.available) { toast('El modo servidor funciona abriendo el juego desde su link de Claude.'); return false; }
+  // Otra pestaña ya es el servidor de mi mundo: esta queda para jugar
+  if (auto && NET.available && NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) return false;
+  // Fuera de Claude (GitHub): la sala con código, siempre el mismo código
+  if (!NET.available && typeof P2P !== 'undefined' && P2P.standalone) {
+    let code = null;
+    try { code = localStorage.getItem(SERVER_CODE_KEY); } catch (_) { /* nada */ }
+    if (!code || code.length !== 8) code = p2pNewCode();
+    try { localStorage.setItem(SERVER_CODE_KEY, code); } catch (_) { /* nada */ }
+    if (!(await p2pCreate(code))) { toast('No se pudo abrir la sala del servidor. Revisá internet y probá de nuevo.'); return false; }
+  }
+  if (!NET.available) { toast('No se pudo conectar el juego en línea.'); return false; }
   if (NET.on && NET.role !== 'host') { toast('Para ser servidor tenés que estar en tu propio mundo (salí del mundo de tu amigo).'); return false; }
   if (!NET.on && !(await netShareCurrent())) return false;
   SERVER.on = true;
@@ -87,7 +98,11 @@ function renderServerPanel() {
     el.id = 'server-panel';
     el.className = 'panel';
     document.body.appendChild(el);
-    el.addEventListener('click', (ev) => { if (ev.target.closest('[data-srv="stop"]')) stopServerMode(); });
+    el.addEventListener('click', async (ev) => {
+      if (ev.target.closest('[data-srv="stop"]')) stopServerMode();
+      const c = ev.target.closest('[data-copy]');
+      if (c) { try { await navigator.clipboard.writeText(c.dataset.copy); toast('Link copiado.'); } catch (_) { prompt('Copiá el link:', c.dataset.copy); } }
+    });
   }
   const up = Math.floor((Date.now() - SERVER.t0) / 1000);
   const hh = Math.floor(up / 3600), mm = Math.floor((up % 3600) / 60);
@@ -97,7 +112,11 @@ function renderServerPanel() {
     <div class="row"><span>Prendido hace</span><b>${hh} h ${mm} min</b></div>
     <div class="row"><span>Jugadores conectados</span><b>${players}</b></div>
     <div class="row"><span>Tiempo de juego del mundo</span><b>${Math.floor(S.playTime / 3600)} h ${Math.floor((S.playTime % 3600) / 60)} min</b></div>
-    <p class="muted small">Dejá esta pestaña abierta (la podés minimizar). Configurá la compu para que no se suspenda. Ustedes entran desde el celular o desde otra compu con <b>En línea → Unirme</b>.</p>
+    ${NET.p2p && P2P.code ? (() => { const l = p2pLinks(); return `<div class="row"><span>Código de la sala</span><b>${p2pPretty(P2P.code)}</b></div>
+    <div class="actions"><button type="button" class="primary" data-copy="${escapeHtml(l.owner)}">📋 Link para vos</button><button type="button" data-copy="${escapeHtml(l.friend)}">📋 Link para tu amigo</button></div>
+    <p class="muted small">Abrí <b>tu link</b> en tu compu o celular: entrás con tu base de siempre. A tu amigo pasale el suyo (o el código). El código no cambia aunque se reinicie el servidor.</p>`; })()
+    : '<p class="muted small">Ustedes entran desde el celular o desde otra compu: vos con <b>🌐 → Entrar a mi mundo</b>, tu amigo con <b>🌐 → Unirme</b>.</p>'}
+    <p class="muted small">Dejá esta pestaña abierta (la podés minimizar) y configurá la compu para que no se suspenda.</p>
     <div class="actions"><button type="button" data-srv="stop">Dejar de ser servidor</button></div>`;
 }
 setInterval(() => { if (SERVER.on) renderServerPanel(); }, 5000);

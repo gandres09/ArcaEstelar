@@ -416,7 +416,7 @@ async function init() {
   $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
   initCloud();
-  netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => serverAutoStart());
+  netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => { if (!p2pFromUrl()) serverAutoStart(); });
   $('btn-server').addEventListener('click', () => startServerMode(false));
 
   let last = performance.now();
