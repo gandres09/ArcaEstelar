@@ -139,6 +139,9 @@ function makeEntity(type, x, y, dir = 0) {
     case 'generator': e.fuelType = null; e.fuel = 0; e.energy = 0; break;
     case 'offshore': e.t = 0; e.buf = null; break;
     case 'boiler': e.water = 0; e.fuelType = null; e.fuel = 0; e.energy = 0; e.out = 0; e.t = 0; break;
+    case 'reactor': e.fuelType = null; e.fuel = 0; e.burn = 0; e.spent = 0; e.h = 0; break;
+    case 'heatex': e.water = 0; e.out = 0; e.t = 0; e.h = 0; break;
+    case 'heatpipe': e.h = 0; break;
     case 'steam_engine': e.steam = 0; e.energy = 0; break;
     case 'radar': e.t = 0; e.r = 16; break;
     case 'accumulator': e.stored = 0; break;
@@ -187,7 +190,9 @@ function contents(e) {
   if (e.l) for (const k of e.l) if (k) add(c, k, 1);
   if (e.hold) add(c, e.hold, 1);
   if (typeof e.buf === 'string') add(c, e.buf, 1);
-  if (e.type === 'boiler') { if (e.water) add(c, 'water', e.water); if (e.out) add(c, 'steam', e.out); }
+  if (e.type === 'boiler' || e.type === 'heatex') { if (e.water) add(c, 'water', e.water); if (e.out) add(c, 'steam', e.out); }
+  if (e.type === 'reactor' && e.spent) add(c, 'used_cell', e.spent);
+  if (e.recipe && e.out2 && RECIPES[e.recipe] && RECIPES[e.recipe].alt) add(c, RECIPES[e.recipe].alt.out, e.out2);
   if (e.type === 'steam_engine' && e.steam) add(c, 'steam', e.steam);
   if (e.inType) add(c, e.inType, e.inCount);
   if (e.outType) add(c, e.outType, e.outCount);
@@ -628,6 +633,16 @@ function accept(t, item, src, dry = false, lane = -1) {
       if (item === 'water') return t.water >= 20 ? false : ok(() => { t.water++; });
       if (!FUELS[item] || t.fuel >= 10 || (t.fuelType && t.fuelType !== item)) return false;
       return ok(() => { t.fuelType = item; t.fuel++; });
+    case 'reactor':
+      if (item !== 'fuel_cell' || t.fuel >= 10) return false;
+      return ok(() => { t.fuelType = 'fuel_cell'; t.fuel++; });
+    case 'heatex':
+      if (item !== 'water' || t.water >= 30) return false;
+      return ok(() => { t.water++; });
+    case 'eminer':
+      // El uranio se extrae con ácido sulfúrico
+      if (item !== 'sulfuric_acid' || (t.acid || 0) >= 20 || !minerOnUranium(t)) return false;
+      return ok(() => { t.acid = (t.acid || 0) + 1; });
     case 'steam_engine':
       if (item !== 'steam' || t.steam >= 10) return false;
       return ok(() => { t.steam++; });
@@ -671,6 +686,9 @@ function wantedBy(dst) {
     case 'lab': return PACKS;
     case 'turret': return ['ammo'];
     case 'boiler': return ['water', 'coal', 'solid_fuel', 'wood'];
+    case 'reactor': return ['fuel_cell'];
+    case 'heatex': return ['water'];
+    case 'eminer': return minerOnUranium(dst) ? ['sulfuric_acid'] : [];
     case 'generator': case 'miner': return ['coal', 'solid_fuel', 'wood'];
     case 'shipyard': return Object.keys(shipNeeds(dst));
     case 'purifier': return ['air_filter'];
@@ -699,12 +717,16 @@ function takeFrom(src, dst, ins) {
       return null;
     case 'assembler': case 'assembler2': case 'chem':
       if (src.recipe && src.out > 0 && want(RECIPES[src.recipe].out)) { src.out--; return RECIPES[src.recipe].out; }
+      if (src.recipe && src.out2 > 0 && RECIPES[src.recipe].alt && want(RECIPES[src.recipe].alt.out)) { src.out2--; return RECIPES[src.recipe].alt.out; }
       return null;
     case 'miner': case 'eminer': case 'pumpjack': case 'offshore':
       if (want(src.buf)) { const k = src.buf; src.buf = null; return k; }
       return null;
-    case 'boiler':
+    case 'boiler': case 'heatex':
       if (src.out > 0 && want('steam')) { src.out--; return 'steam'; }
+      return null;
+    case 'reactor':
+      if (src.spent > 0 && want('used_cell')) { src.spent--; return 'used_cell'; }
       return null;
     case 'receiver':
       if (!hasTech('logistic_network') || !(src.sat > 0.3)) return null;
@@ -821,6 +843,7 @@ function update(dt) {
   let researchDone = false;
 
   readSignals();
+  heatStep(dt);
   const moonAir = S.surface === 'moon';
   for (const e of S.entities) {
     const def = BUILDINGS[e.type];
@@ -947,12 +970,17 @@ function update(dt) {
             if (e.burn <= 0 && e.fuel > 0) { e.burn = MINER_FUEL[e.fuelType]; if (--e.fuel === 0) e.fuelType = null; }
             if (e.burn <= 0) sp = 0;
           }
+          // Uranio: cada mineral gasta 1 de ácido sulfúrico (el taladro común no puede)
+          const uran = oreAt(mt.x, mt.y) === 'uranium_ore';
+          e.noAcid = uran && !((e.acid || 0) >= 1);
+          if (e.noAcid) sp = 0;
           e.active = sp > 0;
           e.t += dt * sp;
           if (e.t >= def.time) {
             e.t = Math.min(e.t - def.time, def.time);
             e.buf = mineOre(mt.x, mt.y);
             if (e.type === 'miner') e.burn--;
+            if (uran && e.buf) e.acid--;
             if (e.buf) {
               countProduced(e.buf);
               emit(e, def.poll * def.time * fx.poll / 60);
@@ -1006,7 +1034,7 @@ function update(dt) {
         e.active = false;
         if (!e.recipe) break;
         const rc = RECIPES[e.recipe];
-        let ready = e.out < 10;
+        let ready = e.out < 10 && !((e.out2 || 0) >= 10);
         for (const k in rc.in) if ((e.buf[k] || 0) < rc.in[k]) ready = false;
         if (ready) {
           const fx = moduleFx(e);
@@ -1019,14 +1047,17 @@ function update(dt) {
             if (e.prog >= rc.time) {
               e.prog = Math.min(e.prog - rc.time, rc.time);
               for (const k in rc.in) e.buf[k] -= rc.in[k];
-              e.out += rc.n;
-              countProduced(rc.out, rc.n);
+              // Recetas con dos salidas (centrífuga): a veces sale la otra
+              const alt = rc.alt && Math.random() < rc.alt.p;
+              if (alt) { e.out2 = (e.out2 || 0) + rc.alt.n; countProduced(rc.alt.out, rc.alt.n); }
+              if (!(alt && rc.alt.replace)) { e.out += rc.n; countProduced(rc.out, rc.n); }
               e.bonus = (e.bonus || 0) + fx.prod;
               if (e.bonus >= 1) { e.bonus -= 1; e.out += rc.n; countProduced(rc.out, rc.n); }
             }
           }
         }
         if (e.out > 0 && pushTo(e, e.dir, rc.out)) e.out--;
+        else if (e.out2 > 0 && rc.alt && pushTo(e, e.dir, rc.alt.out)) e.out2--;
         break;
       }
 
@@ -1434,12 +1465,94 @@ function condOk(c, e) {
   return (COMPARE[c.op] || COMPARE['<'])(v, c.v);
 }
 
+// --------------------------- Calor nuclear ---------------------------
+// Reactores, tuberías de calor e intercambiadores pegados forman una red de calor.
+// Cada uno guarda calor (kJ); la temperatura sale de lo guardado sobre lo que puede guardar.
+const HEAT_CAP = { reactor: 200000, heatex: 20000, heatpipe: 4000 };   // kJ a 1000 °C
+const HEAT_MIN = 500;          // °C para que el intercambiador haga vapor
+const FUEL_CELL_TIME = 200;    // segundos que dura una celda
+let heatNets = [], heatCount = -1;
+const isHeat = (e) => !!e && !!HEAT_CAP[e.type];
+
+function minerOnUranium(e) {
+  const r = BUILDINGS[e.type].area || 1;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (oreAt(e.x + dx, e.y + dy) === 'uranium_ore') return true;
+  return false;
+}
+
+function rebuildHeat() {
+  heatCount = S.entities.length;
+  heatNets = [];
+  const all = S.entities.filter(isHeat);
+  for (const e of all) e._hnet = -1;
+  for (const e of all) {
+    if (e._hnet >= 0) continue;
+    const net = { members: [], heat: 0, cap: 0 };
+    const id = heatNets.length;
+    heatNets.push(net);
+    e._hnet = id;
+    const stack = [e];
+    while (stack.length) {
+      const q = stack.pop();
+      net.members.push(q);
+      net.cap += HEAT_CAP[q.type];
+      net.heat += q.h || 0;
+      const sz = sizeOf(q.type);
+      for (let i = 0; i < sz; i++) {
+        for (const [x, y] of [[q.x + i, q.y - 1], [q.x + i, q.y + sz], [q.x - 1, q.y + i], [q.x + sz, q.y + i]]) {
+          const n = at(x, y);
+          if (isHeat(n) && n._hnet < 0) { n._hnet = id; stack.push(n); }
+        }
+      }
+    }
+  }
+}
+const heatTemp = (e) => { const n = heatNets[e._hnet]; return n && n.cap ? 15 + 985 * n.heat / n.cap : 15; };
+
+function heatStep(dt) {
+  if (heatCount !== S.entities.length) rebuildHeat();
+  if (!heatNets.length) return;
+  for (const net of heatNets) {
+    const reactors = net.members.filter((m) => m.type === 'reactor');
+    // Los reactores queman celdas y calientan (más con vecinos encendidos)
+    for (const r of reactors) {
+      if (r.burn <= 0 && r.fuel > 0 && r.spent < 10) { r.burn = FUEL_CELL_TIME; if (--r.fuel === 0) r.fuelType = null; r.spentPending = true; }
+      r.active = r.burn > 0;
+    }
+    for (const r of reactors) {
+      if (!(r.burn > 0)) continue;
+      let bonus = 0;
+      for (const o of reactors) if (o !== r && o.burn > 0 && Math.abs(o.x - r.x) + Math.abs(o.y - r.y) === 3 && (o.x === r.x || o.y === r.y)) bonus++;
+      r.bonus = bonus;
+      net.heat = Math.min(net.cap, net.heat + BUILDINGS.reactor.heat * (1 + bonus) * dt);
+      r.burn -= dt;
+      if (r.burn <= 0 && r.spentPending) { r.spentPending = false; r.spent++; }
+    }
+    // Los intercambiadores sacan calor para hacer vapor
+    const temp = net.cap ? 15 + 985 * net.heat / net.cap : 15;
+    for (const x of net.members) {
+      if (x.type !== 'heatex') continue;
+      x.active = false;
+      if (temp >= HEAT_MIN && x.water > 0 && x.out < 10) {
+        x.t += dt * BUILDINGS.heatex.rate * mkMult(x);
+        while (x.t >= 1 && x.water > 0 && x.out < 10 && net.heat >= STEAM_ENERGY) {
+          x.t -= 1; x.water--; x.out++; net.heat -= STEAM_ENERGY; countProduced('steam'); x.active = true;
+        }
+        x.t = Math.min(x.t, 1);
+      }
+      if (x.out > 0 && pushTo(x, x.dir, 'steam')) x.out--;
+    }
+    // Se guarda en cada uno su parte (para guardar la partida y al rearmar la red)
+    for (const m of net.members) m.h = net.heat * HEAT_CAP[m.type] / net.cap;
+  }
+}
+
 // --------------------------- Mk2 y Mk3 ---------------------------
 // Las máquinas se mejoran en el lugar: más rápidas (o más daño, las torretas) y más resistentes.
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

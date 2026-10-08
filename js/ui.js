@@ -604,6 +604,10 @@ function inspectorContent(e) {
       if (kinds.length) h += row('Queda', fmt(Object.values(area).reduce((a, b) => a + b, 0)) + (e.type === 'pumpjack' ? ' en el pozo' : ' en su área'));
       if (e.buf) h += row('Estado', '<span class="bad">Salida bloqueada</span>');
       if (def.power) h += powerRow(e);
+      if (kinds.includes('uranium_ore')) {
+        if (e.type === 'eminer') h += row('Ácido sulfúrico', `${e.acid || 0} / 20`) + (e.noAcid ? row('Estado', '<span class="bad">sin ácido: el uranio se extrae con ácido sulfúrico (por cañería o a mano)</span>') : '') + pickRow(e, 'Cargar ácido', ['sulfuric_acid'], 20);
+        else h += '<p class="bad small">El uranio solo se extrae con el taladro eléctrico y ácido sulfúrico.</p>';
+      }
       if (e.type === 'miner') {
         h += row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.burn > 0 ? 'quemando' : '<span class="bad">sin combustible</span>')) +
           fuelPicker(e, 10);
@@ -785,6 +789,27 @@ function inspectorContent(e) {
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : '<span class="bad">vacío</span>') +
         row('Vapor listo', e.out) + row('Estado', e.active ? '<span class="ok">hirviendo</span>' : e.water ? 'esperando combustible' : '<span class="bad">sin agua</span>') +
         fuelPicker(e, 20);
+      break;
+    case 'reactor': {
+      const tmp = Math.round(heatTemp(e));
+      h += row('Temperatura', `<b class="${tmp >= HEAT_MIN ? 'ok' : ''}">${tmp} °C</b>`) +
+        row('Celdas', e.fuel ? itemLabel('fuel_cell', e.fuel) : '<span class="bad">sin combustible</span>') +
+        row('Esta celda', e.burn > 0 ? `quedan ${Math.ceil(e.burn)} s` : '—') +
+        row('Calor', e.burn > 0 ? `${40 * (1 + (e.bonus || 0))} MW${e.bonus ? ` (+${e.bonus * 100} % por reactores vecinos)` : ''}` : '0 MW') +
+        row('Celdas gastadas', `${e.spent || 0} / 10`) +
+        pickRow(e, 'Cargar celdas', ['fuel_cell'], 10) +
+        (e.spent ? '<div class="actions"><button type="button" data-act="takespent">Sacar celdas gastadas</button></div>' : '') +
+        '<p class="muted small">Pegale intercambiadores de calor (o unilos con tuberías de calor) y turbinas de vapor. Las celdas gastadas se reprocesan en la centrífuga.</p>';
+      break;
+    }
+    case 'heatex': {
+      const tmp = Math.round(heatTemp(e));
+      h += row('Temperatura', `${tmp} °C`) + row('Agua', `${e.water} / 30`) + row('Vapor listo', e.out) +
+        row('Estado', e.active ? '<span class="ok">haciendo vapor</span>' : tmp < HEAT_MIN ? `<span class="bad">le falta calor (necesita ${HEAT_MIN} °C)</span>` : e.water ? 'esperando' : '<span class="bad">sin agua</span>');
+      break;
+    }
+    case 'heatpipe':
+      h += row('Temperatura', `${Math.round(heatTemp(e))} °C`);
       break;
     case 'steam_engine':
       h += row('Vapor', `${e.steam} / 10`) + row('Carga', Math.round((e.load || 0) * 100) + ' %') + powerRow(e) +
@@ -1266,6 +1291,9 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       if (!n) toast(e.fuel >= 10 ? 'Ya está lleno de combustible.' : 'No tenés carbón ni madera en el inventario.');
       break;
     }
+    case 'takespent':
+      if (e.spent) { giveItem('used_cell', e.spent); e.spent = 0; }
+      break;
     case 'unfuel':
       if (e.fuel) { giveItem(e.fuelType, e.fuel); e.fuel = 0; e.fuelType = null; }
       break;
@@ -1312,6 +1340,7 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'collect':
       if (e.outType) { moveToInv(e.outType, e.outCount); e.outCount = 0; e.outType = null; }
       if (e.recipe && e.out) { moveToInv(RECIPES[e.recipe].out, e.out); e.out = 0; }
+      if (e.recipe && e.out2 && RECIPES[e.recipe].alt) { moveToInv(RECIPES[e.recipe].alt.out, e.out2); e.out2 = 0; }
       break;
     case 'empty':
       for (const k in e.store) moveToInv(k, e.store[k]);

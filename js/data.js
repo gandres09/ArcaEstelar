@@ -23,6 +23,7 @@ const ITEMS = {
   quartz:         { name: 'Cuarzo',             color: '#e9e3f7', shape: 'ore' },
   titanium_ore:   { name: 'Mineral de titanio', color: '#4fb3a4', shape: 'ore' },
   oil:            { name: 'Petróleo crudo',     color: '#3b2a20', shape: 'barrel' },
+  uranium_ore:    { name: 'Mineral de uranio',  color: '#7be05a', shape: 'ore' },
   water:          { name: 'Agua',               color: '#3a8fd8', shape: 'barrel' },
   steam:          { name: 'Vapor',              color: '#e8eef4', shape: 'barrel' },
   lubricant:      { name: 'Lubricante',         color: '#4fae5c', shape: 'barrel' },
@@ -42,6 +43,10 @@ const ITEMS = {
 
   gear:           { name: 'Engranaje',          color: '#9aa7b5', shape: 'gear' },
   iron_stick:     { name: 'Varilla de hierro',  color: '#aab4c0', shape: 'cable' },
+  u235:           { name: 'Uranio-235',         color: '#3cff6a', shape: 'battery' },
+  u238:           { name: 'Uranio-238',         color: '#2e7a3a', shape: 'battery' },
+  fuel_cell:      { name: 'Celda de combustible de uranio', color: '#a8f04a', shape: 'battery' },
+  used_cell:      { name: 'Celda de combustible gastada',   color: '#5c6a3a', shape: 'battery' },
   cable:          { name: 'Cable de cobre',     color: '#e8873a', shape: 'cable' },
   circuit:        { name: 'Circuito',           color: '#3fae5a', shape: 'chip' },
   processor:      { name: 'Procesador',         color: '#c0392b', shape: 'chip' },
@@ -99,11 +104,11 @@ const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
 
 // Recursos del mapa (el índice es el id guardado en el mapa)
-const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water', 'regolito', 'hielo', 'helio3'];
+const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water', 'regolito', 'hielo', 'helio3', 'uranium_ore'];
 const ORE_GROUND = {
   iron_ore: '#3c4655', copper_ore: '#553826', coal: '#1b1d1c', stone: '#5b5444',
   quartz: '#6a6680', titanium_ore: '#1f4a45', oil: '#151012', water: '#1d4f86',
-  regolito: '#6e6a62', hielo: '#9fc4d8', helio3: '#6b5a86',
+  regolito: '#6e6a62', hielo: '#9fc4d8', helio3: '#6b5a86', uranium_ore: '#2f5a2a',
 };
 
 // Combustibles
@@ -164,6 +169,11 @@ const RECIPES = {
   sulfuric_acid: { machine: 'chem', tier: 1, in: { sulfur: 5, iron_plate: 1, water: 10 }, out: 'sulfuric_acid', n: 5, time: 1,  tech: 'oil' },
   solid_fuel_oil: { machine: 'chem', tier: 1, in: { light_oil: 1 },                       out: 'solid_fuel',   n: 1, time: 1,   tech: 'oil' },
   robot_frame:  { machine: 'asm',  tier: 2, in: { electric_engine: 1, battery: 2, steel: 1, circuit: 3 }, out: 'robot_frame', n: 1, time: 20, tech: 'construction_robots' },
+  // Uranio (centrífuga) y combustible nuclear
+  uranium_processing: { machine: 'centri', tier: 1, in: { uranium_ore: 10 },                out: 'u238',         n: 1, time: 12, tech: 'uranium_processing', alt: { out: 'u235', n: 1, p: 0.01, replace: true } },
+  fuel_cell:    { machine: 'asm',  tier: 1, in: { iron_plate: 10, u235: 1, u238: 19 },    out: 'fuel_cell',    n: 10, time: 10, tech: 'nuclear_power' },
+  reprocessing: { machine: 'centri', tier: 1, in: { used_cell: 5 },                         out: 'u238',         n: 3, time: 60,  tech: 'nuclear_power' },
+  kovarex:      { machine: 'centri', tier: 1, in: { u235: 40, u238: 5 },                    out: 'u235',         n: 41, time: 60, tech: 'kovarex', alt: { out: 'u238', n: 2, p: 1 } },
   // Etapa 2
   air_filter:   { machine: 'asm',  tier: 1, in: { coal: 2, plastic: 1, steel: 1 },          out: 'air_filter',   n: 2, time: 5,   tech: 'air_purification' },
   explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'cliff_explosives' },
@@ -280,6 +290,16 @@ const BUILDINGS = {
                  desc: 'Con agua y carbón hace vapor (hasta 1,8 por segundo). Sale por la flecha.' },
   steam_engine:{ name: 'Máquina de vapor',    cat: 'energía', output: 900, hp: 300, cost: { gear: 8, iron_plate: 15 }, tech: 'steam_power',
                  desc: 'Convierte vapor en hasta 900 kW. El vapor que le sobra pasa a la siguiente por la flecha.' },
+  centrifuge:  { name: 'Centrífuga',          cat: 'producción', as: 'assembler2', size: 2, speed: 1, tier: 1, machine: 'centri', power: 350, poll: 4, hp: 350, cost: { steel: 50, processor: 100, gear: 100, brick: 100 }, tech: 'uranium_processing',
+                 desc: 'Separa el uranio: de 10 de mineral sale U-238 (y a veces, 1 de cada 100, el valioso U-235). También reprocesa celdas gastadas y hace el enriquecimiento Kovarex. Usa 350 kW.' },
+  reactor:     { name: 'Reactor nuclear',     cat: 'energía', size: 3, heat: 40000, hp: 500, cost: { steel: 500, processor: 500, copper_plate: 500, brick: 500 }, tech: 'nuclear_power',
+                 desc: 'Quema celdas de uranio (200 s cada una) y da 40 MW de calor a los intercambiadores pegados o unidos con tuberías de calor. Cada reactor vecino encendido suma +100 %. Anda también en la Luna.' },
+  heatex:      { name: 'Intercambiador de calor', cat: 'energía', size: 2, rate: 10, hp: 200, cost: { steel: 10, copper_plate: 100, iron_plate: 10 }, tech: 'nuclear_power',
+                 desc: 'Con el calor del reactor (a más de 500 °C) convierte agua en vapor: hasta 10 por segundo (10 MW). Sale por la flecha.' },
+  heatpipe:    { name: 'Tubería de calor',    cat: 'energía', hp: 200, cost: { steel: 10, copper_plate: 20 }, tech: 'nuclear_power',
+                 desc: 'Lleva el calor del reactor a los intercambiadores.' },
+  steam_turbine: { name: 'Turbina de vapor',  cat: 'energía', as: 'steam_engine', size: 2, output: 5800, hp: 300, cost: { gear: 50, copper_plate: 50, iron_plate: 20 }, tech: 'nuclear_power',
+                 desc: 'Como la máquina de vapor pero mucho más fuerte: hasta 5,8 MW. El vapor que sobra pasa por la flecha.' },
   radar:       { name: 'Radar',               cat: 'energía', power: 300, scan: 12, hp: 250, cost: { iron_plate: 10, gear: 5, circuit: 5 }, tech: 'electricity',
                  desc: 'Explora el mapa de a poco alrededor suyo. Usa 300 kW.' },
   solar:       { name: 'Panel solar',         cat: 'energía', output: 60, hp: 150, cost: { copper_plate: 5, circuit: 15, steel: 5, silicon: 5 }, tech: 'solar',
@@ -352,7 +372,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -425,6 +445,12 @@ const TECHS = {
                        desc: 'Silicio a partir de cuarzo, y procesadores.' },
   chemical_science:  { name: 'Ciencia azul',         packs: ['sci_red', 'sci_green'], units: 75, time: 15, req: ['silicon'],
                        desc: 'Receta del pack de ciencia azul.' },
+  uranium_processing: { name: 'Uranio',            packs: ['sci_red', 'sci_green', 'sci_blue'], units: 200, time: 20, req: ['chemical_science', 'oil'],
+                       desc: 'Centrífuga y procesamiento de uranio. El mineral de uranio se extrae con taladros eléctricos y ácido sulfúrico (por cañería).' },
+  nuclear_power:     { name: 'Energía nuclear',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 400, time: 25, req: ['uranium_processing'],
+                       desc: 'Reactor, intercambiador de calor, tubería de calor, turbina de vapor, celdas de combustible y su reprocesamiento.' },
+  kovarex:           { name: 'Enriquecimiento Kovarex', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 600, time: 30, req: ['nuclear_power'],
+                       desc: 'En la centrífuga: 40 de U-235 + 5 de U-238 dan 41 de U-235 + 2 de U-238. Así se multiplica el U-235.' },
   logistic_network:  { name: 'Red logística',        packs: ['sci_red', 'sci_green', 'sci_blue'], units: 75, time: 20, req: ['chemical_science', 'receivers'],
                        desc: 'Los brazos pueden sacar del inventario de la Nave a través de cualquier Receptor.' },
   modules:           { name: 'Módulos',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],

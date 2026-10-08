@@ -38,7 +38,7 @@ const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 
 // --------------------------- Opciones del mapa, biomas y acantilados ---------------------------
 // Como el menú de Factorio: frecuencia, tamaño y riqueza de cada recurso, más agua, árboles, acantilados y nidos
-const MAP_OPT_RES = ['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil'];
+const MAP_OPT_RES = ['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'uranium_ore', 'oil'];
 function defaultMapOpts() {
   const o = { size: 'normal', res: {}, water: 1, trees: 1, cliffs: 1, enemies: 1, biomes: true };
   for (const k of MAP_OPT_RES) o.res[k] = { freq: 1, size: 1, rich: 1 };
@@ -249,6 +249,12 @@ function generateMap(seed) {
     }
   }
 
+  // Generación 8: uranio a media distancia
+  if (gen >= 8 && K > 4) {
+    ring(12, 260, 420, 3, 3, 5, 260);
+    ring(12, 420, W / 2, Math.round(2 * K), 3, 5.5, 280);
+  }
+
   // Pozos de petróleo: grupos de casillas sueltas
   const oilField = (px, py) => {
     if (g7) {
@@ -303,6 +309,9 @@ function generateMap(seed) {
   if (gen >= 3) { const a = rnd() * Math.PI * 2; lake(Math.round(cx + Math.cos(a) * 26), Math.round(cy + Math.sin(a) * 22), 4.5); }
   else lake(cx + 4, cy - 24, 4.5);
 
+  // Partidas de antes del uranio: sus menas agregadas después (siempre iguales)
+  if (gen < 8 && S && Array.isArray(S.uranPatches)) S.uranPatches.forEach(([px, py, r], i) => uranPatch(px, py, r, i));
+
   // Despejar la zona de la Nave
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }
   oreBase = oreAmt.slice();
@@ -312,6 +321,40 @@ function generateMap(seed) {
   computeCliffs(seed);
   computeForest();
   resetMapGraphics();
+}
+
+// Una mena de uranio con su propio azar (así sale igual cada vez que se carga la partida)
+function uranPatch(px, py, rad, i) {
+  const rnd = mulberry32(((S.seed ^ 0x2f6b9a1) + i * 7919) >>> 0);
+  for (let y = Math.floor(py - rad - 2); y <= py + rad + 2; y++) for (let x = Math.floor(px - rad - 2); x <= px + rad + 2; x++) {
+    const d = Math.hypot(x - px, y - py);
+    if (d >= rad + (rnd() - 0.5) * 2) continue;
+    const k = tIdx(x, y);
+    if (oreType[k] && oreType[k] !== 12) continue;
+    const t = Math.max(0, 1 - d / (rad + 0.5));
+    oreType[k] = 12;
+    oreAmt[k] = Math.min(65000, Math.round(3 * (500 + 1600 * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
+    if (oreBase) { oreBase[k] = oreAmt[k]; oreTypeBase[k] = 12; }
+  }
+}
+// Al cargar una partida vieja: menas de uranio lejos, donde todavía no se exploró ni se construyó
+function addLegacyUranium() {
+  if (!S || S.mapGen >= 8 || S.uranPatches || S.surface === 'moon' || W * H < 640 * 480 * 2) return;
+  const rnd = mulberry32((S.seed ^ 0x7a3c11) >>> 0);
+  const K = (W * H) / (320 * 240), cx = W >> 1, cy = H >> 1;
+  const want = Math.round(2 * K) + 3, list = [];
+  for (let t = 0; t < 4000 && list.length < want; t++) {
+    const a = rnd() * Math.PI * 2, d = 260 + rnd() * (W / 2 - 260);
+    const px = Math.round(wrapX(cx + Math.cos(a) * d)), py = Math.round(wrapY(cy + Math.sin(a) * d * 0.75));
+    let ok = true;
+    for (let y = py - 7; y <= py + 7 && ok; y++) for (let x = px - 7; x <= px + 7 && ok; x++) {
+      if (oreType[tIdx(x, y)] || tileExplored(x, y) || at(x, y) || cliffAt(x, y)) ok = false;
+    }
+    if (ok) list.push([px, py, 3 + Math.round(rnd() * 2)]);
+  }
+  S.uranPatches = list;
+  list.forEach(([px, py, r], i) => uranPatch(px, py, r, i));
+  treeCache.clear(); computeForest(); resetMapGraphics();
 }
 
 // Saca una unidad de mineral de la casilla; devuelve el mineral o null si no queda

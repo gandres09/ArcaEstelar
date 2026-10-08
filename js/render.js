@@ -20,7 +20,7 @@ const TYPE_COLOR = {
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
   road: '#a8664a', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
-  sensor: '#8fbff0', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  sensor: '#8fbff0', centrifuge: '#7be05a', reactor: '#9aa3ad', heatex: '#d07a3a', heatpipe: '#c06a2a', steam_turbine: '#b8c6d2', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 // Dibujos propios para los objetos que, con la forma genérica, se confundían entre sí
@@ -430,10 +430,81 @@ function drawCrashedShip(g, x0, y0, t) {
   }
 }
 
+const OWN_DRAW = new Set(['centrifuge', 'steam_turbine', 'reactor', 'heatex', 'heatpipe']);
 function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
-  switch (kindOf(e.type)) {
+  switch (OWN_DRAW.has(e.type) ? e.type : kindOf(e.type)) {
+    case 'centrifuge': {
+      const S2 = TILE * 2, mx = x0 + S2 / 2, my = y0 + S2 / 2;
+      box(g, x0, y0, '#3a4048', '#7be05a', 6, TILE * 2);
+      g.fillStyle = '#20262c'; g.beginPath(); g.arc(mx, my, 22, 0, Math.PI * 2); g.fill();
+      const spin = e.active ? t * 9 : 0;
+      for (let i = 0; i < 3; i++) {
+        const a = spin + i * 2.094;
+        g.fillStyle = i ? '#5a6470' : '#8fa0b0';
+        g.beginPath(); g.arc(mx + Math.cos(a) * 10, my + Math.sin(a) * 10, 7, 0, Math.PI * 2); g.fill();
+      }
+      g.fillStyle = e.active ? '#7dff6a' : '#2f5a2a'; g.beginPath(); g.arc(mx, my, 5, 0, Math.PI * 2); g.fill();
+      drawArrow(g, mx + DIRS[e.dir][0] * 24, my + DIRS[e.dir][1] * 24, e.dir, '#d6dee8', 10);
+      break;
+    }
+    case 'steam_turbine': {
+      const S2 = TILE * 2, mx = x0 + S2 / 2, my = y0 + S2 / 2;
+      box(g, x0, y0, '#4a5560', '#b8c6d2', 6, TILE * 2);
+      const horiz = e.dir === 0 || e.dir === 2;
+      g.fillStyle = '#2b3036';
+      if (horiz) g.fillRect(x0 + 6, my - 14, S2 - 12, 28); else g.fillRect(mx - 14, y0 + 6, 28, S2 - 12);
+      g.strokeStyle = '#8fa0b0'; g.lineWidth = 2;
+      for (let i = 0; i < 6; i++) {
+        const k = ((i + (e.active ? t * 4 : 0)) % 6) / 6;
+        g.beginPath();
+        if (horiz) { const x = x0 + 8 + k * (S2 - 16); g.moveTo(x, my - 12); g.lineTo(x, my + 12); } else { const y = y0 + 8 + k * (S2 - 16); g.moveTo(mx - 12, y); g.lineTo(mx + 12, y); }
+        g.stroke();
+      }
+      drawArrow(g, mx + DIRS[e.dir][0] * 26, my + DIRS[e.dir][1] * 26, e.dir, '#d6dee8', 10);
+      break;
+    }
+    case 'reactor': {
+      const S3 = TILE * 3, mx = x0 + S3 / 2, my = y0 + S3 / 2;
+      box(g, x0, y0, '#5a6066', '#9aa3ad', 8, TILE * 3);
+      g.fillStyle = '#3a4046'; g.fillRect(x0 + 10, y0 + 10, S3 - 20, S3 - 20);
+      const on = e.burn > 0;
+      const glow = g.createRadialGradient(mx, my, 2, mx, my, 30);
+      glow.addColorStop(0, on ? 'rgba(140,255,120,0.95)' : 'rgba(60,90,60,0.8)'); glow.addColorStop(1, 'rgba(40,60,40,0)');
+      g.fillStyle = glow; g.beginPath(); g.arc(mx, my, 30, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = on ? '#7dff6a' : '#4a6a4a'; g.lineWidth = 3;
+      g.beginPath(); g.arc(mx, my, 18, 0, Math.PI * 2); g.stroke();
+      // Bornes de calor en los costados
+      g.fillStyle = '#d07a3a';
+      for (const [dx, dy] of DIRS) g.fillRect(mx + dx * (S3 / 2 - 5) - 4, my + dy * (S3 / 2 - 5) - 4, 8, 8);
+      break;
+    }
+    case 'heatex': {
+      const S2 = TILE * 2, mx = x0 + S2 / 2, my = y0 + S2 / 2;
+      const tmp = heatTemp(e);
+      box(g, x0, y0, '#4a4046', '#d07a3a', 6, TILE * 2);
+      const hot = Math.min(1, Math.max(0, (tmp - 15) / 985));
+      g.fillStyle = `rgb(${90 + hot * 160},${70 + hot * 50},${60})`;
+      g.fillRect(x0 + 10, my - 8, S2 - 20, 16);
+      g.fillStyle = '#5aa0e0'; g.beginPath(); g.arc(x0 + 12, y0 + 12, 5, 0, Math.PI * 2); g.fill();
+      if (e.active) { g.fillStyle = 'rgba(235,240,245,0.6)'; g.beginPath(); g.arc(mx + Math.sin(t * 5) * 4, my - 14 - (t * 20 % 10), 6, 0, Math.PI * 2); g.fill(); }
+      drawArrow(g, mx + DIRS[e.dir][0] * 26, my + DIRS[e.dir][1] * 26, e.dir, '#e8eef4', 10);
+      break;
+    }
+    case 'heatpipe': {
+      const tmp = heatTemp(e), hot = Math.min(1, Math.max(0, (tmp - 15) / 985));
+      const col = `rgb(${110 + hot * 140},${80 + hot * 60},${60 - hot * 20})`;
+      g.strokeStyle = col; g.lineWidth = 9; g.lineCap = 'round';
+      const C = (dx, dy) => { const n = at(e.x + dx, e.y + dy); return n && HEAT_CAP[n.type]; };
+      g.beginPath();
+      let any = false;
+      for (const [dx, dy] of DIRS) if (C(dx, dy)) { g.moveTo(cx, cy); g.lineTo(cx + dx * TILE / 2, cy + dy * TILE / 2); any = true; }
+      if (!any) { g.moveTo(cx - 10, cy); g.lineTo(cx + 10, cy); }
+      g.stroke(); g.lineCap = 'butt';
+      g.fillStyle = col; g.beginPath(); g.arc(cx, cy, 6, 0, Math.PI * 2); g.fill();
+      break;
+    }
     case 'belt': drawBeltBase(g, e, cx, cy, t, 2, '#c9a23a', '#e8c867'); break;
     case 'fastbelt': drawBeltBase(g, e, cx, cy, t, 4, '#b8463a', '#f08a7a'); break;
     case 'expressbelt': drawBeltBase(g, e, cx, cy, t, 8, '#3a86c4', '#8fcaf5'); break;

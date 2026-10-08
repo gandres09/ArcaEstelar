@@ -99,6 +99,7 @@ function loadFrom(raw) {
   }
   undoStack.length = 0;
   rebuildGrid();
+  addLegacyUranium();
   // Partidas de antes de los pedidos del Arca: lo que ya estaba en el Dique vuelve a la Nave
   if (S.arkOrder === undefined) {
     S.arkOrder = 0;
@@ -164,7 +165,7 @@ function startNewGame(seed, peaceful, character = true, opts = null) {
   setMapSize(sz[0], sz[1]);
   S = newState(seed, peaceful, character);
   S.powerRules = 1;
-  S.mapGen = 7;
+  S.mapGen = 8;
   S.mapOpts = opts || defaultMapOpts();
   generateMap(seed);
   loadPollution(null);
