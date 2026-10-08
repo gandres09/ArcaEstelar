@@ -100,6 +100,7 @@ function netApply(a) {
       case 'i': for (const k in a.d) S.inv[k] = Math.max(0, (S.inv[k] || 0) + a.d[k]); return true;
       case 'm': mineOre(a.x, a.y); return true;
       case 'c': chopTree(a.x, a.y); return true;
+      case 'cx': blowCliffs(a.x, a.y); return true;
       case 'g': addGhost(a.t, a.x, a.y, a.d, { recipe: a.r, filter: a.f }); return true;
       case 'gx': removeGhostsIn(a.r); return true;
       case 'R': if (TECHS[a.id] && techAvailable(a.id) && S.research.current !== a.id) S.research = { current: a.id, progress: 0 }; return true;

@@ -253,7 +253,7 @@ function pickCreature(L) {
 
 function walkableFor(x, y) {
   const o = oreAt(Math.floor(x), Math.floor(y));
-  return o !== 'water';
+  return o !== 'water' && !cliffAt(Math.floor(x), Math.floor(y));
 }
 
 // Todos los personajes que hay (el propio y los de los amigos)

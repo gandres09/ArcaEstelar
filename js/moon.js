@@ -62,6 +62,7 @@ function generateMoonMap(seed) {
   oreBase = oreAmt.slice();
   oreTypeBase = oreType.slice();
   chopped = new Set(); planted = new Map(); treeCache.clear();
+  computeBiomes(seed); computeCliffs(seed);
   computeForest();
   resetMapGraphics();
 }

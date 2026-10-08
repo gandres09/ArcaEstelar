@@ -58,7 +58,7 @@ function totalPollution() {
 
 function areaFree(x, y, s) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
-    if (at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water') return false;
+    if (at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water' || cliffAt(x + dx, y + dy)) return false;
   }
   return true;
 }
@@ -77,7 +77,7 @@ function generateNests(seed) {
   const cx = W >> 1, cy = H >> 1;
   let clusters = 0, tries = 0;
   const K = (W * H) / (320 * 240);
-  const target = K > 1 ? 70 * K * 0.5 : 70;
+  const target = (K > 1 ? 70 * K * 0.5 : 70) * mapOpts().enemies;
   while (clusters < target && tries++ < 3000 * K) {
     const x = 3 + Math.floor(rnd() * (W - 6)), y = 3 + Math.floor(rnd() * (H - 6));
     const d = Math.hypot(x - cx, (y - cy) / 0.75);

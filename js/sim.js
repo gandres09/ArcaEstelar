@@ -231,6 +231,7 @@ function canPlace(type, x, y, free = false) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
     if (!free && !tileExplored(x + dx, y + dy)) return { ok: false, why: 'Zona sin explorar' };
     if (type !== 'landfill' && oreAt(x + dx, y + dy) === 'water') return { ok: false, why: 'No se puede construir sobre el agua' };
+    if (cliffAt(x + dx, y + dy)) return { ok: false, why: 'Hay un acantilado: volalo con explosivos para acantilados' };
   }
   const o = oreAt(x, y);
   if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };

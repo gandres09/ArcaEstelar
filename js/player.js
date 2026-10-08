@@ -85,7 +85,7 @@ const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 
 function walkable(x, y) {
   if (oreAt(x, y) === 'water') return false;
   const e = at(x, y);
-  if (!e) return !treeAt(x, y);   // los árboles no dejan pasar: hay que talarlos o rodearlos
+  if (!e) return !treeAt(x, y) && !cliffAt(x, y);   // árboles y acantilados no dejan pasar
   return PASSABLE.has(e.type);
 }
 const onRoad = (x, y) => { const e = at(Math.floor(x), Math.floor(y)); return !!e && e.type === 'road'; };
@@ -237,9 +237,29 @@ function nearestTree(x, y, r) {
   return best;
 }
 
+// Tocar un acantilado: si tenés explosivos para acantilados, se vuela (hay que estar cerca)
+const CLIFF_REACH = 6;
+function useCliffExplosives(x, y) {
+  if (avail('cliff_explosives') < 1) {
+    toast(hasTech('cliff_explosives') ? 'Para volar este acantilado necesitás <b>Explosivos para acantilados</b> (se hacen en la Ensambladora avanzada).'
+      : 'Un acantilado: rodealo, pasá cintas por abajo con la subterránea, o investigá <b>Explosivos para acantilados</b> para volarlo.');
+    return false;
+  }
+  if (playerOn() && !inReach(x, y, CLIFF_REACH)) {
+    S.player.blast = { x: wrapX(x), y: wrapY(y) };
+    walkTo(x, y, CLIFF_REACH - 1);
+    return true;
+  }
+  takeItem('cliff_explosives', 1);
+  blowCliffs(x, y);
+  netPush({ k: 'cx', x, y });
+  sfx('boom', x, y);
+  return true;
+}
+
 function stopPlayerTasks() {
   const p = S.player;
-  p.path = null; p.mine = null; p.queue.length = 0;
+  p.path = null; p.mine = null; p.blast = null; p.queue.length = 0;
 }
 
 // --------------------------- Fabricación a mano ---------------------------
@@ -360,6 +380,8 @@ function updatePlayer(dt) {
     } else if (!p.path) walkTo(p.mine.x, p.mine.y, MINE_REACH - 0.6);
   }
 
+  // Ir a volar un acantilado
+  if (p.blast && !p.moving) { const b = p.blast; p.blast = null; if (cliffAt(b.x, b.y) && inReach(b.x, b.y, CLIFF_REACH)) useCliffExplosives(b.x, b.y); }
   processQueue();
 
   // Fabricación a mano

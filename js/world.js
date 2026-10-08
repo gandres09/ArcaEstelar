@@ -36,6 +36,99 @@ const inBounds = () => true;
 const oreAt = (x, y) => ORE_IDS[oreType[tIdx(x, y)]];
 const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 
+// --------------------------- Opciones del mapa, biomas y acantilados ---------------------------
+// Como el menú de Factorio: frecuencia, tamaño y riqueza de cada recurso, más agua, árboles, acantilados y nidos
+const MAP_OPT_RES = ['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil'];
+function defaultMapOpts() {
+  const o = { res: {}, water: 1, trees: 1, cliffs: 1, enemies: 1, biomes: true };
+  for (const k of MAP_OPT_RES) o.res[k] = { freq: 1, size: 1, rich: 1 };
+  return o;
+}
+// Opciones de la partida (las partidas de antes de la generación 7 usan las normales)
+let mapOptsCache = { s: null, o: null, gen: 0, v: null };
+function mapOpts() {
+  const c = mapOptsCache;
+  if (c.v && c.s === S && c.o === (S && S.mapOpts) && c.gen === (S && S.mapGen)) return c.v;
+  c.s = S; c.o = S && S.mapOpts; c.gen = S && S.mapGen;
+  return (c.v = buildMapOpts());
+}
+function buildMapOpts() {
+  const d = defaultMapOpts(), o = S && S.mapGen >= 7 && S.mapOpts;
+  if (!o) return d;
+  for (const k of MAP_OPT_RES) d.res[k] = { ...d.res[k], ...((o.res || {})[k] || {}) };
+  for (const k of ['water', 'trees', 'cliffs', 'enemies']) if (typeof o[k] === 'number') d[k] = o[k];
+  if (o.biomes === false) d.biomes = false;
+  return d;
+}
+const resOpt = (id) => mapOpts().res[ORE_IDS[id]] || { freq: 1, size: 1, rich: 1 };
+
+let cliffs = new Uint8Array(0);   // 1 = acantilado natural
+let cliffGone = new Set();        // acantilados volados con explosivos
+let biomeDry = new Uint8Array(0), biomeDesert = new Uint8Array(0), biomeRed = new Uint8Array(0);   // 0..255 por casilla
+const cliffAt = (x, y) => { const i = tIdx(x, y); return cliffs[i] === 1 && !cliffGone.has(i); };
+const smooth01 = (v) => Math.max(0, Math.min(1, v));
+
+// Biomas: humedad y temperatura (ruido muy suave). Cerca de la Nave siempre es pasto.
+function computeBiomes(seed) {
+  const n = W * H;
+  biomeDry = new Uint8Array(n); biomeDesert = new Uint8Array(n); biomeRed = new Uint8Array(n);
+  if (!(S && S.mapGen >= 7 && S.surface !== 'moon' && mapOpts().biomes)) return;
+  const sk = (seed >>> 0) % 997, cx = W >> 1, cy = H >> 1;
+  // Cambian muy suave: se calculan de a bloques de 2×2
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+    let m = vnoise(x, y, 170, 200 + sk) * 0.75 + vnoise(x, y, 47, 201 + sk) * 0.25;
+    const t = vnoise(x, y, 230, 202 + sk);
+    const near = smooth01((wdist(x, y, cx, cy) - 60) / 90);
+    m = 0.68 + (m - 0.68) * near;
+    const de = Math.round(255 * smooth01((0.4 - m) / 0.1)), dr = Math.round(255 * smooth01((0.5 - m) / 0.1)), re = Math.round(255 * smooth01((t - 0.56) / 0.1));
+    for (let dy = 0; dy < 2 && y + dy < H; dy++) for (let dx = 0; dx < 2 && x + dx < W; dx++) {
+      const i = (y + dy) * W + x + dx;
+      biomeDesert[i] = de; biomeDry[i] = dr; biomeRed[i] = re;
+    }
+  }
+}
+// Cuántos árboles crecen en el bioma (1 = pasto, casi nada en el desierto)
+function biomeTrees(i) {
+  if (!biomeDesert.length) return 1;
+  return (1 - biomeDesert[i] / 255 * 0.94) * (1 - biomeDry[i] / 255 * 0.55);
+}
+
+// Acantilados: siguen las curvas de nivel de una "altura" suave, cortados a tramos
+function computeCliffs(seed) {
+  cliffs = new Uint8Array(W * H);
+  cliffGone = new Set();
+  const amt = mapOpts().cliffs;
+  if (!(S && S.mapGen >= 7 && S.surface !== 'moon') || amt <= 0) return;
+  const sk = (seed >>> 0) % 991, cx = W >> 1, cy = H >> 1;
+  const levels = 4 + 3 * amt;                 // más niveles, más líneas
+  const gapT = Math.min(0.8, 0.36 + 0.12 * amt); // más alto, menos huecos
+  const lvl = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const e = vnoise(x, y, 95, 210 + sk) * 0.72 + vnoise(x, y, 31, 211 + sk) * 0.28;
+    lvl[y * W + x] = Math.floor(e * levels);
+  }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    const r = lvl[y * W + wrapX(x + 1)], b = lvl[wrapY(y + 1) * W + x];
+    if (lvl[i] === r && lvl[i] === b) continue;
+    if (oreType[i] !== 0) continue;
+    if (vnoise(x, y, 13, 212 + sk) > gapT) continue;   // huecos para pasar
+    if (wdist(x, y, cx, cy) < 48) continue;            // la zona de la Nave queda libre
+    cliffs[i] = 1;
+  }
+}
+
+// Vuela los acantilados alrededor de (x, y)
+function blowCliffs(x, y, r = 2.2) {
+  let n = 0;
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+    if (Math.hypot(dx, dy) > r) continue;
+    const tx = wrapX(x + dx), ty = wrapY(y + dy), i = ty * W + tx;
+    if (cliffs[i] === 1 && !cliffGone.has(i)) { cliffGone.add(i); n++; treeChanged(tx, ty); }
+  }
+  return n;
+}
+
 function generateMap(seed) {
   if (S && S.surface === 'moon') { generateMoonMap(seed); return; }
   oreType = new Uint8Array(W * H);
@@ -51,8 +144,12 @@ function generateMap(seed) {
   const gen2 = gen >= 2;
   const RAD = gen2 ? 0.68 : 1, RICH = gen2 ? 4 : 1, MORE = gen2 ? 1.3 : 1;
 
+  const g7 = gen >= 7;
+  const opts = g7 ? mapOpts() : null;
   const patch = (px, py, r0, id, rich0) => {
-    const rad = r0 * RAD, richness = rich0 * RICH;
+    const ro = g7 ? resOpt(id) : null;
+    const rad = r0 * RAD * (ro ? Math.sqrt(ro.size) : 1), richness = rich0 * RICH;
+    const rmul = ro ? ro.rich : 1;
     for (let y = Math.floor(py - rad - 2); y <= py + rad + 2; y++) {
       for (let x = Math.floor(px - rad - 2); x <= px + rad + 2; x++) {
         if (outside(x, y)) continue;
@@ -64,7 +161,7 @@ function generateMap(seed) {
             // Mucho en el centro y poco en los bordes (x3: unas 1500 en el borde, 7000+ en el centro)
             const t = Math.max(0, 1 - d / (rad + 0.5));
             const peak = Math.max(2600, richness * 1.6);
-            oreAmt[i] = Math.min(65000, Math.round(3 * (500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
+            oreAmt[i] = Math.min(65000, Math.round(rmul * 3 * (500 + (peak - 500) * Math.pow(t, 1.3)) * (0.9 + rnd() * 0.2)));
           } else {
             // Más rico en el centro del yacimiento
             oreAmt[i] = Math.min(65000, Math.round(richness * (1.4 - 0.8 * d / (rad + 1)) * (0.8 + rnd() * 0.4)));
@@ -86,7 +183,7 @@ function generateMap(seed) {
       }
     }
   };
-  for (let i = 0; i < 26 * K; i++) {
+  for (let i = 0; i < 26 * K * (g7 ? opts.water : 1); i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     if (Math.hypot(px - cx, py - cy) < 30) continue;
     lake(px, py, 3 + rnd() * 9);
@@ -114,6 +211,7 @@ function generateMap(seed) {
 
   // Recursos en anillos: más lejos, más raros y más ricos
   const ring = (id, dmin, dmax, count, rmin, rmax, rich) => {
+    if (g7) count = Math.round(count * resOpt(id).freq);
     let placed = 0, tries = 0;
     while (placed < count && tries++ < 800) {
       const a = rnd() * Math.PI * 2, d = dmin + rnd() * (dmax - dmin);
@@ -153,6 +251,20 @@ function generateMap(seed) {
 
   // Pozos de petróleo: grupos de casillas sueltas
   const oilField = (px, py) => {
+    if (g7) {
+      // Como en Factorio: pozos sueltos, separados entre sí, cada uno con su rendimiento
+      const oo = opts.res.oil, wells = [];
+      const want = Math.max(2, Math.round((5 + rnd() * 6) * oo.size)), spread = 6 + 3 * Math.sqrt(oo.size);
+      for (let t = 0; t < 60 && wells.length < want; t++) {
+        const x = Math.round(px + (rnd() - 0.5) * 2 * spread), y = Math.round(py + (rnd() - 0.5) * 2 * spread);
+        if (wells.some(([wx, wy]) => Math.max(Math.abs(wx - x), Math.abs(wy - y)) < 3)) continue;
+        if (oreType[tIdx(x, y)] === 8) continue;
+        wells.push([x, y]);
+        oreType[tIdx(x, y)] = 7;
+        oreAmt[tIdx(x, y)] = Math.min(65000, Math.round((25000 + rnd() * 35000) * oo.rich));
+      }
+      return;
+    }
     for (let k = 0; k < 4 + Math.floor(rnd() * 4); k++) {
       const x = Math.round(px + (rnd() - 0.5) * 9), y = Math.round(py + (rnd() - 0.5) * 9);
       if (outside(x, y)) continue;
@@ -163,7 +275,8 @@ function generateMap(seed) {
   let fields = 0, tries = 0;
   // Un solo pozo de petróleo cerca, para empezar; el resto, muy lejos
   if (farthest) { const a = rnd() * Math.PI * 2, d = 45 + rnd() * 20; oilField(Math.round(cx + Math.cos(a) * d), Math.round(cy + Math.sin(a) * d * 0.75)); }
-  while (fields < 9 * K && tries++ < 500 * K) {
+  const oilN = 9 * K * (g7 ? opts.res.oil.freq : 1);
+  while (fields < oilN && tries++ < 500 * K) {
     const d0 = farthest ? 380 : farther ? 230 : far ? 90 : 32;
     const a = rnd() * Math.PI * 2, d = d0 + rnd() * (fields < 9 ? (farthest ? 200 : farther ? 170 : far ? 150 : 100) : W / 2 - d0);
     const px = Math.round(cx + Math.cos(a) * d), py = Math.round(cy + Math.sin(a) * d * 0.75);
@@ -173,13 +286,16 @@ function generateMap(seed) {
   }
 
   // Yacimientos comunes por todo el mapa
-  for (let i = 0; i < Math.round(220 * K * MORE); i++) {
+  const fq = g7 ? [0, ...[1, 2, 3, 4, 5, 6].map((k) => resOpt(k).freq)] : null;
+  const fqSum = g7 ? fq[1] + fq[2] + fq[3] + fq[4] : 4;
+  for (let i = 0; i < Math.round(220 * K * MORE * (g7 ? fqSum / 4 : 1)); i++) {
     const px = Math.floor(rnd() * W), py = Math.floor(rnd() * H);
     const d = Math.hypot(px - cx, (py - cy) / 0.75);
     if (d < 26) continue;
     let id = 1 + Math.floor(rnd() * 4);
-    if (d > (farthest ? 380 : farther ? 240 : far ? 120 : 35) && rnd() < 0.15) id = 5;
-    if (d > (farthest ? 540 : farther ? 400 : far ? 260 : 60) && rnd() < 0.15) id = 6;
+    if (g7) { let r = rnd() * fqSum; for (id = 1; id < 4 && (r -= fq[id]) > 0; id++); }
+    if (d > (farthest ? 380 : farther ? 240 : far ? 120 : 35) && rnd() < 0.15 * (g7 ? fq[5] : 1)) id = 5;
+    if (d > (farthest ? 540 : farther ? 400 : far ? 260 : 60) && rnd() < 0.15 * (g7 ? fq[6] : 1)) id = 6;
     patch(px, py, 2.5 + rnd() * 5, id, 380 * (1 + d / 45));
   }
 
@@ -192,6 +308,8 @@ function generateMap(seed) {
   oreBase = oreAmt.slice();
   oreTypeBase = oreType.slice();
   chopped = new Set(); planted = new Map(); treeCache.clear();
+  computeBiomes(seed);
+  computeCliffs(seed);
   computeForest();
   resetMapGraphics();
 }
@@ -248,6 +366,7 @@ const SAND = [190, 172, 122];
 const WATER_SHALLOW = [58, 128, 164], WATER_MID = [38, 98, 150], WATER_DEEP = [24, 66, 120];
 
 // Color del suelo en un punto (en casillas, con decimales)
+const DESERT_LIGHT = [204, 180, 122], DESERT_DARK = [176, 150, 98], RED_LIGHT = [176, 104, 66], RED_DARK = [140, 78, 50], STEPPE = [128, 118, 66];
 function terrainAt(x, y) {
   if (S && S.surface === 'moon') return moonTerrainAt(x, y);
   const n = vnoise(x, y, 7, 3) * 0.6 + vnoise(x, y, 23, 4) * 0.4;
@@ -256,8 +375,20 @@ function terrainAt(x, y) {
   if (dry > 0.6) c = mixRgb(c, GRASS_DRY, Math.min(1, (dry - 0.6) * 2.2));
   const dirt = vnoise(x, y, 11, 6);
   if (dirt > 0.78) c = mixRgb(c, DIRT, Math.min(0.7, (dirt - 0.78) * 4));
+  // Biomas: pasto seco, desierto de arena y desierto rojo
+  if (biomeDry.length) {
+    const i = tIdx(Math.floor(x), Math.floor(y));
+    const bd = biomeDry[i], bs = biomeDesert[i];
+    if (bd) c = mixRgb(c, STEPPE, bd / 255 * 0.7);
+    if (bs) {
+      const r = biomeRed[i] / 255;
+      const sand = mixRgb(mixRgb(DESERT_DARK, DESERT_LIGHT, n), mixRgb(RED_DARK, RED_LIGHT, n), r);
+      c = mixRgb(c, sand, bs / 255);
+    }
+  }
   return c;
 }
+const CLIFF_RGB = [92, 78, 62];
 
 const isWaterT = (x, y) => oreType[tIdx(x, y)] === 8;
 
@@ -275,6 +406,7 @@ function tilePixel(x, y) {
   const o = oreAt(x, y);
   if (o === 'water') return [WATER_SHALLOW, WATER_MID, WATER_DEEP][waterDepth(x, y)];
   const base = terrainAt(x + 0.5, y + 0.5);
+  if (!o && cliffAt(x, y)) return CLIFF_RGB;
   if (!o) return treeAt(x, y) ? mixRgb(base, [24, 46, 24], 0.55) : base;
   return mixRgb(base, hexToRgb(ITEMS[o].color), o === 'oil' ? 0.7 : 0.55);
 }
@@ -418,6 +550,18 @@ function drawTile(g, x, y, px, py) {
   }
 
   if (!o && S && S.surface === 'moon') { drawMoonGround(g, x, y, px, py); return; }
+  if (!o && cliffAt(x, y)) { drawCliff(g, x, y, px, py); return; }
+  const desertHere = biomeDesert.length ? biomeDesert[tIdx(x, y)] / 255 : 0;
+  if (!o && desertHere > 0.5) {
+    // Desierto: ondas de arena y alguna piedrita
+    g.strokeStyle = 'rgba(120,90,50,0.22)'; g.lineWidth = 1;
+    for (let k = 0; k < 2; k++) {
+      const wy = py + 8 + k * 13 + hash(x, y, 60 + k) * 5, wx = px + 3 + hash(x, y, 62 + k) * 10;
+      g.beginPath(); g.moveTo(wx, wy); g.quadraticCurveTo(wx + 7, wy - 3, wx + 14, wy); g.stroke();
+    }
+    if (hash(x, y, 90) > 0.93) rock(g, px + 10 + hash(x, y, 98) * 12, py + 12 + hash(x, y, 99) * 10, 2 + hash(x, y, 97) * 2, '#a08868', 0.3);
+    return;
+  }
   if (!o) {
     // Pasto: matas, flores y piedritas
     g.lineWidth = 1;
@@ -462,6 +606,29 @@ function drawTile(g, x, y, px, py) {
   }
 }
 
+// Acantilado: pared de roca con la cara hacia abajo; se une con los vecinos
+function drawCliff(g, x, y, px, py) {
+  const C = (dx, dy) => cliffAt(x + dx, y + dy);
+  const L = C(-1, 0), R = C(1, 0), U = C(0, -1), D = C(0, 1);
+  const x0 = px + (L ? 0 : 5), x1 = px + TILE - (R ? 0 : 5), y0 = py + (U ? 0 : 5), y1 = py + TILE - (D ? 0 : 3);
+  g.fillStyle = 'rgba(0,0,0,0.3)';
+  g.fillRect(x0 + 2, y0 + 4, x1 - x0, y1 - y0);
+  for (let by = y0; by < y1; by += 4) for (let bx = x0; bx < x1; bx += 4) {
+    const k = (hash(x * 8 + (bx - px), y * 8 + (by - py), 7) - 0.5) * 24;
+    const t = (by - py) / TILE;
+    const c = mixRgb([150, 132, 108], [70, 58, 46], t);
+    g.fillStyle = rgbStr([c[0] + k, c[1] + k, c[2] + k]);
+    g.fillRect(bx, by, Math.min(4, x1 - bx), Math.min(4, y1 - by));
+  }
+  // Grietas
+  g.strokeStyle = 'rgba(40,30,22,0.55)'; g.lineWidth = 1.2;
+  for (let k = 0; k < 2; k++) {
+    const sx = x0 + 4 + hash(x, y, 120 + k) * (x1 - x0 - 8);
+    g.beginPath(); g.moveTo(sx, y0 + 3); g.lineTo(sx + (hash(x, y, 125 + k) - 0.5) * 8, y1 - 3); g.stroke();
+  }
+  if (!U) { g.fillStyle = 'rgba(220,205,180,0.35)'; g.fillRect(x0, y0, x1 - x0, 3); }
+}
+
 // Densidad de bosque (los árboles se dibujan aparte, ver render.js)
 function treeDensity(x, y) {
   return vnoise(x, y, 17, 9) * 0.75 + vnoise(x, y, 5, 10) * 0.25;
@@ -484,8 +651,10 @@ function naturalTreeAt(x, y) {
   const i = y * W + x;
   if (oreBase[i] !== 0) return null;
   if (Math.abs(x - W / 2) < 9 && Math.abs(y - H / 2) < 9) return null;
+  if (cliffs[i] === 1) return null;
   const d = treeDensity(x, y);
-  const p = d > 0.5 ? (d - 0.5) * 2.6 : d > 0.36 ? 0.03 : 0;
+  let p = d > 0.5 ? (d - 0.5) * 2.6 : d > 0.36 ? 0.03 : 0;
+  if (S && S.mapGen >= 7) p *= biomeTrees(i) * mapOpts().trees;
   if (!p || hash(x, y, 40) >= p) return null;
   return makeTree(x, y);
 }
@@ -562,12 +731,14 @@ function computeForest() {
 }
 
 function encodeTrees() {
-  return { c: [...chopped], p: [...planted.keys()] };
+  return { c: [...chopped], p: [...planted.keys()], x: [...cliffGone] };
 }
 function decodeTrees(t) {
   chopped = new Set(t && Array.isArray(t.c) ? t.c : []);
   planted = new Map();
   if (t && Array.isArray(t.p)) for (const i of t.p) planted.set(i, makeTree(i % W, Math.floor(i / W)));
+  cliffGone = new Set(t && Array.isArray(t.x) ? t.x : []);
+  for (const i of cliffGone) treeChanged(i % W, Math.floor(i / W));
   treeCache.clear();
   computeForest();
   for (const i of [...chopped, ...planted.keys()]) treeChanged(i % W, Math.floor(i / W));

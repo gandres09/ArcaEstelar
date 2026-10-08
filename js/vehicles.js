@@ -29,6 +29,7 @@ function vehicleCanBe(v, x, y) {
   for (const [ox, oy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) {
     const tx = Math.floor(x + ox), ty = Math.floor(y + oy);
     if (oreAt(tx, ty) === 'water' && !d.water) return false;
+    if (cliffAt(tx, ty)) return false;   // ni el tanque sube un acantilado
     const e = at(tx, ty);
     if (e && !PASSABLE.has(e.type)) return false;
     if (!e && v.type !== 'tank' && treeAt(tx, ty)) return false;   // el tanque los voltea; los demás chocan

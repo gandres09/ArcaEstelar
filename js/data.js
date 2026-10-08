@@ -71,6 +71,7 @@ const ITEMS = {
 
   // Etapa 2: limpiar el planeta
   explosives:     { name: 'Explosivos',         color: '#d9534f', shape: 'fuel' },
+  cliff_explosives: { name: 'Explosivos para acantilados', color: '#e8743a', shape: 'fuel' },
   orbital_charge: { name: 'Carga orbital',      color: '#ff6a3d', shape: 'part' },
   air_filter:     { name: 'Filtro de aire',     color: '#9fd9c8', shape: 'plate' },
   // Etapa 3: el arca estelar
@@ -164,7 +165,8 @@ const RECIPES = {
   robot_frame:  { machine: 'asm',  tier: 2, in: { electric_engine: 1, battery: 2, steel: 1, circuit: 3 }, out: 'robot_frame', n: 1, time: 20, tech: 'construction_robots' },
   // Etapa 2
   air_filter:   { machine: 'asm',  tier: 1, in: { coal: 2, plastic: 1, steel: 1 },          out: 'air_filter',   n: 2, time: 5,   tech: 'air_purification' },
-  explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'orbital_strike' },
+  explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'cliff_explosives' },
+  cliff_explosives: { machine: 'asm', tier: 2, in: { explosives: 10, steel: 1, iron_plate: 2 },    out: 'cliff_explosives', n: 1, time: 8, tech: 'cliff_explosives' },
   orbital_charge: { machine: 'asm', tier: 2, in: { rocket_fuel: 1, explosives: 5, control_unit: 1 }, out: 'orbital_charge', n: 1, time: 15, tech: 'orbital_strike' },
   // Etapa 3
   superconductor: { machine: 'chem', tier: 1, in: { copper_plate: 2, titanium_plate: 1, lubricant: 2 }, out: 'superconductor', n: 1, time: 5, tech: 'superconductors' },
@@ -469,7 +471,9 @@ const TECHS = {
   // Etapa 2: limpiar el planeta (se desbloquea al llegar al espacio)
   air_purification:  { name: 'Purificación del aire', stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['chemical_science'],
                        desc: 'Purificadores, filtros de aire y viveros que plantan árboles.' },
-  orbital_strike:    { name: 'Ataque orbital',       stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 250, time: 25, req: ['rocketry'],
+  cliff_explosives:  { name: 'Explosivos para acantilados', packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],
+                       desc: 'Explosivos y explosivos para acantilados: tocá un acantilado con la mano para volarlo y abrir paso.' },
+  orbital_strike:    { name: 'Ataque orbital',       stage: 2, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 250, time: 25, req: ['rocketry', 'cliff_explosives'],
                        desc: 'Explosivos, cargas orbitales y el Enlace orbital que borra nidos en cualquier lugar del planeta.' },
   // Etapa 3: escapar del sistema solar (se desbloquea con el planeta limpio)
   superconductors:   { name: 'Superconductores',     stage: 3, packs: ['sci_red', 'sci_green', 'sci_blue', 'sci_purple'], units: 400, time: 30, req: ['rocketry'],

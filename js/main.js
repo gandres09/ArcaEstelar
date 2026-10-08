@@ -123,11 +123,43 @@ function load() {
   }
 }
 
-function startNewGame(seed, peaceful, character = true) {
+// --------------------------- Opciones del mapa (como en Factorio) ---------------------------
+const MAP_OPT_STEPS = [[0, 'Nada'], [0.33, 'Muy poco'], [0.5, 'Poco'], [1, 'Normal'], [1.5, 'Bastante'], [2, 'Mucho'], [3, 'Muchísimo']];
+const MAP_OPT_ROWS = [
+  ...MAP_OPT_RES.map((k) => ({ k, name: ITEMS[k === 'oil' ? 'oil' : k].name, res: true })),
+  { k: 'water', name: 'Agua (lagos)' }, { k: 'trees', name: 'Árboles' }, { k: 'cliffs', name: 'Acantilados' }, { k: 'enemies', name: 'Nidos de bichos' },
+];
+function optSelect(id, val, min = 0) {
+  return `<select id="${id}">${MAP_OPT_STEPS.filter(([v]) => v >= min).map(([v, n]) => `<option value="${v}" ${v === val ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+}
+function buildMapOptsUI(o = defaultMapOpts()) {
+  let h = '<table class="mapopt-table"><tr><th></th><th>Frecuencia</th><th>Tamaño</th><th>Riqueza</th></tr>';
+  for (const r of MAP_OPT_ROWS) {
+    if (r.res) {
+      const v = o.res[r.k];
+      h += `<tr><td>${itemImg(r.k, 'ico-s')} ${r.name}</td><td>${optSelect('mo-' + r.k + '-freq', v.freq, 0.33)}</td><td>${optSelect('mo-' + r.k + '-size', v.size, 0.33)}</td><td>${optSelect('mo-' + r.k + '-rich', v.rich, 0.33)}</td></tr>`;
+    } else h += `<tr><td>${r.name}</td><td colspan="3">${optSelect('mo-' + r.k, o[r.k], r.k === 'trees' || r.k === 'water' ? 0.33 : 0)}</td></tr>`;
+  }
+  h += '</table><label><input type="checkbox" id="mo-biomes" ' + (o.biomes ? 'checked' : '') + '> Biomas (pasto, estepa y desiertos)</label>';
+  $('mapopts').innerHTML = h;
+  $('mapopts-reset').onclick = () => buildMapOptsUI();
+}
+function readMapOpts() {
+  const o = defaultMapOpts();
+  for (const r of MAP_OPT_ROWS) {
+    if (r.res) for (const f of ['freq', 'size', 'rich']) o.res[r.k][f] = +$('mo-' + r.k + '-' + f).value;
+    else o[r.k] = +$('mo-' + r.k).value;
+  }
+  o.biomes = $('mo-biomes').checked;
+  return o;
+}
+
+function startNewGame(seed, peaceful, character = true, opts = null) {
   setMapSize(MAP_SIZE[0], MAP_SIZE[1]);
   S = newState(seed, peaceful, character);
   S.powerRules = 1;
-  S.mapGen = 6;
+  S.mapGen = 7;
+  S.mapOpts = opts || defaultMapOpts();
   generateMap(seed);
   loadPollution(null);
   decodeFog(null);
@@ -322,8 +354,11 @@ async function init() {
   };
   for (const id of ['vol-sfx', 'vol-music', 'mute']) $(id).addEventListener('input', onAudio);
   $('vol-sfx').addEventListener('change', () => sfx('place'));
+  buildMapOptsUI();
   $('btn-new-go').addEventListener('click', () => {
-    startNewGame((Math.random() * 2 ** 31) | 0, $('opt-peaceful').checked, $('opt-character').checked);
+    const sv = $('opt-seed').value.trim();
+    const seed = sv ? (/^-?\d+$/.test(sv) ? (+sv | 0) : [...sv].reduce((h, ch) => (Math.imul(h, 31) + ch.charCodeAt(0)) | 0, 7)) : (Math.random() * 2 ** 31) | 0;
+    startNewGame(seed, $('opt-peaceful').checked, $('opt-character').checked, readMapOpts());
     toolbarKey = '';
     updateUI();
     openModal('help');

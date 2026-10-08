@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=1791469371">
+  <link rel="stylesheet" href="style.css?v=1791470803">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -147,6 +147,12 @@
         <label><input type="radio" name="enemies" id="opt-normal" value="normal" checked> Normal: aparecen de a poco y atacan si la polución les llega</label>
         <label><input type="radio" name="enemies" id="opt-peaceful" value="peaceful"> Pacífico: sin enemigos</label>
       </fieldset>
+      <details class="opts mapopts">
+        <summary>Opciones del mapa</summary>
+        <div id="mapopts"></div>
+        <label class="seed">Semilla <input id="opt-seed" type="text" inputmode="numeric" placeholder="al azar"></label>
+        <button type="button" id="mapopts-reset">Volver a lo normal</button>
+      </details>
       <div class="actions">
         <button id="btn-new-go" type="button" class="primary">Empezar</button>
         <button type="button" data-close>Cancelar</button>
@@ -251,6 +257,7 @@
         <li><b>Cápsulas de escape</b> (puntos naranjas en el mapa): traen circuitos, motores, módulos y ciencia; cuanto más lejos, mejores.</li>
         <li><b>Vehículos</b> (categoría Vehículos): Buggy → Auto → Camioneta blindada (ametralladora) → Tanque (cañón) → Aerodeslizador (cruza agua, láser). Ponelo, cargale combustible y tocalo para subirte; después tocá el mapa para ir. Tienen baúl para traer cosas.</li>
         <li><b>Marcadores:</b> en el panel del mapa, 📍 Marcar y tocá un lugar (o el minimapa). Los ven todos. 📣 ¡Vengan! les avisa a tus amigos dónde estás.</li>
+        <li><b>El mundo:</b> hay biomas (pasto, estepa, desierto de arena y desierto rojo, con pocos árboles) y <b>acantilados</b> que no dejan pasar ni construir: rodealos, pasá cintas por abajo con la subterránea o volalos con <b>Explosivos para acantilados</b> (tocá el acantilado con la mano). El petróleo sale en pozos sueltos. Al crear partida, en <b>Opciones del mapa</b> elegís frecuencia, tamaño y riqueza de cada recurso, agua, árboles, acantilados, nidos y la semilla.</li>
         <li><b>Petróleo como en Factorio:</b> en la planta química o la refinería el crudo se convierte en <b>gas</b>, <b>petróleo pesado</b> o <b>liviano</b>. Con gas hacés plástico y azufre; con pesado, lubricante; con liviano, combustible sólido y de cohete; con azufre, agua y hierro, <b>ácido sulfúrico</b> (para baterías y unidades de control).</li>
         <li><b>Más máquinas:</b> brazo largo (2 casillas), brazo de carga (4 por vuelta), horno de acero, Ensambladora 3, Refinería, Faro (comparte módulos), Bomba de cañería, poste mediano y Subestación, Compuerta, torreta lanzallamas y de artillería. Todos los brazos pueden filtrar: tocalos y elegí el objeto.</li>
         <li><b>Robots logísticos:</b> en un <b>Cofre de pedido</b> elegís qué querés y cuánto; los robots lo traen de los <b>Cofres de provisión</b> o de la Nave.</li>
@@ -348,31 +355,31 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=1791469371"></script>
-  <script src="js/world.js?v=1791469371"></script>
-  <script src="js/sim.js?v=1791469371"></script>
-  <script src="js/weather.js?v=1791469371"></script>
-  <script src="js/enemies.js?v=1791469371"></script>
-  <script src="js/trains.js?v=1791469371"></script>
-  <script src="js/robots.js?v=1791469371"></script>
-  <script src="js/fluids.js?v=1791469371"></script>
-  <script src="js/player.js?v=1791469371"></script>
-  <script src="js/online.js?v=1791469371"></script>
-  <script src="js/p2p.js?v=1791469371"></script>
-  <script src="js/cloud.js?v=1791469371"></script>
-  <script src="js/pet.js?v=1791469371"></script>
-  <script src="js/rpg.js?v=1791469371"></script>
-  <script src="js/render.js?v=1791469371"></script>
-  <script src="js/vehicles.js?v=1791469371"></script>
-  <script src="js/markers.js?v=1791469371"></script>
-  <script src="js/moon.js?v=1791469371"></script>
-  <script src="js/rpgdraw.js?v=1791469371"></script>
-  <script src="js/audio.js?v=1791469371"></script>
-  <script src="js/ui.js?v=1791469371"></script>
-  <script src="js/progress.js?v=1791469371"></script>
-  <script src="js/blueprints.js?v=1791469371"></script>
-  <script src="js/input.js?v=1791469371"></script>
-  <script src="js/dragdrop.js?v=1791469371"></script>
-  <script src="js/main.js?v=1791469371"></script>
+  <script src="js/data.js?v=1791470803"></script>
+  <script src="js/world.js?v=1791470803"></script>
+  <script src="js/sim.js?v=1791470803"></script>
+  <script src="js/weather.js?v=1791470803"></script>
+  <script src="js/enemies.js?v=1791470803"></script>
+  <script src="js/trains.js?v=1791470803"></script>
+  <script src="js/robots.js?v=1791470803"></script>
+  <script src="js/fluids.js?v=1791470803"></script>
+  <script src="js/player.js?v=1791470803"></script>
+  <script src="js/online.js?v=1791470803"></script>
+  <script src="js/p2p.js?v=1791470803"></script>
+  <script src="js/cloud.js?v=1791470803"></script>
+  <script src="js/pet.js?v=1791470803"></script>
+  <script src="js/rpg.js?v=1791470803"></script>
+  <script src="js/render.js?v=1791470803"></script>
+  <script src="js/vehicles.js?v=1791470803"></script>
+  <script src="js/markers.js?v=1791470803"></script>
+  <script src="js/moon.js?v=1791470803"></script>
+  <script src="js/rpgdraw.js?v=1791470803"></script>
+  <script src="js/audio.js?v=1791470803"></script>
+  <script src="js/ui.js?v=1791470803"></script>
+  <script src="js/progress.js?v=1791470803"></script>
+  <script src="js/blueprints.js?v=1791470803"></script>
+  <script src="js/input.js?v=1791470803"></script>
+  <script src="js/dragdrop.js?v=1791470803"></script>
+  <script src="js/main.js?v=1791470803"></script>
 </body>
 </html>

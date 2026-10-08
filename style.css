@@ -617,3 +617,20 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 .tool-pop-grid { display: grid; grid-template-columns: repeat(auto-fill, 56px); gap: 4px; width: min(380px, calc(100vw - 32px)); }
 .tool-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .tool-tabs .small-btn.on { border-color: var(--accent); color: var(--accent); }
+
+/* Opciones del mapa */
+.mapopts summary { cursor: pointer; color: var(--accent); }
+.mapopts #mapopts { overflow-x: auto; }
+.mapopt-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.mapopt-table th { text-align: left; font-weight: normal; color: var(--muted, #9aa); padding: 2px 4px; }
+.mapopt-table td { padding: 2px 4px; white-space: nowrap; }
+.mapopt-table td:first-child { display: flex; align-items: center; gap: 4px; }
+.mapopt-table select { font-size: 0.8rem; padding: 2px; max-width: 96px; }
+.mapopts .seed input { width: 140px; }
+@media (max-width: 520px) {
+  .mapopt-table { font-size: 0.72rem; }
+  .mapopt-table td { padding: 2px 1px; white-space: normal; }
+  .mapopt-table td:first-child { gap: 2px; }
+  .mapopt-table select { font-size: 0.68rem; max-width: 64px; padding: 1px 0; }
+  .mapopt-table th { font-size: 0.68rem; padding: 2px 1px; }
+}
