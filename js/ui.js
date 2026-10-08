@@ -750,7 +750,8 @@ function inspectorContent(e) {
         '<p class="muted small">Construyen planos, reconstruyen lo que destruyen los bichos y reparan, a 25 casillas a la redonda. Los materiales salen del inventario.</p>';
       break;
     }
-    case 'signal':
+    case 'signal': case 'chainsignal':
+      if (e.type === 'chainsignal') h += '<p class="small">Señal en cadena: el tren solo pasa si después puede salir del tramo siguiente. Ponela en la entrada de los cruces y una señal común a la salida.</p>';
       h += row('Estado', signalRed(e) ? '<span class="bad">roja: hay un tren en el tramo</span>' : '<span class="ok">verde: tramo libre</span>') +
         '<p class="muted small">Ponela en la vía para dividirla en tramos. Un tren espera en la señal hasta que el tramo de adelante esté libre. Así pueden andar varios trenes en la misma red.</p>';
       break;
@@ -758,6 +759,7 @@ function inspectorContent(e) {
       h += `<div class="net-nick"><input id="st-name" type="text" maxlength="24" value="${escapeHtml(stationName(e))}" autocomplete="off"><button type="button" class="small-btn" data-act="rename">Renombrar</button></div>`;
       h += row('Modo', e.mode === 'load' ? '<span class="ok">Carga</span>: recibe objetos y los sube al tren' : '<span class="ok">Descarga</span>: baja lo del tren y lo suelta por la flecha') +
         row('Guardado', `${e.total} / ${STATION_CAP}`) + Object.entries(e.store).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        (e.fl && e.fl.n >= 1 ? row('Líquido', `${itemLabel(e.fl.k)} ${Math.floor(e.fl.n)} / ${STATION_FLUID}`) : '') +
         `<div class="actions"><button type="button" data-act="mode">Cambiar a ${e.mode === 'load' ? 'Descarga' : 'Carga'}</button></div>` +
         '<p class="muted small">El tren también carga carbón o combustible sólido de cualquier estación.</p>';
       break;
@@ -767,7 +769,10 @@ function inspectorContent(e) {
       h += row('Estado', e.state === 'moving' ? (e.blocked ? 'esperando vía libre (señal o tren adelante)' : 'en viaje') : e.state === 'waiting' ? 'cargando/descargando' : '<span class="bad">sin estaciones en su vía</span>') +
         row('Destino', st ? `${escapeHtml(stationName(st))} (${st.mode === 'load' ? 'carga' : 'descarga'})` : '—') +
         row('Combustible', e.fuel ? itemLabel(e.fuelType, e.fuel) : (e.energy > 0 ? 'quemando' : '<span class="bad">vacío: va muy despacio</span>')) +
-        row('Carga', `${e.total} / ${TRAIN_CAP}`) + Object.entries(e.cargo).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        row('Vagones', wagonsOf(e).map((w) => (w === 'f' ? '🛢️' : '📦')).join(' ')) +
+        row('Carga', `${e.total} / ${trainCap(e)}`) + Object.entries(e.cargo).map(([k, n]) => row(itemLabel(k), n)).join('') +
+        (fluidCap(e) ? row('Líquido', e.fl && e.fl.n >= 1 ? `${itemLabel(e.fl.k)} ${Math.floor(e.fl.n)} / ${fluidCap(e)}` : `vacío (0 / ${fluidCap(e)})`) : '') +
+        `<div class="actions"><button type="button" class="small-btn" data-act="twag" data-v="c">➕ 📦 Vagón de carga</button>${hasTech('rail_signals2') ? '<button type="button" class="small-btn" data-act="twag" data-v="f">➕ 🛢️ Vagón de fluidos</button>' : ''}<button type="button" class="small-btn" data-act="twagdel">➖ Sacar el último</button></div>` +
         '<div class="actions"><button type="button" data-act="tfuel">Cargar carbón</button><button type="button" data-act="tremove">🗑️ Desarmar tren</button></div>';
       // Horario
       const stations = S.entities.filter((s) => s.type === 'station');
@@ -1327,6 +1332,8 @@ $('inspector').addEventListener('pointerdown', (ev) => {
       break;
     }
     case 'tremove': removeTrain(e); closeInspector(); updateUI(); return;
+    case 'twag': addWagon(e, v === 'f' ? 'f' : 'c'); netTrainSchedule(e); break;
+    case 'twagdel': removeWagon(e); netTrainSchedule(e); break;
     case 'fuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 10);
       if (!n) toast(e.fuel >= 10 ? 'Ya está lleno de combustible.' : 'No tenés carbón ni madera en el inventario.');

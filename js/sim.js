@@ -599,6 +599,10 @@ function accept(t, item, src, dry = false, lane = -1) {
       return ok(() => { t.l[k] = item; t.p[k] = 0; });
     }
     case 'station':
+      if (FLUIDS.has(item)) {
+        if (t.mode !== 'load' || (t.fl && (t.fl.k !== item || t.fl.n >= STATION_FLUID))) return false;
+        return ok(() => { t.fl = t.fl || { k: item, n: 0 }; t.fl.n++; });
+      }
       if (t.mode !== 'load' || t.total >= STATION_CAP) return false;
       return ok(() => { add(t.store, item, 1); t.total++; });
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest': case 'requesterchest':
@@ -1552,7 +1556,7 @@ function heatStep(dt) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor', 'concrete_floor', 'refined_floor', 'landmine']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'chainsignal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor', 'concrete_floor', 'refined_floor', 'landmine']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

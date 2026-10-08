@@ -429,6 +429,8 @@ const BUILDINGS = {
                  desc: 'Se conecta sola con las vías vecinas. Tendela de punta a punta como una cinta.' },
   signal:      { name: 'Señal de tren',       cat: 'trenes', hp: 100, cost: { circuit: 1, iron_plate: 5 }, tech: 'railway',
                  desc: 'Va en la vía (hace de vía) y la corta en tramos: un tren solo entra a un tramo si no hay otro tren adentro.' },
+  chainsignal: { name: 'Señal en cadena',     cat: 'trenes', hp: 100, cost: { circuit: 1, iron_plate: 5 }, tech: 'rail_signals2',
+                 desc: 'Como la señal, pero el tren solo pasa si también puede salir del tramo siguiente: así no se traba en los cruces.' },
   station:     { name: 'Estación',            cat: 'trenes', hp: 300, cost: { circuit: 5, iron_plate: 6, iron_stick: 6, steel: 3 }, tech: 'railway',
                  desc: 'Parada de tren sobre la vía. En modo Carga recibe objetos; en Descarga los suelta por la flecha.' },
   train:       { name: 'Tren',                cat: 'trenes', hp: 500, cost: { engine: 20, circuit: 10, steel: 70, gear: 20, iron_plate: 40 }, tech: 'railway',
@@ -451,7 +453,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'storagechest', 'activechest', 'bufferchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'chainsignal', 'providerchest', 'requesterchest', 'storagechest', 'activechest', 'bufferchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -568,6 +570,8 @@ const TECHS = {
                        desc: 'Cohetes que explotan en un área grande.' },
   atomic_bomb:       { name: 'Bomba atómica',         packs: ['sci_red', 'sci_green', 'sci_blue'], units: 800, time: 30, req: ['kovarex', 'explosive_rocketry'],
                        desc: 'Un cohete con 30 de U-235. Borra todo en 18 casillas… incluida tu fábrica si está cerca.' },
+  rail_signals2:     { name: 'Trenes avanzados',      packs: ['sci_red', 'sci_green'], units: 100, time: 15, req: ['railway'],
+                       desc: 'Señal en cadena (para cruces), vagones de fluidos y trenes con más vagones.' },
   logistic_network:  { name: 'Red logística',        packs: ['sci_red', 'sci_green', 'sci_blue'], units: 75, time: 20, req: ['chemical_science', 'receivers'],
                        desc: 'Los brazos pueden sacar del inventario de la Nave a través de cualquier Receptor.' },
   modules:           { name: 'Módulos',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],

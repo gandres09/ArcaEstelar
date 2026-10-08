@@ -4,7 +4,7 @@
 // =====================================================================
 
 const FLUIDS = new Set(['water', 'oil', 'steam', 'lubricant', 'petroleum_gas', 'heavy_oil', 'light_oil', 'sulfuric_acid']);
-const FLUID_USERS = new Set(['boiler', 'steam_engine', 'steam_turbine', 'heatex', 'eminer', 'centrifuge', 'chem', 'assembler', 'assembler2', 'assembler3', 'refinery', 'flameturret']);
+const FLUID_USERS = new Set(['station', 'boiler', 'steam_engine', 'steam_turbine', 'heatex', 'eminer', 'centrifuge', 'chem', 'assembler', 'assembler2', 'assembler3', 'refinery', 'flameturret']);
 const isPipe = (e) => !!e && (e.type === 'pipe' || e.type === 'fluidtank');
 let fnets = [];
 let fluidDirty = true;

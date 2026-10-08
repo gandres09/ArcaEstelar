@@ -10,8 +10,18 @@ const TRAIN_CAP = 800;          // objetos (2 vagones)
 const STATION_CAP = 800;
 const STATION_WAIT = 3;         // segundos de carga y descarga
 
-const isRail = (e) => !!e && (e.type === 'rail' || e.type === 'station' || e.type === 'signal');
-const RAILISH = new Set(['rail', 'station', 'signal']);
+const isRail = (e) => !!e && (e.type === 'rail' || e.type === 'station' || e.type === 'signal' || e.type === 'chainsignal');
+const RAILISH = new Set(['rail', 'station', 'signal', 'chainsignal']);
+const isSignal = (e) => !!e && (e.type === 'signal' || e.type === 'chainsignal');
+
+// Vagones: 'c' de carga (400 objetos) y 'f' de fluidos (2500 de un líquido)
+const WAGON_CAP = 400, FLUID_WAGON_CAP = 2500, MAX_WAGONS = 6, STATION_FLUID = 2500;
+const WAGON_COST = { c: { gear: 10, iron_plate: 20, steel: 20 }, f: { gear: 10, iron_plate: 16, steel: 16 } };
+const wagonsOf = (t) => t.wagons || ['c', 'c'];
+const trainCap = (t) => WAGON_CAP * wagonsOf(t).filter((w) => w === 'c').length;
+const fluidCap = (t) => FLUID_WAGON_CAP * wagonsOf(t).filter((w) => w === 'f').length;
+const trainFull = (t) => t.total >= trainCap(t) && (!fluidCap(t) || (t.fl && t.fl.n >= fluidCap(t)));
+const trainEmpty = (t) => t.total <= 0 && !(t.fl && t.fl.n > 0);
 
 // --------------------------- Tramos (señales) ---------------------------
 // Las señales cortan la vía en tramos. Se recalculan cuando cambian las vías.
@@ -51,7 +61,7 @@ function blockOf(x, y) {
 // Casillas que ocupa un tren (locomotora y vagones)
 function trainTiles(t) {
   const tiles = [[Math.round(t.x), Math.round(t.y)]];
-  for (const d of [1, 2, 3]) { const p = trainTrail(t, d); tiles.push([Math.round(p.x), Math.round(p.y)]); }
+  for (let d = 1; d <= wagonsOf(t).length + 1; d++) { const p = trainTrail(t, d); tiles.push([Math.round(p.x), Math.round(p.y)]); }
   return tiles;
 }
 
@@ -147,6 +157,12 @@ function removeTrain(t, noRefund = false) {
   netPush({ k: 'tr', x: Math.round(t.x), y: Math.round(t.y) });
   if (noRefund) { S.trains.splice(S.trains.indexOf(t), 1); t._dead = true; return; }
   refund(BUILDINGS.train.cost);
+  // El costo del tren trae 2 vagones de carga: se ajusta por los que se agregaron o sacaron
+  const w = wagonsOf(t), nc = w.filter((x) => x === 'c').length, nf = w.length - nc;
+  for (let i = 2; i < nc; i++) refund(WAGON_COST.c);
+  for (let i = 0; i < nf; i++) refund(WAGON_COST.f);
+  if (nc < 2) for (const k in WAGON_COST.c) S.inv[k] = (S.inv[k] || 0) - WAGON_COST.c[k] * (2 - nc);
+  if (t.fl && t.fl.n >= 1) add(S.inv, t.fl.k, Math.floor(t.fl.n));
   for (const k in t.cargo) add(S.inv, k, t.cargo[k]);
   if (t.fuelType) add(S.inv, t.fuelType, t.fuel);
   S.trains.splice(S.trains.indexOf(t), 1);
@@ -182,9 +198,20 @@ function serveStation(t, st) {
       t.fuel += n; t.fuelType = f;
     }
   }
+  // Líquidos (vagones de fluidos)
+  const fc = fluidCap(t);
+  if (fc && st.fl && st.mode === 'load' && st.fl.n >= 1 && (!t.fl || !t.fl.n || t.fl.k === st.fl.k)) {
+    t.fl = t.fl && t.fl.n ? t.fl : { k: st.fl.k, n: 0 };
+    const n = Math.min(st.fl.n, fc - t.fl.n);
+    t.fl.n += n; st.fl.n -= n; if (st.fl.n < 1) st.fl = null;
+  } else if (fc && t.fl && t.fl.n >= 1 && st.mode !== 'load' && (!st.fl || st.fl.k === t.fl.k)) {
+    st.fl = st.fl || { k: t.fl.k, n: 0 };
+    const n = Math.min(t.fl.n, STATION_FLUID - st.fl.n);
+    st.fl.n += n; t.fl.n -= n; if (t.fl.n < 1) t.fl = null;
+  }
   if (st.mode === 'load') {
     for (const k of Object.keys(st.store)) {
-      const n = Math.min(st.store[k], TRAIN_CAP - t.total);
+      const n = Math.min(st.store[k], trainCap(t) - t.total);
       if (n <= 0) break;
       st.store[k] -= n; st.total -= n; if (!st.store[k]) delete st.store[k];
       add(t.cargo, k, n); t.total += n;
@@ -200,6 +227,7 @@ function serveStation(t, st) {
 }
 
 function updateTrains(dt) {
+  stationFluidStep();
   for (const t of S.trains) {
     const tx = Math.round(t.x), ty = Math.round(t.y);
     if (!isRail(at(tx, ty))) { t.state = 'idle'; t._path = null; continue; }   // le sacaron la vía
@@ -209,7 +237,7 @@ function updateTrains(dt) {
       // Mientras espera sigue cargando o descargando
       t.serveT = (t.serveT || 0) + dt;
       if (t.serveT >= 1) { t.serveT = 0; const st = stationById(t.last); if (st) serveStation(t, st); }
-      const done = !sch || sch.w === 'time' ? t.wait <= 0 : sch.w === 'full' ? t.total >= TRAIN_CAP : t.total <= 0;
+      const done = !sch || sch.w === 'time' ? t.wait <= 0 : sch.w === 'full' ? trainFull(t) : trainEmpty(t);
       if (done) {
         t.state = 'idle';
         if (sch) t.si = ((t.si || 0) + 1) % t.schedule.length;
@@ -248,9 +276,11 @@ function updateTrains(dt) {
     while (t._f >= 1 && t._i < path.length - 1) {
       // Antes de pasar una señal: el tramo de adelante tiene que estar libre
       const next = at(path[t._i + 1].x, path[t._i + 1].y);
-      if (next && next.type === 'signal' && path[t._i + 2]) {
+      if (isSignal(next) && path[t._i + 2]) {
         const b = blockOf(path[t._i + 2].x, path[t._i + 2].y);
-        if (blockBusy(b, t)) { t._f = Math.min(t._f, 0.999); t.blocked = true; t.redSignal = next.id; break; }
+        // Señal en cadena: además, los tramos que siguen hasta la próxima señal común tienen que estar libres
+        const need = next.type === 'chainsignal' ? chainBlocks(path, t._i + 2) : [b];
+        if (need.some((x) => blockBusy(x, t))) { t._f = Math.min(t._f, 0.999); t.blocked = true; t.redSignal = next.id; break; }
         t.claim = b;
       }
       t._f -= 1; t._i++;
@@ -267,8 +297,59 @@ function updateTrains(dt) {
     // Historia de posiciones para dibujar los vagones detrás
     t._hist = t._hist || [];
     const last = t._hist[t._hist.length - 1];
-    if (!last || wdist(last.x, last.y, t.x, t.y) > 0.1) { t._hist.push({ x: t.x, y: t.y }); if (t._hist.length > 60) t._hist.shift(); }
+    if (!last || wdist(last.x, last.y, t.x, t.y) > 0.1) { t._hist.push({ x: t.x, y: t.y }); if (t._hist.length > 120) t._hist.shift(); }
   }
+}
+
+// Tramos que cubre una señal en cadena: desde i, cada tramo hasta pasar una señal común
+function chainBlocks(path, i) {
+  const out = [];
+  let passedNormal = false;
+  for (let k = i; k < path.length; k++) {
+    const e = at(path[k].x, path[k].y);
+    if (isSignal(e)) {
+      if (passedNormal) break;
+      if (e.type === 'signal') passedNormal = true;
+      continue;
+    }
+    const b = blockOf(path[k].x, path[k].y);
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
+}
+
+// Estaciones: reciben líquidos por cañería (carga) y los largan a las cañerías vecinas (descarga)
+function stationFluidStep() {
+  for (const st of S.entities) {
+    if (st.type !== 'station' || !st.fl || st.mode === 'load') continue;
+    for (const [dx, dy] of DIRS) {
+      const n = at(st.x + dx, st.y + dy);
+      if (!isPipe(n)) continue;
+      for (let k = 0; k < 20 && st.fl && st.fl.n >= 1 && fluidAccept(n, st.fl.k, false); k++) { st.fl.n--; if (st.fl.n < 1) st.fl = null; }
+    }
+  }
+}
+
+// Agregar o sacar vagones (se paga o se devuelve el vagón)
+function addWagon(t, kind) {
+  const w = wagonsOf(t);
+  if (w.length >= MAX_WAGONS) { toast(`Un tren lleva hasta ${MAX_WAGONS} vagones.`); return false; }
+  if (kind === 'f' && !hasTech('rail_signals2')) { toast('Investigá Trenes avanzados para los vagones de fluidos.'); return false; }
+  if (!canAfford(WAGON_COST[kind])) { toast(`Te falta: ${missingText(WAGON_COST[kind])}`); return false; }
+  pay(WAGON_COST[kind]);
+  t.wagons = [...w, kind];
+  return true;
+}
+function removeWagon(t) {
+  const w = wagonsOf(t);
+  if (w.length <= 1) { toast('El tren necesita al menos un vagón.'); return false; }
+  const last = w[w.length - 1];
+  const next = w.slice(0, -1);
+  if (last === 'c' && t.total > WAGON_CAP * next.filter((x) => x === 'c').length) { toast('Ese vagón está cargado: descargalo primero.'); return false; }
+  if (last === 'f' && t.fl && t.fl.n > FLUID_WAGON_CAP * next.filter((x) => x === 'f').length) { toast('Ese vagón tiene líquido: vacialo primero.'); return false; }
+  refund(WAGON_COST[last]);
+  t.wagons = next;
+  return true;
 }
 
 // Posición de un punto a cierta distancia detrás del tren (para los vagones)

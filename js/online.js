@@ -38,7 +38,7 @@ const PRES_BYTES = 3800;       // la presencia tiene un máximo de 4 KiB
 const netCapture = () => NET.on && !NET.applying && NET.sim === 0;
 
 function netPush(a) { if (netCapture()) NET.out.push(a); }
-function netTrainSchedule(t) { netPush({ k: 'ts', x: Math.round(t.x), y: Math.round(t.y), s: t.schedule || [] }); }
+function netTrainSchedule(t) { netPush({ k: 'ts', x: Math.round(t.x), y: Math.round(t.y), s: t.schedule || [], w: t.wagons || null }); }
 function netPlaced(e) { if (netCapture()) NET.out.push({ lazy: e }); }
 function netTouch(e) { if (netCapture() && e) { if (isVehicle(e.type)) NET.out.push({ k: 'vs', id: e.id, s: vehicleSync(e) }); else NET.touched.add(e); } }
 
@@ -139,7 +139,7 @@ function netApply(a) {
       case 'vp': { if (!vehicleById(a.id) && isVehicle(a.t)) { const v = placeVehicle(a.t, a.x, a.y, true); if (v) v.id = a.id; } return true; }
       case 'vs': { const v = vehicleById(a.id); if (v && a.s && !(S.player && S.player.vehicle === v.id)) Object.assign(v, a.s); return true; }
       case 'vr': { ensureVehicles(); const v = vehicleById(a.id); if (v) { if (S.player && S.player.vehicle === v.id) S.player.vehicle = null; S.vehicles.splice(S.vehicles.indexOf(v), 1); } return true; }
-      case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; } return true; }
+      case 'ts': { const t = trainAt(a.x, a.y); if (t && Array.isArray(a.s)) { t.schedule = a.s; t.si = 0; t._path = null; t.state = 'idle'; if (Array.isArray(a.w)) t.wagons = a.w; } return true; }
     }
     return true;
   } catch (err) {

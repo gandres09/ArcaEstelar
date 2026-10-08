@@ -1051,7 +1051,7 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
-    case 'rail': case 'station': case 'signal': {
+    case 'rail': case 'station': case 'signal': case 'chainsignal': {
       const links = e.id ? railLinks(e.x, e.y) : [true, false, true, false];
       if (!links.some(Boolean)) { links[0] = links[2] = true; }
       if (e.type === 'station') {
@@ -1074,17 +1074,18 @@ function drawBuilding(g, e, x0, y0, t) {
         g.restore();
       }
       g.restore();
-      if (e.type === 'signal') {
-        const red = e.id && signalRed(e);
-        g.fillStyle = '#2b3036';
+      if (e.type === 'signal' || e.type === 'chainsignal') {
+        const red = e.id && signalRed(e), chain = e.type === 'chainsignal';
+        g.fillStyle = chain ? '#26344a' : '#2b3036';
         rrect(g, x0 + TILE - 12, y0 + 2, 10, 18, 3); g.fill();
         g.fillStyle = red ? '#e5534b' : '#3a3f45'; g.beginPath(); g.arc(x0 + TILE - 7, y0 + 7, 3, 0, Math.PI * 2); g.fill();
-        g.fillStyle = red ? '#3a3f45' : '#5cc47a'; g.beginPath(); g.arc(x0 + TILE - 7, y0 + 15, 3, 0, Math.PI * 2); g.fill();
+        g.fillStyle = red ? '#3a3f45' : chain ? '#5aa0ff' : '#5cc47a'; g.beginPath(); g.arc(x0 + TILE - 7, y0 + 15, 3, 0, Math.PI * 2); g.fill();
       }
       if (e.type === 'station') {
         const unload = e.mode === 'unload';
         drawBadgeArrow(g, x0 + 8, y0 + 8, 5.5, !unload, unload ? '#3d7fd6' : '#3f9e5c');
         if (e.total) drawProgress(g, x0, y0, e.total / STATION_CAP, '#f0a742');
+        if (e.fl && e.fl.n >= 1) { g.fillStyle = ITEMS[e.fl.k].color; g.beginPath(); g.arc(x0 + TILE - 8, y0 + TILE - 8, 4, 0, Math.PI * 2); g.fill(); }
       }
       break;
     }
@@ -1475,7 +1476,7 @@ function shipProgressOf(e) {
 }
 
 // Un vagón o la locomotora, centrado en (x, y) y girado
-function drawCar(g, x, y, ang, loco, fill) {
+function drawCar(g, x, y, ang, loco, fill, fluid) {
   g.save();
   g.translate(x, y);
   g.rotate(ang);
@@ -1486,6 +1487,11 @@ function drawCar(g, x, y, ang, loco, fill) {
   if (loco) {
     g.fillStyle = '#2b2f36'; g.fillRect(4, -6, 8, 12);
     g.fillStyle = '#f0d44d'; g.fillRect(13, -3, 2, 6);
+  } else if (fluid) {
+    // Vagón de fluidos: un tanque redondeado
+    g.fillStyle = '#4a525c'; g.beginPath(); g.ellipse(0, 0, 14, 8, 0, 0, Math.PI * 2); g.fill();
+    if (fill > 0) { g.fillStyle = fluid; g.globalAlpha = 0.85; g.beginPath(); g.ellipse(0, 0, 12 * Math.min(1, fill) + 2, 6, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+    g.strokeStyle = 'rgba(255,255,255,0.25)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-10, -4); g.lineTo(10, -4); g.stroke();
   } else {
     g.fillStyle = '#3d444d'; g.fillRect(-12, -6, 24, 12);
     if (fill > 0) { g.fillStyle = '#c9a227'; g.fillRect(-12, -6, 24 * Math.min(1, fill), 12); }
@@ -1495,11 +1501,13 @@ function drawCar(g, x, y, ang, loco, fill) {
 
 function drawTrains(g, lod) {
   for (const t of S.trains) {
-    const fill = t.total / TRAIN_CAP;
-    for (let k = 2; k >= 0; k--) {
+    const w = wagonsOf(t);
+    const fill = trainCap(t) ? t.total / trainCap(t) : 0, ffill = fluidCap(t) && t.fl ? t.fl.n / fluidCap(t) : 0;
+    for (let k = w.length; k >= 0; k--) {
       const p = k === 0 ? { x: t.x, y: t.y, ang: t.ang } : trainTrail(t, k * 1.05);
       if (lod) { g.fillStyle = k === 0 ? '#ff7a5c' : '#ddd'; g.fillRect(p.x * TILE + 4, p.y * TILE + 4, TILE - 8, TILE - 8); continue; }
-      drawCar(g, p.x * TILE + TILE / 2, p.y * TILE + TILE / 2, p.ang, k === 0, fill);
+      const kind = k === 0 ? null : w[k - 1];
+      drawCar(g, p.x * TILE + TILE / 2, p.y * TILE + TILE / 2, p.ang, k === 0, kind === 'f' ? ffill : fill, kind === 'f' ? (t.fl ? ITEMS[t.fl.k].color : '#5a6470') : null);
     }
   }
 }
