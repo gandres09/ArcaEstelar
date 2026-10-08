@@ -1057,6 +1057,10 @@ function netRenderModal() {
     if (SERVER.on || netLivePeers(NET.wroom ? NET.wroom.peers() : []).some((p) => p.presence.host === 1 && !Array.isArray(p.presence.p))) h += '<li class="muted small">🖥️ Una compu servidor mantiene el mundo andando</li>';
     h += '</ul>';
     if (!NET.p2p) h += `<div class="actions"><button type="button" data-leave="1">${netInMyWorld() ? 'Cerrar mi mundo en línea' : 'Salir y volver a mi partida'}</button></div>`;
+  } else if (NET.canWrite && NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) {
+    // Mi mundo ya lo tiene abierto otra compu (la que hace de servidor)
+    h += '<p>🖥️ <b>Tu mundo está abierto en tu compu servidor.</b> Entrá para jugar ahí.</p>';
+    h += '<div class="actions"><button type="button" class="primary" data-share="1">Entrar a mi mundo</button></div>';
   } else if (NET.canWrite) {
     h += '<p>Estás jugando tu partida. Podés convertirla en <b>tu mundo en línea</b> para que tus amigos entren.</p>';
     h += '<div class="actions"><button type="button" class="primary" data-share="1">Abrir mi partida en línea</button></div>';
