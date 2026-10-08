@@ -164,7 +164,7 @@ function playerStats(p) {
     const d = GEAR[w.b];
     wpn = { ...d, dmg: d.dmg * TIERS[w.t].mult * lvlMult * dm, cd: d.cd / sp, gear: w };
   } else wpn = { name: 'Puños', melee: true, dmg: 4 * lvlMult * dm, cd: 0.6 / sp, range: 1.4 };
-  armor += x.arm || 0;
+  armor += (x.arm || 0) + suitArmor(p);
   return {
     lvl, wpn, armor,
     reduce: armor / (armor + 50),
@@ -440,6 +440,8 @@ function hurtPlayer(dmg, from) {
   // Manejando, los golpes se los lleva el vehículo
   const veh = p.vehicle && vehicleById(p.vehicle);
   if (veh) { hurtVehicle(veh, dmg); return; }
+  dmg = suitAbsorb(p, dmg);   // primero el escudo de la armadura
+  if (dmg <= 0) return;
   const st = playerStats(p);
   const real = dmg * (1 - st.reduce);
   p.hp -= real;
@@ -635,6 +637,7 @@ function updateRpg(dt) {
   for (const c of S.creatures) if (c.atk) c.atk = Math.max(0, c.atk - dt);
   updateWeapons(dt);
   if (!playerOn()) return;
+  suitStep(dt);
   if (!S.player.vehicle) playerCombat(dt);
   petCombat(dt);
   pickUps();
@@ -857,6 +860,7 @@ function renderGearModal() {
   }
   for (let i = bag.length; i < Math.max(16, Math.ceil((bag.length + 1) / 8) * 8); i++) h += '<div class="gcell empty"></div>';
   h += '</div>';
+  h += `<div id="suit-panel">${suitPanelHtml()}</div>`;
   if (!p.gear.length) h += '<p class="muted small">Todavía no tenés equipo. Construí una <b>Armería</b> para fabricarlo, o conseguilo peleando y saqueando ruinas.</p>';
   h += '<p class="muted small">Tu personaje ataca solo al enemigo más cercano que esté al alcance del arma. Las armas de fuego gastan munición y el lanzallamas, combustible sólido.</p>';
   box.innerHTML = h;
@@ -909,6 +913,12 @@ function initRpgUi() {
   body.addEventListener('click', (ev) => {
     if (performance.now() - gearDragEndedAt < 300) return;
     const b = ev.target.closest('button');
+    if (b && b.dataset.suit) {
+      const a = b.dataset.suit, v = b.dataset.v;
+      if (a === 'wear') wearSuit(v); else if (a === 'off') takeOffSuit(); else if (a === 'add') addSuitEq(v); else if (a === 'rm') removeSuitEq(+v);
+      renderGearModal();
+      return;
+    }
     if (b) {
       if (b.dataset.geq) { equipGear(b.dataset.geq); renderGearModal(); }
       if (b.dataset.gsal) {

@@ -301,7 +301,7 @@ function updatePlayer(dt) {
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad
-  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1) * floorAt(p.x, p.y);   // poca gravedad en la Luna; el camino ayuda
+  const pspd = PLAYER_SPEED * (1 + (p.equip ? playerStats(p).move : 0)) * (S.surface === 'moon' ? 1.25 : 1) * floorAt(p.x, p.y) * suitMove(p);   // poca gravedad en la Luna; el camino ayuda
   let vx = 0, vy = 0;
   const inp = p.input;
   if (inp && (inp.x || inp.y)) {

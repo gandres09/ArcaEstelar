@@ -1843,7 +1843,7 @@ function lightRadius(e) {
 }
 
 function drawNight(ctx2, visible) {
-  const dark = darkness();
+  const dark = darkness() * (nightVisionOn() ? 0.3 : 1);
   if (dark < 0.02) return;
   const scale = 0.5;
   const lw = Math.ceil(canvas.width * scale), lh = Math.ceil(canvas.height * scale);
