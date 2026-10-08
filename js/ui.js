@@ -15,7 +15,7 @@ const KEY_GROUPS = [
   ['assembler', 'assembler2', 'assembler3', 'chem', 'refinery'],
   ['lab', 'beacon', 'armory'],
   ['pole', 'mediumpole', 'substation', 'bigpole', 'radar'],
-  ['offshore', 'pump', 'lightningrod', 'boiler', 'steam_engine', 'pipe', 'tank', 'generator', 'solar', 'accumulator', 'lamp'],
+  ['offshore', 'pump', 'lightningrod', 'boiler', 'steam_engine', 'pipe', 'fluidtank', 'generator', 'solar', 'accumulator', 'lamp'],
   ['wall', 'gate', 'turret', 'flameturret', 'laser', 'artillery'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
@@ -431,7 +431,7 @@ function currentHint() {
       if (!furnaces.some((f) => f.fuel || f.burn > 0) && pv('coal') < 1 && pv('wood') < 1) return 'El horno necesita combustible: extraé <b>carbón</b> o talá un <b>árbol</b> (la madera también sirve).';
       return 'Tocá el horno y usá <b>Cargar mineral</b> y <b>Cargar carbón</b>. Cuando funda, tocá <b>Recoger</b>. Necesitás 10 placas de hierro.';
     }
-    return 'Con 10 placas de hierro y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha, y cargale carbón. ¡Ya no vas a tener que extraer a mano!';
+    return 'Con 3 placas de hierro, 3 engranajes (hacelos a mano) y 5 piedras armá un <b>Taladro</b> sobre el hierro, con un horno delante de su flecha, y cargale carbón. ¡Ya no vas a tener que extraer a mano!';
   }
   if (!hasMinerOn('iron_ore')) return 'Elegí el <b>Taladro</b> y ponelo sobre el mineral de hierro (gris azulado). Girá la flecha para que apunte a donde va el mineral.';
   if (S.entities.some((e) => e.type === 'miner' && !e.fuel && e.burn <= 0 && !e.depleted)) return 'Hay un <b>Taladro</b> sin combustible: tocalo y usá <b>Cargar carbón</b> (1 carbón = 8 minerales), o poné un brazo que le lleve carbón.';
@@ -727,7 +727,7 @@ function inspectorContent(e) {
         inNave.map((k) => `<button type="button" class="pick stack ${e.filter === k ? 'on' : ''}" data-act="filter" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}<span class="n">${fmt(S.inv[k])}</span></button>`).join('') + '</div>';
       break;
     }
-    case 'pipe': case 'tank': {
+    case 'pipe': case 'fluidtank': {
       const net = fnets[e._fnet];
       h += net ? row('Líquido', net.amount >= 1 ? itemLabel(net.fluid) : 'vacío') + row('Cantidad', `${Math.floor(net.amount)} / ${net.cap}`) + bar(net.amount / net.cap) +
         row('Máquinas conectadas', net.users.length) + '<div class="actions"><button type="button" data-act="drain">Vaciar la red</button></div>' : '';
@@ -1506,7 +1506,7 @@ function sensorOptions(t) {
   if (t.type === 'hub') return ITEM_ORDER.filter((k) => (S.inv[k] || 0) >= 1).slice(0, 40);
   if (t.store) return Object.keys(t.store);
   if (t.parts) return Object.keys(shipNeeds(t));
-  if (t.type === 'pipe' || t.type === 'tank') return [...FLUIDS];
+  if (t.type === 'pipe' || t.type === 'fluidtank') return [...FLUIDS];
   if (t.l) return [...new Set(t.l.filter(Boolean))];
   return [];
 }

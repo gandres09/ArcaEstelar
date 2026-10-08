@@ -17,7 +17,7 @@ function newState(seed, peaceful, character = false) {
     peaceful: !!peaceful,
     character: !!character,
     // Con personaje se empieza sin nada; en modo clásico, con materiales en la Nave
-    inv: character ? {} : { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40 },
+    inv: character ? {} : { iron_plate: 100, copper_plate: 30, stone: 80, coal: 40, wood: 20 },
     pinv: {},
     player: null,
     delivered: {},
@@ -158,6 +158,8 @@ function occupy(e, value) {
 
 // Partidas viejas: las cintas tenían un solo objeto; ahora tienen dos carriles
 function migrateEntity(e) {
+  // El tanque de fluidos se llamaba igual que el tanque vehículo
+  if (e.type === 'tank') e.type = 'fluidtank';
   // Antes el taladro común no gastaba nada: se le regala una carga de carbón
   if (e.type === 'miner' && e.fuel === undefined) { e.fuelType = 'coal'; e.fuel = 5; e.burn = 0; }
   if (LANED.has(e.type) && !e.l) {
@@ -232,7 +234,7 @@ function canPlace(type, x, y, free = false) {
   }
   const o = oreAt(x, y);
   if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };
-  if ((type === 'pipe' || type === 'tank') && neighborFluids(x, y, s).size > 1) return { ok: false, why: 'Mezclaría dos líquidos distintos' };
+  if ((type === 'pipe' || type === 'fluidtank') && neighborFluids(x, y, s).size > 1) return { ok: false, why: 'Mezclaría dos líquidos distintos' };
   if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
   if ((type === 'miner' || type === 'eminer') && !minerTile(x, y, BUILDINGS[type].area)) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
@@ -571,7 +573,7 @@ function drawPower(e, kw) {
 function accept(t, item, src, dry = false, lane = -1) {
   const ok = (fn) => { if (!dry) fn(); return true; };
   switch (kindOf(t.type)) {
-    case 'pipe': case 'tank':
+    case 'pipe': case 'fluidtank':
       return fluidAccept(t, item, dry);
     case 'hub': case 'receiver':
       // El receptor necesita energía para mandar las cosas a la Nave
@@ -1402,7 +1404,7 @@ function sensorValue(e) {
   if (t.type === 'hub') return Math.floor(fromStore(S.inv));
   if (t.store) return fromStore(t.store);
   if (t.type === 'accumulator') return Math.round(100 * (t.stored || 0) / BUILDINGS.accumulator.capacity);
-  if (t.type === 'pipe' || t.type === 'tank') { const n = fnets[t._fnet]; return n && (it === '*' || n.fluid === it) ? Math.floor(n.amount) : 0; }
+  if (t.type === 'pipe' || t.type === 'fluidtank') { const n = fnets[t._fnet]; return n && (it === '*' || n.fluid === it) ? Math.floor(n.amount) : 0; }
   if (t.l) return t.l.filter((k) => k && (it === '*' || k === it)).length;
   if (t.parts) return fromStore(t.parts);
   if (t.outCount !== undefined) return it === '*' || t.outType === it ? t.outCount : 0;
@@ -1429,7 +1431,7 @@ function condOk(c) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'tank', 'sensor', 'lamp', 'armory', 'nest']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

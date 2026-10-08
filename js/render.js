@@ -20,7 +20,7 @@ const TYPE_COLOR = {
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
   road: '#a8664a', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
-  sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', tank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 // Dibujos propios para los objetos que, con la forma genérica, se confundían entre sí
@@ -486,10 +486,10 @@ function drawBuilding(g, e, x0, y0, t) {
       }
       break;
 
-    case 'pipe': case 'tank': {
+    case 'pipe': case 'fluidtank': {
       const net = e.id ? fnets[e._fnet] : null;
       const fc = net && net.amount >= 1 ? ITEMS[net.fluid].color : null;
-      if (e.type === 'tank') {
+      if (e.type === 'fluidtank') {
         const s = TILE * 2, mx = x0 + s / 2, my = y0 + s / 2, R = s / 2 - 3;
         // Patas en las esquinas
         g.fillStyle = '#3a4048';

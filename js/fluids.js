@@ -3,9 +3,9 @@
 //  Líquidos: cañerías y tanques que forman redes de un solo líquido
 // =====================================================================
 
-const FLUIDS = new Set(['water', 'oil', 'steam', 'lubricant']);
+const FLUIDS = new Set(['water', 'oil', 'steam', 'lubricant', 'petroleum_gas', 'heavy_oil', 'light_oil', 'sulfuric_acid']);
 const FLUID_USERS = new Set(['boiler', 'steam_engine', 'chem', 'assembler', 'assembler2', 'assembler3', 'refinery', 'flameturret']);
-const isPipe = (e) => !!e && (e.type === 'pipe' || e.type === 'tank');
+const isPipe = (e) => !!e && (e.type === 'pipe' || e.type === 'fluidtank');
 let fnets = [];
 let fluidDirty = true;
 
