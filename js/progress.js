@@ -18,7 +18,7 @@ const ACHIEVEMENTS = [
   { id: 'module',       name: 'Mejoras',               desc: 'Poné un módulo en una máquina.',                 test: () => S.entities.some((e) => e.modules && e.modules.length) },
   { id: 'defender',     name: 'Exterminador',          desc: 'Eliminá 200 bichos.',                            test: () => (S.kills || 0) >= 200, prog: () => [S.kills || 0, 200] },
   { id: 'nests',        name: 'Limpieza de zona',      desc: 'Destruí 10 nidos.',                              test: () => (S.nestsKilled || 0) >= 10, prog: () => [S.nestsKilled || 0, 10] },
-  { id: 'big_factory',  name: 'Megafábrica',           desc: 'Tené 2.000 edificios.',                          test: () => S.entities.length - countOf('nest') >= 2000, prog: () => [S.entities.length - countOf('nest'), 2000] },
+  { id: 'big_factory',  name: 'Megafábrica',           desc: 'Tené 2.000 edificios.',                          test: () => S.entities.length - countOf('nest') - countOf('worm') >= 2000, prog: () => [S.entities.length - countOf('nest') - countOf('worm'), 2000] },
   { id: 'all_techs',    name: 'Sabelotodo',            desc: 'Investigá todas las tecnologías (sin contar las infinitas).', test: () => TECH_ORDER.every((t) => TECHS[t].infinite || S.techs[t]) },
   { id: 'infinite',     name: 'Más allá',              desc: 'Terminá un nivel de investigación infinita.',    test: () => Object.values(S.inf || {}).some((n) => n > 0) },
   { id: 'launch',       name: '¡Despegue!',            desc: 'Lanzá la nave y llegá al espacio.',              test: () => (S.launched || 0) >= 1 },

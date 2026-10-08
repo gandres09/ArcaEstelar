@@ -81,7 +81,7 @@ function updateRobots(dt) {
   const jobs = [];
   for (const g of S.ghosts) if (!taken.has('g' + g.id)) jobs.push({ key: 'g' + g.id, x: g.x, y: g.y, ghost: g });
   for (const e of S.entities) {
-    if (e.hp !== undefined && e.type !== 'nest' && e.type !== 'hub' && S.playTime - (e.hitAt || 0) > 3 && !taken.has('r' + e.id)) {
+    if (e.hp !== undefined && !isEnemyB(e) && e.type !== 'hub' && S.playTime - (e.hitAt || 0) > 3 && !taken.has('r' + e.id)) {
       jobs.push({ key: 'r' + e.id, x: e.x, y: e.y, repair: e });
     }
   }

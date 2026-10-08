@@ -346,7 +346,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'lab']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -565,6 +565,16 @@ const BITERS = {
   small:  { name: 'Bicho chico',   hp: 15,  dmg: 7,  speed: 1.6, cost: 4,  size: 5,  color: '#b5803a' },
   medium: { name: 'Bicho mediano', hp: 80,  dmg: 15, speed: 1.4, cost: 20, size: 7,  color: '#8b4f9e' },
   big:    { name: 'Bicho grande',  hp: 380, dmg: 35, speed: 1.2, cost: 80, size: 10, color: '#4f6e3a' },
+  // Escupidores: atacan de lejos con ácido
+  small_spitter:  { name: 'Escupidor chico',   hp: 10,  dmg: 6,  speed: 1.5,  cost: 5,  size: 5, color: '#a6c23a', range: 5 },
+  medium_spitter: { name: 'Escupidor mediano', hp: 55,  dmg: 13, speed: 1.35, cost: 24, size: 7, color: '#5fa04f', range: 6 },
+  big_spitter:    { name: 'Escupidor grande',  hp: 220, dmg: 30, speed: 1.2,  cost: 90, size: 9, color: '#3f8a76', range: 7 },
+};
+// Gusanos: torretas vivas que crecen al lado de los nidos
+const WORMS = {
+  small:  { name: 'Gusano chico',   hp: 200, dmg: 10, range: 8,  rate: 1.2, color: '#c9a24a' },
+  medium: { name: 'Gusano mediano', hp: 420, dmg: 20, range: 10, rate: 1.2, color: '#b0643a' },
+  big:    { name: 'Gusano grande',  hp: 950, dmg: 40, range: 13, rate: 1.5, color: '#6c7f3a' },
 };
 const NEST_HP = 400;
 const SAFE_RADIUS = 55; // sin nidos cerca de la Nave al empezar

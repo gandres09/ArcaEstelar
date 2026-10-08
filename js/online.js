@@ -113,7 +113,7 @@ function netApply(a) {
       // Aventura: golpes, botín y ruinas de los demás jugadores
       case 'hc': { const c = (S.creatures || []).find((k) => k.id === a.id); if (c) { c.hp -= a.d; c.angry = true; if (c.hp <= 0 && !c.dead) killCreature(c, false); } return true; }
       case 'hb': { const b = S.biters.find((k) => k.id === a.id); if (b && !b.dead) { b.hp -= a.d; if (b.hp <= 0) { b.dead = true; dropLoot(b.x, b.y, [['quitina', 0.35, 1, 1]], 1); } } return true; }
-      case 'hn': { const n = at(a.x, a.y); if (n && n.type === 'nest') damageEntity(n, a.d); return true; }
+      case 'hn': { const n = at(a.x, a.y); if (isEnemyB(n)) damageEntity(n, a.d); return true; }
       case 'pk': if (S.drops) S.drops = S.drops.filter((d) => d.id !== a.id); return true;
       case 'rl': { const r = (S.ruins || []).find((k) => k.id === a.id); if (r) r.looted = true; return true; }
       case 'me': {

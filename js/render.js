@@ -897,6 +897,28 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
     }
 
+    case 'worm': {
+      // Montículo con un cuello que se levanta al escupir
+      const k = WORMS[e.kind] || WORMS.small, sc = e.kind === 'big' ? 1.25 : e.kind === 'medium' ? 1.08 : 0.92;
+      const wcx = x0 + TILE / 2, wcy = y0 + TILE / 2;
+      g.fillStyle = 'rgba(40,24,18,0.55)';
+      g.beginPath(); g.ellipse(wcx, wcy + 6, 15 * sc, 9 * sc, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#5a3a2a';
+      g.beginPath(); g.ellipse(wcx, wcy + 5, 12 * sc, 7 * sc, 0, 0, Math.PI * 2); g.fill();
+      const up = (e.fire || 0) > 0 ? 1 : 0.55 + Math.sin(t * 2 + e.x * 3) * 0.08;
+      const ang = e.aim || 0, nx = Math.cos(ang) * 6 * up, ny = -14 * up * sc;
+      g.strokeStyle = k.color; g.lineCap = 'round'; g.lineWidth = 8 * sc;
+      g.beginPath(); g.moveTo(wcx, wcy + 4); g.quadraticCurveTo(wcx - nx * 0.4, wcy + ny * 0.5, wcx + nx, wcy + ny); g.stroke();
+      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1.2;
+      for (let i = 1; i < 4; i++) { const f = i / 4; g.beginPath(); g.arc(wcx + nx * f, wcy + 4 + (ny - 4) * f, 4 * sc, 0, Math.PI); g.stroke(); }
+      g.lineCap = 'butt';
+      g.fillStyle = '#2a120c';
+      g.beginPath(); g.arc(wcx + nx, wcy + ny, 4.2 * sc, 0, Math.PI * 2); g.fill();
+      g.fillStyle = (e.fire || 0) > 0 ? '#c8ff5a' : '#e0a33a';
+      g.beginPath(); g.arc(wcx + nx, wcy + ny, 2 * sc, 0, Math.PI * 2); g.fill();
+      break;
+    }
+
     case 'inserter': case 'fastinserter': {
       const R = def.reach || 1;
       g.fillStyle = e.type === 'stackinserter' ? '#24402c' : '#2b2f36';
@@ -1598,6 +1620,13 @@ function drawBiter(g, b, t) {
   g.stroke();
   g.fillStyle = k.color;
   g.beginPath(); g.ellipse(0, 0, s, s * 0.6, 0, 0, Math.PI * 2); g.fill();
+  if (k.range) {
+    // Escupidor: saco de ácido que brilla en la cola
+    g.fillStyle = 'rgba(190,255,80,0.85)';
+    g.beginPath(); g.ellipse(-s * 0.75, 0, s * 0.45, s * 0.4, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.4)';
+    g.beginPath(); g.arc(-s * 0.85, -s * 0.12, s * 0.12, 0, Math.PI * 2); g.fill();
+  }
   g.fillStyle = '#1a0f08';
   g.beginPath(); g.ellipse(s * 0.75, 0, s * 0.4, s * 0.35, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#ff5a3c';
@@ -1923,7 +1952,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   const visible = [];
   for (const e of S.entities) {
     const s = sizeOf(e.type) * TILE, px = e.x * TILE, py = e.y * TILE;
-    if (px + s >= vx0 && px <= vx1 && py + s >= vy0 && py <= vy1 && (e.type !== 'nest' || tileExplored(e.x, e.y))) visible.push(e);
+    if (px + s >= vx0 && px <= vx1 && py + s >= vy0 && py <= vy1 && (!isEnemyB(e) || tileExplored(e.x, e.y))) visible.push(e);
   }
   const biterVisible = (b) => tileExplored(Math.floor(b.x), Math.floor(b.y));
 
@@ -2271,10 +2300,10 @@ function renderMinimap(mc) {
   const inside = (x, y, m = 8) => x > -m && y > -m && x < mc.width + m && y < mc.height + m;
   for (const e of S.entities) {
     const s = sizeOf(e.type);
-    if (e.type === 'nest' && !tileExplored(e.x, e.y)) continue;
+    if (isEnemyB(e) && !tileExplored(e.x, e.y)) continue;
     const x = v.px(e.x), y = v.py(e.y);
     if (!inside(x, y)) continue;
-    g.fillStyle = e.type === 'nest' ? '#ff3b3b' : TYPE_COLOR[e.type] || '#fff';
+    g.fillStyle = e.type === 'nest' ? '#ff3b3b' : e.type === 'worm' ? '#ff8a3b' : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(x, y, Math.max(1.5, s * k), Math.max(1.5, s * k));
   }
   // Aventura: ruinas sin saquear, guaridas con jefe y tu mochila perdida

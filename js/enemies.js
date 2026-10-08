@@ -63,6 +63,29 @@ function areaFree(x, y, s) {
   return true;
 }
 
+// Gusano: cuanto más lejos de la Nave (o más evolución), más grande
+function wormKindFor(x, y) {
+  const d = wdist(x, y, W >> 1, H >> 1) / Math.max(1, Math.sqrt((W * H) / (1600 * 1200)));
+  const r = d / 700 + S.evo * 0.8;
+  return r > 1.1 ? 'big' : r > 0.55 ? 'medium' : 'small';
+}
+function addWorm(x, y, kind) {
+  const w = makeEntity('worm', wrapX(x), wrapY(y), 0);
+  w.kind = kind || wormKindFor(x, y);
+  w.id = S.nextId++;
+  S.entities.push(w);
+  occupy(w, w);
+  return w;
+}
+// Un par de gusanos alrededor de un nido
+function wormsAround(nx, ny, n, rnd = Math.random) {
+  for (let k = 0, t = 0; k < n && t < 12; t++) {
+    const a = rnd() * Math.PI * 2, r = 2.5 + rnd() * 2.5;
+    const x = Math.round(nx + 1 + Math.cos(a) * r), y = Math.round(ny + 1 + Math.sin(a) * r);
+    if (areaFree(x, y, 1)) { addWorm(x, y); k++; }
+  }
+}
+
 function addNest(x, y) {
   const n = makeEntity('nest', wrapX(x), wrapY(y), 0);
   n.id = S.nextId++;
@@ -87,6 +110,8 @@ function generateNests(seed) {
       const nx = Math.round(x + (rnd() - 0.5) * 8), ny = Math.round(y + (rnd() - 0.5) * 8);
       if (areaFree(nx, ny, 2)) addNest(nx, ny);
     }
+    // Partidas nuevas: gusanos que defienden los nidos
+    if (S.mapGen >= 7) wormsAround(x, y, Math.floor(rnd() * 2 + d / 350), rnd);
     clusters++;
   }
 }
@@ -98,7 +123,9 @@ function chooseBiterKind() {
     medium: e > 0.2 ? (e - 0.2) * 2.2 : 0,
     big: e > 0.5 ? (e - 0.5) * 3 : 0,
   };
-  let r = Math.random() * (w.small + w.medium + w.big);
+  // Los escupidores aparecen con un poco de evolución (y crecen igual que los bichos)
+  if (e > 0.08) { w.small_spitter = w.small * 0.5; w.medium_spitter = w.medium * 0.55; w.big_spitter = w.big * 0.6; }
+  let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0);
   for (const k in w) { if ((r -= w[k]) <= 0) return k; }
   return 'small';
 }
@@ -115,7 +142,7 @@ function spawnBiter(nest, kind) {
 function nearestPlayerEntity(x, y, maxD, pollutersOnly) {
   let best = null, bd = maxD;
   for (const e of S.entities) {
-    if (e.type === 'nest') continue;
+    if (isEnemyB(e)) continue;
     if (pollutersOnly && !BUILDINGS[e.type]?.poll) continue;
     const c = center(e);
     const d = wdist(x, y, c.x, c.y);
@@ -171,6 +198,7 @@ function expandNests(dt) {
     if (!areaFree(x, y, 2) || wdist(x, y, cx, cy) < 30) continue;
     if (nearestPlayerEntity(x + 1, y + 1, 16, false)) continue;
     addNest(x, y);
+    if (Math.random() < 0.3 + S.evo * 0.4) wormsAround(x, y, 1);
     return;
   }
 }
@@ -197,8 +225,11 @@ function biterStep(b, dt) {
   const dx = wdx(c.x - b.x), dy = wdy(c.y - b.y), dist = Math.hypot(dx, dy);
   b.ang = Math.atan2(dy, dx);
   b.cd -= dt;
-  if (dist <= sizeOf(t.type) / 2 + 1) {
-    if (b.cd <= 0) { damageEntity(t, k.dmg); b.cd = 1; noteAttack(t); }
+  if (dist <= sizeOf(t.type) / 2 + (k.range || 1)) {
+    if (b.cd <= 0) {
+      damageEntity(t, k.dmg); b.cd = k.range ? 1.4 : 1; noteAttack(t);
+      if (k.range) shots.push({ x1: b.x, y1: b.y, x2: b.x + dx, y2: b.y + dy, t: 0, spit: true });
+    }
     return;
   }
   const step = k.speed * dt;
@@ -315,12 +346,13 @@ function turretStep(e, dt) {
   let nest = null;
   if (!target) {
     for (const n of S.entities) {
-      if (n.type !== 'nest') continue;
-      const d = wdist(tx, ty, n.x + 1, n.y + 1);
+      if (!isEnemyB(n)) continue;
+      const h = sizeOf(n.type) / 2, d = wdist(tx, ty, n.x + h, n.y + h);
       if (d < bd) { bd = d; nest = n; }
     }
   }
-  e.aim = target ? Math.atan2(wdy(target.y - ty), wdx(target.x - tx)) : nest ? Math.atan2(wdy(nest.y + 1 - ty), wdx(nest.x + 1 - tx)) : e.aim;
+  const nh = nest ? sizeOf(nest.type) / 2 : 0;
+  e.aim = target ? Math.atan2(wdy(target.y - ty), wdx(target.x - tx)) : nest ? Math.atan2(wdy(nest.y + nh - ty), wdx(nest.x + nh - tx)) : e.aim;
   if (!target && !nest) return;
 
   let fire = false;
@@ -339,7 +371,7 @@ function turretStep(e, dt) {
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
   } else {
     damageEntity(nest, dmg);
-    shots.push({ x1: tx, y1: ty, x2: tx + wdx(nest.x + 1 - tx), y2: ty + wdy(nest.y + 1 - ty), t: 0, laser: e.type === 'laser' });
+    shots.push({ x1: tx, y1: ty, x2: tx + wdx(nest.x + nh - tx), y2: ty + wdy(nest.y + nh - ty), t: 0, laser: e.type === 'laser' });
     // El nido se defiende: sus bichos van contra la torreta
     if (!nest._dead) for (const b of S.biters) if (b.nest === nest.id && b.state === 'idle') { b.state = 'attack'; b._t = e; }
   }
@@ -372,20 +404,75 @@ function artilleryStep(e, dt) {
   const tx = e.x + 1, ty = e.y + 1;
   let nest = null, bd = def.range;
   for (const n of S.entities) {
-    if (n.type !== 'nest') continue;
-    const d = wdist(tx, ty, n.x + 1, n.y + 1);
+    if (!isEnemyB(n)) continue;
+    const d = wdist(tx, ty, n.x + sizeOf(n.type) / 2, n.y + sizeOf(n.type) / 2);
     if (d < bd) { bd = d; nest = n; }
   }
   if (!nest) return;
   e.aim = Math.atan2(wdy(nest.y + 1 - ty), wdx(nest.x + 1 - tx));
   e.ammo--;
   e.cd = def.rate;
-  const nx = nest.x + 1, ny = nest.y + 1;
-  for (const n of S.entities.slice()) if (n.type === 'nest' && wdist(nx, ny, n.x + 1, n.y + 1) <= def.blast) damageEntity(n, def.dmg * weaponMult());
+  const nx = nest.x + sizeOf(nest.type) / 2, ny = nest.y + sizeOf(nest.type) / 2;
+  for (const n of S.entities.slice()) if (isEnemyB(n) && wdist(nx, ny, n.x + sizeOf(n.type) / 2, n.y + sizeOf(n.type) / 2) <= def.blast) damageEntity(n, def.dmg * weaponMult());
   for (const b of S.biters) if (!b.dead && wdist(nx, ny, b.x, b.y) <= def.blast) hitBiter(b, def.dmg);
   spawnExplosion(nx, ny, 2);
   shots.push({ x1: tx, y1: ty, x2: tx + wdx(nx - tx), y2: ty + wdy(ny - ty), t: 0, laser: false });
   sfx('boom', e.x, e.y);
+}
+
+// Zonas de 32×32 con edificios del jugador (para que los gusanos lejos de todo ni miren)
+const ZONE = 32;
+let zoneMap = null, zoneKey = '';
+function playerZoneNear(x, y) {
+  const zw = Math.ceil(W / ZONE), zh = Math.ceil(H / ZONE);
+  const key = S.entities.length + ':' + Math.floor(S.playTime / 3) + ':' + W;
+  if (key !== zoneKey) {
+    zoneKey = key;
+    zoneMap = new Uint8Array(zw * zh);
+    for (const e of S.entities) if (isPlayer(e)) zoneMap[Math.floor(e.y / ZONE) * zw + Math.floor(e.x / ZONE)] = 1;
+  }
+  const zx = Math.floor(wrapX(x) / ZONE), zy = Math.floor(wrapY(y) / ZONE);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (zoneMap[((zy + dy + zh) % zh) * zw + ((zx + dx + zw) % zw)]) return true;
+  }
+  return false;
+}
+
+// El edificio del jugador más cercano mirando solo las casillas alrededor (rápido aunque haya miles)
+function playerEntityNear(x, y, r) {
+  if (!playerZoneNear(x, y)) return null;
+  let best = null, bd = r + 0.5;
+  const R = Math.ceil(r);
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    const t = at(x + dx, y + dy);
+    if (!t || !isPlayer(t)) continue;
+    const d = Math.hypot(dx, dy);
+    if (d < bd) { bd = d; best = t; }
+  }
+  return best;
+}
+
+// Gusano: escupe ácido al personaje, a los vehículos y a los edificios que tenga a tiro
+function wormStep(e, dt) {
+  const k = WORMS[e.kind] || WORMS.small;
+  e.cd = (e.cd || 0) - dt;
+  if (e.hp !== undefined && e.hp < maxHp(e)) e.hp = Math.min(maxHp(e), e.hp + 3 * dt);
+  if (e.cd > 0) return;
+  const cx = e.x + 0.5, cy = e.y + 0.5;
+  let tx = null, ty = null, hit = null;
+  const p = S.character && S.player;
+  if (p && p.hp > 0 && wdist(cx, cy, p.x, p.y) <= k.range) { tx = p.x; ty = p.y; hit = () => hurtPlayer(k.dmg * 0.6, k.name.toLowerCase()); }
+  if (!hit) {
+    const t = playerEntityNear(e.x, e.y, k.range);
+    if (t) { const c = center(t); tx = c.x; ty = c.y; hit = () => { damageEntity(t, k.dmg); noteAttack(t); }; }
+  }
+  if (!hit) { e.fire = 0; e.cd = 0.8 + Math.random() * 0.6; return; }   // nada a tiro: vuelve a mirar en un rato
+  e.aim = Math.atan2(wdy(ty - cy), wdx(tx - cx));
+  e.cd = k.rate;
+  e.fire = 0.4;
+  hit();
+  shots.push({ x1: cx, y1: cy, x2: cx + wdx(tx - cx), y2: cy + wdy(ty - cy), t: 0, spit: true });
+  sfx('splat', e.x, e.y);
 }
 
 // --------------------------- Paso principal ---------------------------
@@ -406,6 +493,7 @@ function updateEnemies(dt) {
     if (e.type === 'turret' || e.type === 'laser') turretStep(e, dt);
     else if (e.type === 'flameturret') flameStep(e, dt);
     else if (e.type === 'artillery') artilleryStep(e, dt);
+    else if (e.type === 'worm') wormStep(e, dt);
   }
   if (S.biters.some((b) => b.dead)) {
     for (const b of S.biters) if (b.dead) S.kills = (S.kills || 0) + 1;

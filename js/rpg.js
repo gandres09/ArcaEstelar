@@ -365,7 +365,7 @@ function targetsNear(x, y, r) {
   const out = [];
   for (const c of S.creatures) { const d = wdist(x, y, c.x, c.y); if (d <= r + CREATURES[c.k].size * 0.5) out.push({ kind: 'c', o: c, d, x: c.x, y: c.y }); }
   for (const b of S.biters) { if (b.dead) continue; const d = wdist(x, y, b.x, b.y); if (d <= r + 0.3) out.push({ kind: 'b', o: b, d, x: b.x, y: b.y }); }
-  for (const n of S.entities) { if (n.type !== 'nest') continue; const d = wdist(x, y, n.x + 1, n.y + 1); if (d <= r + 1) out.push({ kind: 'n', o: n, d, x: n.x + 1, y: n.y + 1 }); }
+  for (const n of S.entities) { if (!isEnemyB(n)) continue; const h = sizeOf(n.type) / 2, d = wdist(x, y, n.x + h, n.y + h); if (d <= r + h) out.push({ kind: 'n', o: n, d, x: n.x + h, y: n.y + h }); }
   return out.sort((a, b) => a.d - b.d);
 }
 
@@ -539,8 +539,11 @@ function rpgBiterHook(b, dt) {
   b.cd -= dt;
   const dx = wdx(p.x - b.x), dy = wdy(p.y - b.y);
   b.ang = Math.atan2(dy, dx);
-  if (d < 0.9) {
-    if (b.cd <= 0) { b.cd = 1; hurtPlayer(k.dmg * 0.6, k.name.toLowerCase()); }
+  if (d < (k.range ? k.range * 0.8 : 0.9)) {
+    if (b.cd <= 0) {
+      b.cd = k.range ? 1.4 : 1; hurtPlayer(k.dmg * 0.6, k.name.toLowerCase());
+      if (k.range) shots.push({ x1: b.x, y1: b.y, x2: b.x + dx, y2: b.y + dy, t: 0, spit: true });
+    }
     return true;
   }
   const nx = b.x + dx / d * k.speed * dt, ny = b.y + dy / d * k.speed * dt;

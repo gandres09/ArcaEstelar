@@ -48,8 +48,9 @@ const sizeOf = (type) => (type === 'hub' ? 3 : type === 'nest' ? 2 : BUILDINGS[t
 const isBelt = (type) => BELTS.has(type);
 const hasTech = (id) => !id || !!S.techs[id];
 const isUnlocked = (type) => !BUILDINGS[type].hidden && hasTech(BUILDINGS[type].tech) && (!BUILDINGS[type].character || !!(S && S.character));
-const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : (BUILDINGS[e.type]?.hp || 100) * (1 + 0.5 * ((e.mk || 1) - 1)));
-const isPlayer = (e) => e && e.type !== 'nest';
+const maxHp = (e) => (e.type === 'hub' ? 5000 : e.type === 'nest' ? NEST_HP : e.type === 'worm' ? WORMS[e.kind || 'small'].hp : (BUILDINGS[e.type]?.hp || 100) * (1 + 0.5 * ((e.mk || 1) - 1)));
+const isEnemyB = (e) => !!e && (e.type === 'nest' || e.type === 'worm');   // nidos y gusanos
+const isPlayer = (e) => e && !isEnemyB(e);
 
 // Con personaje, los costos salen de la mochila (y de la Nave si está cerca); ver player.js
 function canAfford(cost) {
@@ -147,6 +148,7 @@ function makeEntity(type, x, y, dir = 0) {
     case 'purifier': e.filters = 0; e.left = 0; e.rate = 0; break;
     case 'uplink': e.charges = 0; e.cd = 0; e.aim = -Math.PI / 2; break;
     case 'nest': e.anger = 0; e.group = 0; e.groupTimer = 0; break;
+    case 'worm': e.kind = 'small'; e.cd = 0; break;
   }
   return e;
 }
@@ -367,7 +369,7 @@ function place(type, x, y, dir, opts = {}) {
 }
 
 function removeEntity(e, opts = {}) {
-  if (!e || e.type === 'hub' || e.type === 'lander' || e.type === 'nest' || !S.entities.includes(e)) return false;
+  if (!e || e.type === 'hub' || e.type === 'lander' || isEnemyB(e) || !S.entities.includes(e)) return false;
   if (!opts.destroyed) {
     if (!opts.silent) sfx('remove');
     if (!opts.noRefund) {
@@ -404,7 +406,7 @@ function damageEntity(e, dmg) {
   e.hitAt = S.playTime;
   if (e.type === 'hub' || e.type === 'lander') { e.hp = Math.max(1, e.hp); return; }
   if (e.hp <= 0) {
-    if (e.type === 'nest') {
+    if (isEnemyB(e)) {
       removeNest(e);
     } else {
       removeEntity(e, { destroyed: true });
@@ -421,10 +423,11 @@ function removeNest(e, quiet) {
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
   if (!quiet) S.evo = Math.min(1, S.evo + 0.002);   // los ataques orbitales no los hacen evolucionar
-  S.nestsKilled = (S.nestsKilled || 0) + 1;
-  spawnExplosion(e.x + 1, e.y + 1, 1.6);
+  const worm = e.type === 'worm';
+  if (!worm) S.nestsKilled = (S.nestsKilled || 0) + 1;
+  spawnExplosion(e.x + sizeOf(e.type) / 2, e.y + sizeOf(e.type) / 2, worm ? 1.1 : 1.6);
   sfx('boom', e.x, e.y);
-  if (!quiet) toast('💥 Destruiste un nido');
+  if (!quiet) toast(worm ? '💥 Destruiste un gusano' : '💥 Destruiste un nido');
 }
 
 // --------------------------- Cintas subterráneas ---------------------------
@@ -719,7 +722,7 @@ function pushTo(e, dir, item, lane = -1) {
   // Las máquinas grandes sacan por el medio del lado que apunta la flecha
   const m = Math.floor((s - 1) / 2);
   const t = s === 1 ? at(e.x + dx, e.y + dy) : at(e.x + (dx > 0 ? s : dx < 0 ? -1 : m), e.y + (dy > 0 ? s : dy < 0 ? -1 : m));
-  return !!t && t !== e && t.type !== 'nest' && accept(t, item, e, false, lane);
+  return !!t && t !== e && !isEnemyB(t) && accept(t, item, e, false, lane);
 }
 
 // En qué carril de la cinta t cae algo que viene de src (-1: cualquiera), como en Factorio:
@@ -862,7 +865,7 @@ function update(dt) {
           if (e.t >= 1) {
             const dst = at(e.x + dx * R, e.y + dy * R);
             // Deja lo que lleva (el brazo de carga, de a uno hasta vaciarse)
-            while (e.hold && dst && dst.type !== 'nest' && dst !== e && accept(dst, e.hold, e)) {
+            while (e.hold && dst && !isEnemyB(dst) && dst !== e && accept(dst, e.hold, e)) {
               if ((e.n || 1) > 1) e.n--;
               else { e.hold = null; e.n = 0; e.ret = 1; }
             }
@@ -871,7 +874,7 @@ function update(dt) {
           e.ret = Math.max(0, e.ret - step);
         } else {
           const src = at(e.x - dx * R, e.y - dy * R), dst = at(e.x + dx * R, e.y + dy * R);
-          if (src && dst && src !== dst && src !== e && dst !== e && src.type !== 'nest' && dst.type !== 'nest') {
+          if (src && dst && src !== dst && src !== e && dst !== e && !isEnemyB(src) && !isEnemyB(dst)) {
             const k = takeFrom(src, dst, e);
             if (k) {
               e.hold = k; e.t = 0; e.n = 1;
@@ -1255,7 +1258,7 @@ function update(dt) {
     }
 
     // Los edificios dañados se reparan solos si no los atacan por un rato
-    if (e.hp !== undefined && e.type !== 'nest' && S.playTime - (e.hitAt || 0) > 15) {
+    if (e.hp !== undefined && !isEnemyB(e) && S.playTime - (e.hitAt || 0) > 15) {
       e.hp += maxHp(e) * 0.02 * dt;
       if (e.hp >= maxHp(e)) delete e.hp;
     }
@@ -1378,8 +1381,9 @@ function nearestNest(x, y) {
 
 // Rayo desde la órbita: borra los nidos y bichos de la zona
 function orbitalStrike(x, y, r) {
-  const hit = S.entities.filter((e) => e.type === 'nest' && wdist(x, y, e.x + 1, e.y + 1) <= r);
-  for (const n of hit) removeNest(n, true);
+  const all = S.entities.filter((e) => isEnemyB(e) && wdist(x, y, e.x + sizeOf(e.type) / 2, e.y + sizeOf(e.type) / 2) <= r);
+  const hit = all.filter((e) => e.type === 'nest');
+  for (const n of all) removeNest(n, true);
   if (typeof toast === 'function') toast(`☄️ Ataque orbital: ${hit.length} nido${hit.length === 1 ? '' : 's'} menos.`);
   for (const b of S.biters) if (wdist(x, y, b.x, b.y) <= r) b.dead = true;
   if (typeof spawnStrike === 'function') spawnStrike(x, y);

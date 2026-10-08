@@ -18,6 +18,7 @@ function markerAutoName(x, y) {
   if (o) return ITEMS[o].name.replace('Mineral de ', '');
   const e = at(x, y);
   if (e && e.type === 'nest') return 'Nido';
+  if (e && e.type === 'worm') return 'Gusano';
   if (S.lairs) for (const l of S.lairs) if (wdist(l.x, l.y, x, y) < 6) return 'Guarida';
   if (S.ruins) for (const r of S.ruins) if (wdist(r.x, r.y, x, y) < 5) return 'Ruinas';
   return 'Lugar ' + ((S.markers || []).filter((m) => !m.ping).length + 1);
@@ -27,7 +28,7 @@ function markerAutoIcon(x, y) {
   if (o === 'quartz' || o === 'titanium_ore' || o === 'oil') return '💎';
   if (o && o !== 'water') return '⛏️';
   const e = at(x, y);
-  if ((e && e.type === 'nest') || (S.lairs || []).some((l) => wdist(l.x, l.y, x, y) < 6)) return '⚔️';
+  if (isEnemyB(e) || (S.lairs || []).some((l) => wdist(l.x, l.y, x, y) < 6)) return '⚔️';
   return '📍';
 }
 

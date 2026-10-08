@@ -1440,6 +1440,7 @@ function updateTooltip() {
       const e = at(hover.x, hover.y);
       if (!tileExplored(hover.x, hover.y)) html = groundInfo(hover.x, hover.y, false);
       else if (e && e.type === 'nest') html = '<b>Nido enemigo</b><br><span class="muted">Destruilo con torretas cerca</span>';
+      else if (e && e.type === 'worm') html = `<b>${WORMS[e.kind].name}</b><br><span class="muted">Escupe ácido a ${WORMS[e.kind].range} casillas: atacalo de lejos (artillería, torretas láser o cohetes)</span>`;
       else if (e) html = `<b>${e.type === 'hub' ? 'Nave estrellada' : BUILDINGS[e.type].name}</b><br><span class="muted">Clic para ver detalles</span>`;
       else html = groundInfo(hover.x, hover.y, false);
     } else if (BUILDINGS[tool] && !beltPlan) {
@@ -1483,7 +1484,7 @@ function showWin(final = true) {
   const t = S.stageTimes || {};
   const hm = (sec) => `${Math.floor(sec / 3600)} h ${String(Math.floor(sec / 60) % 60).padStart(2, '0')} min`;
   $('win-stats').innerHTML = (final && t[1] ? `<p>🚀 Espacio: <b>${hm(t[1])}</b>${t[2] ? ` · 🌱 Planeta limpio: <b>${hm(t[2])}</b>` : ''}${t[3] ? ` · 🌌 Arca: <b>${hm(t[3])}</b>` : ''}</p>` : '') +
-    `<p>⏱️ Tiempo: <b>${Math.floor(S.playTime / 60)} min</b><br>🏭 Edificios: <b>${S.entities.length - 1 - countType('nest')}</b><br>` +
+    `<p>⏱️ Tiempo: <b>${Math.floor(S.playTime / 60)} min</b><br>🏭 Edificios: <b>${S.entities.length - 1 - countType('nest') - countType('worm')}</b><br>` +
     `📦 Objetos producidos: <b>${fmt(total)}</b><br>🔬 Investigaciones: <b>${Object.keys(S.techs).length}/${TECH_ORDER.length}</b></p>`;
   openModal('win');
 }

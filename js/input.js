@@ -122,7 +122,7 @@ function entitiesIn(r) {
   const set = new Set();
   for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
     const e = at(x, y);
-    if (e && e.type !== 'hub' && e.type !== 'nest') set.add(e);
+    if (e && e.type !== 'hub' && !isEnemyB(e)) set.add(e);
   }
   return [...set];
 }
@@ -254,7 +254,7 @@ function handleTap(t) {
     else if (playerOn() && myVehicle()) { closeInspector(); myVehicle().target = { x: t.x + 0.5, y: t.y + 0.5 }; followCam = true; }
     else if (playerOn() && petAt(t)) openPetPanel();
     else if (tr) openInspector(tr);
-    else if (e && e.type !== 'nest') openInspector(e);
+    else if (e && !isEnemyB(e)) openInspector(e);
     else { closeInspector(); showTapInfo(t); if (playerOn()) handGround(t); }
     return;
   }
@@ -488,7 +488,7 @@ function endPointer(ev) {
         else if (playerOn() && myVehicle()) { closeInspector(); myVehicle().target = { x: d.tile.x + 0.5, y: d.tile.y + 0.5 }; followCam = true; }
         else if (playerOn() && petAt(d.tile)) openPetPanel();
         else if (tr) openInspector(tr);
-        else if (e && e.type !== 'nest') openInspector(e);
+        else if (e && !isEnemyB(e)) openInspector(e);
         else { if (!handMining) closeInspector(); if (playerOn()) handGround(d.tile); }
       } else if (tool === 'delete') {
         const e = at(d.tile.x, d.tile.y);

@@ -25,7 +25,7 @@ function dropTarget(x, y) {
     const t = screenToTile(x, y);
     const e = at(t.x, t.y);
     if (e && e.type === 'hub') return { kind: 'inv', el: null };
-    if (e && e.type !== 'nest') return { kind: 'ent', ent: e, el: null, tile: t };
+    if (e && !isEnemyB(e)) return { kind: 'ent', ent: e, el: null, tile: t };
   }
   return null;
 }
