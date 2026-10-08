@@ -86,9 +86,19 @@ function shipCenter() {
   const hub = (typeof hubOf === 'function' && hubOf(myF() || 'f0')) || S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
   return hub ? { x: hub.x + sizeOf(hub.type) / 2, y: hub.y + sizeOf(hub.type) / 2 } : { x: W / 2, y: H / 2 };
 }
-// Nivel de peligro de una zona: crece con la distancia a la nave
+// La Nave más cercana a un punto (con bases separadas, cada jugador tiene la suya)
+function nearestHubCenter(x, y) {
+  let best = null, bd = Infinity;
+  for (const e of S.entities) {
+    if (e.type !== 'hub' && e.type !== 'lander') continue;
+    const s = sizeOf(e.type) / 2, d = wdist(x, y, e.x + s, e.y + s);
+    if (d < bd) { bd = d; best = { x: e.x + s, y: e.y + s }; }
+  }
+  return best || shipCenter();
+}
+// Nivel de peligro de una zona: crece con la distancia a la Nave más cercana
 function zoneLevel(x, y) {
-  const c = shipCenter();
+  const c = nearestHubCenter(x, y);
   const d = wdist(x, y, c.x, c.y);
   return Math.max(1, Math.min(15, 1 + Math.floor((d - SHIP_SAFE) / 45)));
 }
@@ -291,7 +301,8 @@ function spawnAround(dt) {
       const n = 2 + Math.floor(rnd01() * 3);
       for (let i = 0; i < n; i++) spawnCreature(pickCreature(r.L), r.x + (rnd01() - 0.5) * 7, r.y + (rnd01() - 0.5) * 7, r.L);
     }
-    if (wdist(h.x, h.y, c.x, c.y) < SHIP_SAFE + 6) continue;
+    const hc = nearestHubCenter(h.x, h.y);
+    if (wdist(h.x, h.y, hc.x, hc.y) < SHIP_SAFE + 6) continue;
     const L = zoneLevel(h.x, h.y);
     const near = S.creatures.filter((k) => !k.lair && wdist(k.x, k.y, h.x, h.y) < 45).length;
     const want = Math.min(14, 5 + Math.floor(L / 2));

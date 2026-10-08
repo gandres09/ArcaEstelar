@@ -255,6 +255,17 @@ function netClientProcess(peers) {
     }
     if (NET.buf.length > 400) NET.buf.splice(0, NET.buf.length - 400);
   }
+  // El inventario de una Nave, al día (ya incluye lo de arriba; se suma lo mío que todavía no le llegó)
+  if (Array.isArray(pr.iv)) { netApplyIv(pr.iv); NET.lastIv = pr.iv; }
+}
+
+function netApplyIv(iv) {
+  const [f, src, gs] = iv;
+  if (!S.factions || !S.factions[f] || !src || typeof src !== 'object' || (gs || 0) !== NET.lastGs) return;   // solo si estoy al día con lo que hicieron los demás
+  const inv = S.factions[f].inv;
+  for (const k in inv) if (!(k in src)) delete inv[k];
+  for (const k in src) inv[k] = src[k];
+  for (const x of NET.pending) if (x.a.k === 'i' && (x.a.fx || 'f0') === f) for (const k in x.a.d) inv[k] = Math.max(0, (inv[k] || 0) + x.a.d[k]);
 }
 
 function netHostPeer(peers) {
@@ -284,6 +295,15 @@ function netSendPresence() {
   if (NET.role === 'host') {
     pres.host = 1;
     pres.ver = NET.meta ? NET.meta.ver : 0;
+    // El inventario de las Naves tal como está ahora (una por vez): así nadie lo ve atrasado
+    pres.iv = null;
+    if (S.factions) {
+      const fs = Object.keys(S.factions);
+      NET.ivTurn = ((NET.ivTurn || 0) + 1) % fs.length;
+      const f = fs[NET.ivTurn], inv = S.factions[f].inv, o = {};
+      for (const k in inv) if (inv[k] > 0.004) o[k] = Math.round(inv[k] * 100) / 100;
+      if (JSON.stringify(o).length < 1800) pres.iv = [f, o, NET.gs];
+    }
     const here = new Set(NET.wroom.peers().map((p) => p.presence && p.presence.cid).filter(Boolean));
     pres.ack = {};
     for (const c in NET.acks) if (here.has(c)) pres.ack[c] = NET.acks[c];
@@ -460,6 +480,7 @@ function applyShared(obj, first) {
   const myAck = (obj.acks && obj.acks[NET.cid]) || 0;
   for (const x of NET.own) if (x.s > myAck) netApplyAny(x.a);
   NET.lastGs = Math.max(NET.lastGs, after);
+  if (NET.lastIv && (NET.lastIv[2] || 0) >= after) netApplyIv(NET.lastIv);   // la foto es más vieja que el último inventario
   NET.shadow = { ...S.inv };
   netRemapRefs();
   if (first || !same || (multiBase() && !myF())) setTimeout(checkNeedBase, 600);

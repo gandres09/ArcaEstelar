@@ -46,11 +46,11 @@ function strikeAt(x, y, real) {
   bolts.push({ x, y, t: 0, seed: Math.random() * 1000 });
   flashT = 0.35;
   sfx('boom', x, y);
-  if (!real) return;
-  // ¿Hay un pararrayos cerca? Se lleva el rayo y no pasa nada
+  // ¿Hay un pararrayos cerca (o la Nave)? Se lleva el rayo y no pasa nada
   const rod = S.entities.find((e) => (e.type === 'lightningrod' && wdist(e.x + 0.5, e.y + 0.5, x, y) <= ROD_RADIUS + 10 * ((e.mk || 1) - 1)) ||
     (e.type === 'hub' && wdist(e.x + 1.5, e.y + 1.5, x, y) <= SHIP_ROD));
-  if (rod) { const s = sizeOf(rod.type) / 2; bolts[bolts.length - 1].x = rod.x + s; bolts[bolts.length - 1].y = rod.y + 0.2; rod.hitAt = S.playTime; S.rodHits = (S.rodHits || 0) + 1; return; }
+  if (rod) { const s = sizeOf(rod.type) / 2; bolts[bolts.length - 1].x = rod.x + s; bolts[bolts.length - 1].y = rod.y + 0.2; rod.hitAt = S.playTime; if (real) S.rodHits = (S.rodHits || 0) + 1; return; }
+  if (!real) return;
   spawnExplosion(x, y, 0.7);
   if (playerOn() && wdist(S.player.x, S.player.y, x, y) < 1.4) hurtPlayer(30, 'un rayo');
   for (const b of S.biters) if (!b.dead && wdist(b.x, b.y, x, y) < 1.6) hitBiter(b, 120);
@@ -70,7 +70,9 @@ function updateWeather(dt) {
   if (boltTimer > 0) return;
   boltTimer = 4 + Math.random() * 7;
   // Cae cerca de donde estás (o de lo que estás mirando)
-  const c = playerOn() ? S.player : { x: view.x / TILE, y: view.y / TILE };
+  // (la compu servidor no tiene personaje: cae cerca de alguno de los jugadores)
+  let c = playerOn() ? S.player : { x: view.x / TILE, y: view.y / TILE };
+  if (!playerOn() && NET.on) { const av = [...NET.avatars.values()]; if (!av.length) return; c = av[Math.floor(Math.random() * av.length)]; }
   const a = Math.random() * Math.PI * 2, d = 3 + Math.random() * 20;
   // En línea, el daño lo decide el anfitrión; los demás solo ven el rayo
   strikeAt(wrapX(c.x + Math.cos(a) * d), wrapY(c.y + Math.sin(a) * d), !NET.on || NET.role === 'host');

@@ -130,7 +130,11 @@ function createFaction(uid, team, name) {
   });
   // La zona de la Nave, despejada; sin nidos ni gusanos cerca
   for (let y = p.y - 5; y <= p.y + 5; y++) for (let x = p.x - 5; x <= p.x + 5; x++) { const k = tIdx(x, y); oreType[k] = 0; oreAmt[k] = 0; oreBase[k] = 0; oreTypeBase[k] = 0; }
-  for (const e of S.entities.slice()) if (isEnemyB(e) && wdist(e.x, e.y, p.x, p.y) < 60) removeNest(e, true);
+  // Alrededor de la base nueva: sin nidos, gusanos, criaturas ni guaridas (como al empezar el juego)
+  for (const e of S.entities.slice()) if (isEnemyB(e) && wdist(e.x, e.y, p.x, p.y) < 100) removeNest(e, true);
+  for (const b of S.biters) if (wdist(b.x, b.y, p.x, p.y) < 100) b.dead = true;
+  if (S.creatures) S.creatures = S.creatures.filter((c) => c.lair === undefined ? wdist(c.x, c.y, p.x, p.y) >= 60 : true);
+  if (S.lairs) S.lairs = S.lairs.filter((l) => wdist(l.x, l.y, p.x, p.y) >= 90);
   const hub = makeEntity('hub', p.x - 1, p.y - 1);
   hub.id = S.nextId++; hub.f = fid;
   S.entities.push(hub); occupy(hub, hub);
