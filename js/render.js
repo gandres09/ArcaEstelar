@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  storagechest: '#e8d070', activechest: '#c08ae5', bufferchest: '#8fe0a0', road: '#a8664a', concrete_floor: '#9a9a94', refined_floor: '#6a6e72', landmine: '#5a2a20', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  foundry: '#e07a3a', bigminer: '#c9a23a', turbobelt: '#3a9a5a', vulcanpad: '#ff7a3a', storagechest: '#e8d070', activechest: '#c08ae5', bufferchest: '#8fe0a0', road: '#a8664a', concrete_floor: '#9a9a94', refined_floor: '#6a6e72', landmine: '#5a2a20', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', centrifuge: '#7be05a', reactor: '#9aa3ad', heatex: '#d07a3a', heatpipe: '#c06a2a', steam_turbine: '#b8c6d2', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -430,11 +430,24 @@ function drawCrashedShip(g, x0, y0, t) {
   }
 }
 
-const OWN_DRAW = new Set(['centrifuge', 'steam_turbine', 'reactor', 'heatex', 'heatpipe']);
+const OWN_DRAW = new Set(['centrifuge', 'steam_turbine', 'reactor', 'heatex', 'heatpipe', 'foundry', 'turbobelt', 'vulcanpad']);
 function drawBuilding(g, e, x0, y0, t) {
   const cx = x0 + TILE / 2, cy = y0 + TILE / 2;
   const def = BUILDINGS[e.type];
   switch (OWN_DRAW.has(e.type) ? e.type : kindOf(e.type)) {
+    case 'turbobelt': drawBeltBase(g, e, cx, cy, t, 12, '#3a9a5a', '#9af0b0'); break;
+    case 'vulcanpad': drawMoonpad(g, x0, y0, t); g.fillStyle = 'rgba(255,100,30,0.35)'; g.beginPath(); g.arc(x0 + TILE * 1.5, y0 + TILE * 1.5, 30, 0, Math.PI * 2); g.fill(); break;
+    case 'foundry': {
+      const S3 = TILE * 3, mx = x0 + S3 / 2, my = y0 + S3 / 2;
+      box(g, x0, y0, '#4a3a36', '#e07a3a', 6, S3);
+      g.fillStyle = '#2a1e1c'; g.beginPath(); g.arc(mx, my, 26, 0, Math.PI * 2); g.fill();
+      const glow = g.createRadialGradient(mx, my, 2, mx, my, 22);
+      glow.addColorStop(0, e.active ? 'rgba(255,200,80,1)' : 'rgba(140,60,30,0.8)'); glow.addColorStop(1, 'rgba(120,30,10,0)');
+      g.fillStyle = glow; g.beginPath(); g.arc(mx, my, 22, 0, Math.PI * 2); g.fill();
+      if (e.recipe) drawItem(g, RECIPES[e.recipe].out, mx, my, 7);
+      drawArrow(g, mx + DIRS[e.dir][0] * 38, my + DIRS[e.dir][1] * 38, e.dir, '#ffd0a0', 10);
+      break;
+    }
     case 'centrifuge': {
       const S2 = TILE * 2, mx = x0 + S2 / 2, my = y0 + S2 / 2;
       box(g, x0, y0, '#3a4048', '#7be05a', 6, TILE * 2);

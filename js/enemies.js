@@ -58,7 +58,7 @@ function totalPollution() {
 
 function areaFree(x, y, s) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
-    if (at(x + dx, y + dy) || oreAt(x + dx, y + dy) === 'water' || cliffAt(x + dx, y + dy)) return false;
+    if (at(x + dx, y + dy) || isLiquidO(oreAt(x + dx, y + dy)) || cliffAt(x + dx, y + dy)) return false;
   }
   return true;
 }
@@ -211,7 +211,7 @@ function biterStep(b, dt) {
   if (b.state === 'idle') {
     b.ang += (Math.random() - 0.5) * 2 * dt;
     const wx = b.x + Math.cos(b.ang) * 0.3 * dt, wy = b.y + Math.sin(b.ang) * 0.3 * dt;
-    if (oreAt(Math.floor(wx), Math.floor(wy)) === 'water') b.ang += Math.PI;
+    if (isLiquidO(oreAt(Math.floor(wx), Math.floor(wy)))) b.ang += Math.PI;
     else { b.x = wrapX(wx); b.y = wrapY(wy); }
     return;
   }
@@ -241,7 +241,7 @@ function biterStep(b, dt) {
     if (wd < 0.4) { b.path.shift(); return; }
     nx = b.x + (wx / wd) * step; ny = b.y + (wy / wd) * step;
     b.ang = Math.atan2(wy, wx);
-  } else if (oreAt(Math.floor(nx), Math.floor(ny)) === 'water') {
+  } else if (isLiquidO(oreAt(Math.floor(nx), Math.floor(ny)))) {
     const path = findPath(Math.floor(b.x), Math.floor(b.y), Math.floor(c.x), Math.floor(c.y));
     if (!path) { b.state = 'idle'; return; }   // inalcanzable: se queda
     b.path = path;
@@ -315,9 +315,9 @@ function findPath(sx, sy, tx, ty, maxNodes = 15000) {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!dx && !dy) continue;
       const x = wrapX(cx + dx), y = wrapY(cy + dy);
-      if (oreAt(x, y) === 'water') continue;
+      if (isLiquidO(oreAt(x, y))) continue;
       // No cortar esquinas pegadas al agua
-      if (dx && dy && (oreAt(cx + dx, cy) === 'water' || oreAt(cx, cy + dy) === 'water')) continue;
+      if (dx && dy && (isLiquidO(oreAt(cx + dx, cy)) || isLiquidO(oreAt(cx, cy + dy)))) continue;
       const ni = idx(x, y), ng = gc + (dx && dy ? 1.41 : 1);
       if (ng < (g.get(ni) ?? Infinity)) { g.set(ni, ng); from.set(ni, cur); push(ni, ng + h(x, y)); }
     }

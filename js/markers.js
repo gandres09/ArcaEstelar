@@ -14,6 +14,7 @@ function ensureMarkers() { if (!S.markers) S.markers = []; }
 function markerAutoName(x, y) {
   const o = oreAt(x, y);
   if (o === 'water') return 'Lago';
+  if (o === 'lava') return 'Lava';
   if (o === 'oil') return 'Petróleo';
   if (o) return ITEMS[o].name.replace('Mineral de ', '');
   const e = at(x, y);
@@ -26,7 +27,7 @@ function markerAutoName(x, y) {
 function markerAutoIcon(x, y) {
   const o = oreAt(x, y);
   if (o === 'quartz' || o === 'titanium_ore' || o === 'oil') return '💎';
-  if (o && o !== 'water') return '⛏️';
+  if (o && !isLiquidO(o)) return '⛏️';
   const e = at(x, y);
   if (isEnemyB(e) || (S.lairs || []).some((l) => wdist(l.x, l.y, x, y) < 6)) return '⚔️';
   return '📍';

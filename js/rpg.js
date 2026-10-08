@@ -197,7 +197,7 @@ function generateAdventure() {
   const c = shipCenter();
   const K = (W * H) / (320 * 240);
   const R = Math.min(W, H) / 2;
-  const free = (x, y, s) => { for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) { const o = oreAt(x + dx, y + dy); if (at(x + dx, y + dy) || o === 'water' || o === 'oil') return false; } return true; };
+  const free = (x, y, s) => { for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) { const o = oreAt(x + dx, y + dy); if (at(x + dx, y + dy) || isLiquidO(o) || o === 'oil') return false; } return true; };
   const nLairs = Math.max(4, Math.round(3 + K * 0.3));
   for (let tries = 0; S.lairs.length < nLairs && tries < 4000; tries++) {
     const a = rnd() * Math.PI * 2, d = R * (0.35 + rnd() * 0.6);
@@ -226,7 +226,7 @@ function generatePods() {
   for (let tries = 0; made < n && tries < 6000; tries++) {
     const x = Math.floor(rnd() * W), y = Math.floor(rnd() * H);
     const o = oreAt(x, y);
-    if (wdist(x, y, c.x, c.y) < SHIP_SAFE + 20 || at(x, y) || o === 'water' || o === 'oil') continue;
+    if (wdist(x, y, c.x, c.y) < SHIP_SAFE + 20 || at(x, y) || isLiquidO(o) || o === 'oil') continue;
     if (S.ruins.some((r) => wdist(r.x, r.y, x, y) < 18)) continue;
     S.ruins.push({ id: S.nextId++, x, y, L: zoneLevel(x, y), looted: false, guarded: false, pod: true });
     made++;
@@ -253,7 +253,7 @@ function pickCreature(L) {
 
 function walkableFor(x, y) {
   const o = oreAt(Math.floor(x), Math.floor(y));
-  return o !== 'water' && !cliffAt(Math.floor(x), Math.floor(y));
+  return !isLiquidO(o) && !cliffAt(Math.floor(x), Math.floor(y));
 }
 
 // Todos los personajes que hay (el propio y los de los amigos)
@@ -266,7 +266,7 @@ function heroes() {
 
 let spawnTimer = 0;
 function spawnAround(dt) {
-  if (S.surface === 'moon') return;
+  if (offEarth()) return;
   // Solo el anfitrión (o el que juega solo) hace aparecer cosas; a los demás les llega en la foto
   if (NET.on && NET.role !== 'host') return;
   spawnTimer += dt;

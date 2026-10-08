@@ -238,12 +238,13 @@ function canPlace(type, x, y, free = false) {
   for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) {
     if (!free && !tileExplored(x + dx, y + dy)) return { ok: false, why: 'Zona sin explorar' };
     if (type !== 'landfill' && oreAt(x + dx, y + dy) === 'water') return { ok: false, why: 'No se puede construir sobre el agua' };
+    if (oreAt(x + dx, y + dy) === 'lava') return { ok: false, why: 'No se puede construir sobre la lava' };
     if (cliffAt(x + dx, y + dy)) return { ok: false, why: 'Hay un acantilado: volalo con explosivos para acantilados' };
   }
   const o = oreAt(x, y);
   if (type === 'landfill' && o !== 'water') return { ok: false, why: 'El relleno va sobre agua' };
   if ((type === 'pipe' || type === 'fluidtank') && neighborFluids(x, y, s).size > 1) return { ok: false, why: 'Mezclaría dos líquidos distintos' };
-  if (type === 'offshore' && !DIRS.some(([dx, dy]) => oreAt(x + dx, y + dy) === 'water')) return { ok: false, why: 'La bomba va en la orilla, al lado del agua' };
+  if (type === 'offshore' && !DIRS.some(([dx, dy]) => isLiquidO(oreAt(x + dx, y + dy)))) return { ok: false, why: 'La bomba va en la orilla, al lado del agua (o de la lava)' };
   if ((type === 'miner' || type === 'eminer') && !minerTile(x, y, BUILDINGS[type].area)) return { ok: false, why: 'El taladro va sobre mineral' };
   if (type === 'pumpjack' && o !== 'oil') return { ok: false, why: 'La bomba va sobre un pozo de petróleo' };
   if (free) return { ok: true };
@@ -254,7 +255,7 @@ function canPlace(type, x, y, free = false) {
 
 // Casilla con mineral que va a extraer un taladro: primero la del centro, después las de alrededor
 function minerTile(x, y, r) {
-  const ok = (tx, ty) => { const o = oreAt(tx, ty); return o && o !== 'oil' && o !== 'water'; };
+  const ok = (tx, ty) => { const o = oreAt(tx, ty); return o && o !== 'oil' && !isLiquidO(o); };
   if (ok(x, y)) return { x, y };
   for (let d = 1; d <= r; d++) {
     for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
@@ -269,7 +270,7 @@ function minerArea(e) {
   const r = BUILDINGS[e.type].area || 0, res = {};
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
     const o = oreAt(e.x + dx, e.y + dy);
-    if (o && o !== 'water' && (e.type === 'pumpjack' ? o === 'oil' : o !== 'oil')) res[o] = (res[o] || 0) + oreAmountAt(e.x + dx, e.y + dy);
+    if (o && !isLiquidO(o) && (e.type === 'pumpjack' ? o === 'oil' : o !== 'oil')) res[o] = (res[o] || 0) + oreAmountAt(e.x + dx, e.y + dy);
   }
   return res;
 }
@@ -982,7 +983,8 @@ function update(dt) {
           e.t += dt * sp;
           if (e.t >= def.time) {
             e.t = Math.min(e.t - def.time, def.time);
-            e.buf = mineOre(mt.x, mt.y);
+            // El taladro grande, la mitad de las veces no gasta la mena
+            e.buf = def.drain && Math.random() < def.drain ? oreAt(mt.x, mt.y) : mineOre(mt.x, mt.y);
             if (e.type === 'miner') e.burn--;
             if (uran && e.buf) e.acid--;
             if (e.buf) {
@@ -1055,7 +1057,7 @@ function update(dt) {
               const alt = rc.alt && Math.random() < rc.alt.p;
               if (alt) { e.out2 = (e.out2 || 0) + rc.alt.n; countProduced(rc.alt.out, rc.alt.n); }
               if (!(alt && rc.alt.replace)) { e.out += rc.n; countProduced(rc.out, rc.n); }
-              e.bonus = (e.bonus || 0) + fx.prod;
+              e.bonus = (e.bonus || 0) + fx.prod + (def.prod || 0);
               if (e.bonus >= 1) { e.bonus -= 1; e.out += rc.n; countProduced(rc.out, rc.n); }
             }
           }
@@ -1165,7 +1167,7 @@ function update(dt) {
       case 'offshore':
         if (!e.buf) {
           e.t += dt;
-          if (e.t * mkMult(e) >= def.time) { e.t = 0; e.buf = 'water'; }
+          if (e.t * mkMult(e) >= def.time) { e.t = 0; e.buf = DIRS.some(([dx, dy]) => oreAt(e.x + dx, e.y + dy) === 'lava') ? 'lava' : 'water'; }
         }
         if (e.buf && pushTo(e, e.dir, e.buf)) e.buf = null;
         break;
@@ -1432,7 +1434,7 @@ function orbitalStrike(x, y, r) {
 
 const SIGNAL_COLORS = ['#e5534b', '#5cc47a', '#3f86e0', '#f0c040', '#b45fe0', '#3cc4c4', '#f08a3a', '#e8e8e8'];
 const SIGNAL_NAMES = ['rojo', 'verde', 'azul', 'amarillo', 'violeta', 'celeste', 'naranja', 'blanco'];
-const CONDITIONABLE = new Set(['dispatcher', 'longinserter', 'stackinserter', 'steelfurnace', 'assembler3', 'refinery', 'pump', 'beacon', 'belt', 'fastbelt', 'expressbelt', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
+const CONDITIONABLE = new Set(['dispatcher', 'longinserter', 'stackinserter', 'steelfurnace', 'assembler3', 'refinery', 'pump', 'beacon', 'belt', 'fastbelt', 'expressbelt', 'turbobelt', 'bigminer', 'foundry', 'inserter', 'fastinserter', 'miner', 'eminer', 'pumpjack', 'offshore',
   'furnace', 'efurnace', 'assembler', 'assembler2', 'chem', 'lab', 'lamp', 'generator', 'boiler', 'steam_engine', 'splitter', 'sorter', 'radar', 'purifier', 'nursery']);
 let signals = new Array(8).fill(0);
 
@@ -1556,7 +1558,7 @@ function heatStep(dt) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'chainsignal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor', 'concrete_floor', 'refined_floor', 'landmine']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'vulcanpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'chainsignal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider', 'heatpipe', 'reactor', 'concrete_floor', 'refined_floor', 'landmine']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

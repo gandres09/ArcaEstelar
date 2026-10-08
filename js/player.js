@@ -81,9 +81,9 @@ function giveItem(k, n = 1) {
 
 // --------------------------- Movimiento ---------------------------
 
-const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'rail', 'station', 'gate', 'road', 'landmine', 'concrete_floor', 'refined_floor']);
+const PASSABLE = new Set(['belt', 'fastbelt', 'expressbelt', 'turbobelt', 'rail', 'station', 'gate', 'road', 'landmine', 'concrete_floor', 'refined_floor']);
 function walkable(x, y) {
-  if (oreAt(x, y) === 'water') return false;
+  if (isLiquidO(oreAt(x, y))) return false;
   const e = at(x, y);
   if (!e) return !treeAt(x, y) && !cliffAt(x, y);   // árboles y acantilados no dejan pasar
   return PASSABLE.has(e.type);
@@ -369,7 +369,7 @@ function updatePlayer(dt) {
     } else if (!p.path) walkTo(p.mine.x, p.mine.y, MINE_REACH - 0.6);
   } else if (p.mine && !p.moving) {
     const o = oreAt(p.mine.x, p.mine.y);
-    if (!o || o === 'water' || o === 'oil' || at(p.mine.x, p.mine.y)) p.mine = null;
+    if (!o || isLiquidO(o) || o === 'oil' || at(p.mine.x, p.mine.y)) p.mine = null;
     else if (inReach(p.mine.x, p.mine.y, MINE_REACH)) {
       p.mining = true;
       p.ang = Math.atan2(wdy(p.mine.y + 0.5 - p.y), wdx(p.mine.x + 0.5 - p.x));

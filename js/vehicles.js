@@ -29,6 +29,7 @@ function vehicleCanBe(v, x, y) {
   for (const [ox, oy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) {
     const tx = Math.floor(x + ox), ty = Math.floor(y + oy);
     if (oreAt(tx, ty) === 'water' && !d.water) return false;
+    if (oreAt(tx, ty) === 'lava') return false;
     if (cliffAt(tx, ty)) return false;   // ni el tanque sube un acantilado
     const e = at(tx, ty);
     if (e && !PASSABLE.has(e.type)) return false;
@@ -42,7 +43,7 @@ function canPlaceVehicle(type, x, y, free) {
     if (!isUnlocked(type)) return { ok: false, why: 'Falta investigar: ' + TECHS[BUILDINGS[type].tech].name };
     if (!canAfford(BUILDINGS[type].cost)) return { ok: false, why: 'Faltan materiales' };
   }
-  if (oreAt(x, y) === 'water' || at(x, y)) return { ok: false, why: 'Tiene que ir en un lugar libre' };
+  if (isLiquidO(oreAt(x, y)) || at(x, y)) return { ok: false, why: 'Tiene que ir en un lugar libre' };
   return { ok: true };
 }
 

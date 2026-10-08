@@ -72,7 +72,7 @@ const smooth01 = (v) => Math.max(0, Math.min(1, v));
 function computeBiomes(seed) {
   const n = W * H;
   biomeDry = new Uint8Array(n); biomeDesert = new Uint8Array(n); biomeRed = new Uint8Array(n);
-  if (!(S && S.mapGen >= 7 && S.surface !== 'moon' && mapOpts().biomes)) return;
+  if (!(S && S.mapGen >= 7 && !offEarth() && mapOpts().biomes)) return;
   const sk = (seed >>> 0) % 997, cx = W >> 1, cy = H >> 1;
   // Cambian muy suave: se calculan de a bloques de 2×2
   for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
@@ -98,7 +98,7 @@ function computeCliffs(seed) {
   cliffs = new Uint8Array(W * H);
   cliffGone = new Set();
   const amt = mapOpts().cliffs;
-  if (!(S && S.mapGen >= 7 && S.surface !== 'moon') || amt <= 0) return;
+  if (!(S && S.mapGen >= 7 && !offEarth()) || amt <= 0) return;
   const sk = (seed >>> 0) % 991, cx = W >> 1, cy = H >> 1;
   const levels = 4 + 3 * amt;                 // más niveles, más líneas
   const gapT = Math.min(0.8, 0.36 + 0.12 * amt); // más alto, menos huecos
@@ -131,6 +131,7 @@ function blowCliffs(x, y, r = 2.2) {
 
 function generateMap(seed) {
   if (S && S.surface === 'moon') { generateMoonMap(seed); return; }
+  if (S && S.surface === 'vulcan') { generateVulcanMap(seed); return; }
   oreType = new Uint8Array(W * H);
   oreAmt = new Uint16Array(W * H);
   const rnd = mulberry32(seed);
@@ -339,7 +340,7 @@ function uranPatch(px, py, rad, i) {
 }
 // Al cargar una partida vieja: menas de uranio lejos, donde todavía no se exploró ni se construyó
 function addLegacyUranium() {
-  if (!S || S.mapGen >= 8 || S.uranPatches || S.surface === 'moon' || W * H < 640 * 480 * 2) return;
+  if (!S || S.mapGen >= 8 || S.uranPatches || offEarth() || W * H < 640 * 480 * 2) return;
   const rnd = mulberry32((S.seed ^ 0x7a3c11) >>> 0);
   const K = (W * H) / (320 * 240), cx = W >> 1, cy = H >> 1;
   const want = Math.round(2 * K) + 3, list = [];
@@ -363,6 +364,7 @@ function mineOre(x, y) {
   const id = oreType[i];
   if (!id) return null;
   if (id === 8) return 'water';
+  if (ORE_IDS[id] === 'lava') return 'lava';   // la lava no se acaba
   const before = oreStep(i);
   if (--oreAmt[i] <= 0) {
     oreType[i] = 0;
@@ -412,6 +414,7 @@ const WATER_SHALLOW = [58, 128, 164], WATER_MID = [38, 98, 150], WATER_DEEP = [2
 const DESERT_LIGHT = [204, 180, 122], DESERT_DARK = [176, 150, 98], RED_LIGHT = [176, 104, 66], RED_DARK = [140, 78, 50], STEPPE = [128, 118, 66];
 function terrainAt(x, y) {
   if (S && S.surface === 'moon') return moonTerrainAt(x, y);
+  if (S && S.surface === 'vulcan') return vulcanTerrainAt(x, y);
   const n = vnoise(x, y, 7, 3) * 0.6 + vnoise(x, y, 23, 4) * 0.4;
   let c = mixRgb(GRASS_DARK, GRASS_LIGHT, n);
   const dry = vnoise(x, y, 41, 5);
@@ -448,6 +451,7 @@ function waterDepth(x, y) {
 function tilePixel(x, y) {
   const o = oreAt(x, y);
   if (o === 'water') return [WATER_SHALLOW, WATER_MID, WATER_DEEP][waterDepth(x, y)];
+  if (o === 'lava') return lavaColor(x + 0.5, y + 0.5);
   const base = terrainAt(x + 0.5, y + 0.5);
   if (!o && cliffAt(x, y)) return CLIFF_RGB;
   if (!o) return treeAt(x, y) ? mixRgb(base, [24, 46, 24], 0.55) : base;
@@ -532,7 +536,7 @@ function oreGroundAt(fx, fy) {
   for (let k = 0; k < 4; k++) {
     const x = x0 + (k & 1), y = y0 + (k >> 1);
     const o = inBounds(x, y) ? oreAt(x, y) : null;
-    if (!o || o === 'water' || o === 'oil') continue;
+    if (!o || o === 'water' || o === 'oil' || o === 'lava') continue;
     const kw = ((k & 1) ? tx : 1 - tx) * ((k >> 1) ? ty : 1 - ty);
     const c = hexToRgb(ORE_GROUND[o]);
     w += kw; r += c[0] * kw; gg += c[1] * kw; b += c[2] * kw;
@@ -544,6 +548,7 @@ function oreGroundAt(fx, fy) {
 
 function drawTile(g, x, y, px, py) {
   const o = oreAt(x, y);
+  if (o === 'lava') { drawLava(g, x, y, px, py); return; }
   // Suelo: bloques de 4 px con el color suave del terreno
   if (o !== 'water') {
     for (let by = 0; by < TILE; by += 4) {
@@ -612,6 +617,7 @@ function drawTile(g, x, y, px, py) {
   }
 
   if (!o && S && S.surface === 'moon') { drawMoonGround(g, x, y, px, py); return; }
+  if (!o && S && S.surface === 'vulcan') { drawVulcanGround(g, x, y, px, py); return; }
   if (!o && cliffAt(x, y)) { drawCliff(g, x, y, px, py); return; }
   const desertHere = biomeDesert.length ? biomeDesert[tIdx(x, y)] / 255 : 0;
   if (!o && desertHere > 0.5) {
@@ -709,7 +715,7 @@ const treeCache = new Map();
 
 // ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos de la Nave)
 function naturalTreeAt(x, y) {
-  if (S && S.surface === 'moon') return null;
+  if (offEarth()) return null;
   const i = y * W + x;
   if (oreBase[i] !== 0) return null;
   if (Math.abs(x - W / 2) < 9 && Math.abs(y - H / 2) < 9) return null;

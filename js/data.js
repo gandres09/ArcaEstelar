@@ -24,6 +24,11 @@ const ITEMS = {
   titanium_ore:   { name: 'Mineral de titanio', color: '#4fb3a4', shape: 'ore' },
   oil:            { name: 'Petróleo crudo',     color: '#3b2a20', shape: 'barrel' },
   uranium_ore:    { name: 'Mineral de uranio',  color: '#7be05a', shape: 'ore' },
+  calcite:        { name: 'Calcita',            color: '#efe8dc', shape: 'ore' },
+  tungsten_ore:   { name: 'Mineral de tungsteno', color: '#4a5a6a', shape: 'ore' },
+  lava:           { name: 'Lava',               color: '#ff6a1a', shape: 'barrel' },
+  tungsten_carbide:{ name: 'Carburo de tungsteno', color: '#5a6672', shape: 'plate' },
+  tungsten_plate: { name: 'Placa de tungsteno', color: '#7d8a99', shape: 'plate' },
   water:          { name: 'Agua',               color: '#3a8fd8', shape: 'barrel' },
   steam:          { name: 'Vapor',              color: '#e8eef4', shape: 'barrel' },
   lubricant:      { name: 'Lubricante',         color: '#4fae5c', shape: 'barrel' },
@@ -136,11 +141,11 @@ const ITEM_ORDER = Object.keys(ITEMS);
 const PACKS = ['sci_red', 'sci_green', 'sci_blue', 'sci_purple', 'sci_star'];
 
 // Recursos del mapa (el índice es el id guardado en el mapa)
-const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water', 'regolito', 'hielo', 'helio3', 'uranium_ore'];
+const ORE_IDS = [null, 'iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil', 'water', 'regolito', 'hielo', 'helio3', 'uranium_ore', 'calcite', 'tungsten_ore', 'lava'];
 const ORE_GROUND = {
   iron_ore: '#3c4655', copper_ore: '#553826', coal: '#1b1d1c', stone: '#5b5444',
   quartz: '#6a6680', titanium_ore: '#1f4a45', oil: '#151012', water: '#1d4f86',
-  regolito: '#6e6a62', hielo: '#9fc4d8', helio3: '#6b5a86', uranium_ore: '#2f5a2a',
+  regolito: '#6e6a62', hielo: '#9fc4d8', helio3: '#6b5a86', uranium_ore: '#2f5a2a', calcite: '#8a8478', tungsten_ore: '#2a3440', lava: '#5a1a0a',
 };
 
 // Combustibles
@@ -160,6 +165,7 @@ const SMELT = {
   titanium_ore: { out: 'titanium_plate', n: 2, time: 4, tech: 'titanium' },
   regolito:     { out: 'aleacion_lunar', n: 4, time: 6, tech: 'moon_travel' },
   hielo:        { out: 'water',          n: 1, time: 1, tech: 'moon_travel' },
+  tungsten_ore: { out: 'tungsten_plate', n: 6, time: 12, tech: 'vulcan_travel' },
 };
 
 // Recetas de máquinas. machine: asm (ensambladoras) o chem (planta química).
@@ -236,6 +242,13 @@ const RECIPES = {
   rocket:       { machine: 'asm',  tier: 1, in: { explosives: 1, iron_plate: 2 },          out: 'rocket',       n: 1, time: 4,  tech: 'rocketry_weapons' },
   explosive_rocket: { machine: 'asm', tier: 1, in: { rocket: 1, explosives: 2 },           out: 'explosive_rocket', n: 1, time: 8, tech: 'explosive_rocketry' },
   atomic_bomb:  { machine: 'asm',  tier: 2, in: { explosives: 10, processor: 10, u235: 30 }, out: 'atomic_bomb', n: 1, time: 50, tech: 'atomic_bomb' },
+  // Vulcano: fundición (lava + calcita), tungsteno
+  cast_iron:    { machine: 'foundry', tier: 1, in: { lava: 10, calcite: 1 },              out: 'iron_plate',   n: 5, time: 3.2, tech: 'vulcan_travel' },
+  cast_copper:  { machine: 'foundry', tier: 1, in: { lava: 10, calcite: 1 },              out: 'copper_plate', n: 5, time: 3.2, tech: 'vulcan_travel' },
+  cast_steel:   { machine: 'foundry', tier: 1, in: { iron_ore: 10, calcite: 1 },          out: 'steel',        n: 2, time: 4,   tech: 'vulcan_travel' },
+  cast_gear:    { machine: 'foundry', tier: 1, in: { iron_ore: 5, calcite: 1 },           out: 'gear',         n: 3, time: 1,   tech: 'vulcan_travel' },
+  tungsten_plate: { machine: 'foundry', tier: 1, in: { tungsten_ore: 4, lava: 5 },        out: 'tungsten_plate', n: 1, time: 10, tech: 'vulcan_travel' },
+  tungsten_carbide: { machine: 'asm', tier: 1, in: { tungsten_ore: 2, coal: 1, sulfuric_acid: 1 }, out: 'tungsten_carbide', n: 1, time: 1, tech: 'vulcan_travel' },
   // Etapa 2
   air_filter:   { machine: 'asm',  tier: 1, in: { coal: 2, plastic: 1, steel: 1 },          out: 'air_filter',   n: 2, time: 5,   tech: 'air_purification' },
   explosives:   { machine: 'chem', tier: 1, in: { sulfur: 1, coal: 1, water: 1 },           out: 'explosives',   n: 2, time: 4,   tech: 'cliff_explosives' },
@@ -289,6 +302,8 @@ const BUILDINGS = {
                  desc: 'Se camina y se maneja un 20 % más rápido. Se tiende de punta a punta.' },
   refined_floor: { name: 'Piso de hormigón refinado', cat: 'logística', hp: 400, cost: { refined_concrete: 1 }, tech: 'concrete',
                  desc: 'El piso más rápido: un 30 % más rápido caminando o manejando.' },
+  turbobelt:   { name: 'Cinta turbo',          cat: 'logística', as: 'expressbelt', speed: 12, hp: 160, cost: { tungsten_plate: 1, gear: 5, iron_plate: 1 }, tech: 'turbo_transport',
+                 desc: 'La cinta más rápida: 12 objetos por segundo. Lleva tungsteno de Vulcano.' },
   splitter:    { name: 'Divisor',             cat: 'logística', hp: 120, cost: { iron_plate: 7, gear: 2, circuit: 5 }, tech: 'logistics',
                  desc: 'Reparte objetos entre adelante, izquierda y derecha.' },
   sorter:      { name: 'Filtro',              cat: 'logística', hp: 120, cost: { iron_plate: 5, circuit: 4 }, tech: 'sorting',
@@ -371,6 +386,12 @@ const BUILDINGS = {
                  desc: 'Lleva el calor del reactor a los intercambiadores.' },
   steam_turbine: { name: 'Turbina de vapor',  cat: 'energía', as: 'steam_engine', size: 2, output: 5800, hp: 300, cost: { gear: 50, copper_plate: 50, iron_plate: 20 }, tech: 'nuclear_power',
                  desc: 'Como la máquina de vapor pero mucho más fuerte: hasta 5,8 MW. El vapor que sobra pasa por la flecha.' },
+  foundry:     { name: 'Fundición',           cat: 'producción', as: 'assembler2', size: 3, speed: 4, tier: 1, machine: 'foundry', prod: 0.5, power: 2500, poll: 6, hp: 450, cost: { tungsten_carbide: 50, steel: 50, circuit: 30, refined_concrete: 20 }, tech: 'foundry',
+                 desc: 'Funde lava con calcita en placas y engranajes, muy rápido y con +50 % de productividad. La lava se saca con una bomba de agua puesta al lado de la lava. Usa 2,5 MW.' },
+  bigminer:    { name: 'Taladro grande',      cat: 'producción', as: 'eminer', time: 0.35, area: 4, power: 300, drain: 0.5, hp: 300, poll: 10, cost: { tungsten_carbide: 20, electric_engine: 10, steel: 20, processor: 10 }, tech: 'big_mining',
+                 desc: 'Extrae de un área de 9×9, más del doble de rápido, y la mitad de las veces no gasta la mena. Usa 300 kW.' },
+  vulcanpad:   { name: 'Plataforma a Vulcano', cat: 'nave', size: 3, hp: 600, cost: { steel: 300, low_density: 80, processor: 60, electric_engine: 30 }, tech: 'vulcan_travel',
+                 desc: 'Un cohete para viajar con tu personaje al planeta Vulcano (gasta 100 de combustible de cohete por viaje).' },
   radar:       { name: 'Radar',               cat: 'energía', power: 300, scan: 12, hp: 250, cost: { iron_plate: 10, gear: 5, circuit: 5 }, tech: 'electricity',
                  desc: 'Explora el mapa de a poco alrededor suyo. Usa 300 kW.' },
   solar:       { name: 'Panel solar',         cat: 'energía', output: 60, hp: 150, cost: { copper_plate: 5, circuit: 15, steel: 5, silicon: 5 }, tech: 'solar',
@@ -453,9 +474,9 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'chainsignal', 'providerchest', 'requesterchest', 'storagechest', 'activechest', 'bufferchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
-const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
-const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
+const NO_DIR = new Set(['road', 'moonpad', 'vulcanpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'chainsignal', 'providerchest', 'requesterchest', 'storagechest', 'activechest', 'bufferchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
+const BELTS = new Set(['belt', 'fastbelt', 'expressbelt', 'turbobelt']);
+const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'turbobelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
 
 // Investigación: los laboratorios consumen 1 de cada pack por unidad
@@ -572,6 +593,14 @@ const TECHS = {
                        desc: 'Un cohete con 30 de U-235. Borra todo en 18 casillas… incluida tu fábrica si está cerca.' },
   rail_signals2:     { name: 'Trenes avanzados',      packs: ['sci_red', 'sci_green'], units: 100, time: 15, req: ['railway'],
                        desc: 'Señal en cadena (para cruces), vagones de fluidos y trenes con más vagones.' },
+  vulcan_travel:     { name: 'Vulcano',               packs: ['sci_red', 'sci_green', 'sci_blue'], units: 500, time: 30, req: ['moon_travel', 'nuclear_power'],
+                       desc: 'Plataforma para viajar a Vulcano, un planeta volcánico con lava, calcita y tungsteno.' },
+  foundry:           { name: 'Fundición',             packs: ['sci_red', 'sci_green', 'sci_blue'], units: 300, time: 25, req: ['vulcan_travel', 'concrete'],
+                       desc: 'La Fundición: lava + calcita = placas, rapidísimo y con +50 % de productividad.' },
+  big_mining:        { name: 'Taladro grande',        packs: ['sci_red', 'sci_green', 'sci_blue'], units: 300, time: 25, req: ['vulcan_travel'],
+                       desc: 'Taladro de 9×9 que gasta la mitad de la mena.' },
+  turbo_transport:   { name: 'Cintas turbo',          packs: ['sci_red', 'sci_green', 'sci_blue'], units: 300, time: 25, req: ['vulcan_travel', 'logistics3'],
+                       desc: 'Cinta turbo: 12 objetos por segundo.' },
   logistic_network:  { name: 'Red logística',        packs: ['sci_red', 'sci_green', 'sci_blue'], units: 75, time: 20, req: ['chemical_science', 'receivers'],
                        desc: 'Los brazos pueden sacar del inventario de la Nave a través de cualquier Receptor.' },
   modules:           { name: 'Módulos',              packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['chemical_science'],

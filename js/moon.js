@@ -100,10 +100,10 @@ function packSurface() {
 
 function unpackSurface(name, o) {
   S.surface = name;
-  const [w, h] = o ? [o.mapW, o.mapH] : name === 'moon' ? MOON_SIZE : [S.mapW, S.mapH];
+  const [w, h] = o ? [o.mapW, o.mapH] : name === 'moon' ? MOON_SIZE : name === 'vulcan' ? VULCAN_SIZE : [S.mapW, S.mapH];
   for (const k of SURF_KEYS) S[k] = o ? o[k] : undefined;
   for (const k of ['entities', 'ghosts', 'trains', 'biters', 'creatures', 'drops', 'vehicles', 'markers', 'flights', 'lflights']) if (!Array.isArray(S[k])) S[k] = [];
-  if (name === 'moon' && !o) { S.ruins = []; S.lairs = []; S.podsGen = 1; }
+  if (name !== 'earth' && !o) { S.ruins = []; S.lairs = []; S.podsGen = 1; }
   setMapSize(w, h);
   S.mapW = W; S.mapH = H;
   generateMap(S.seed);
@@ -115,12 +115,13 @@ function unpackSurface(name, o) {
   powerDirty = true; fluidDirty = true; undergroundDirty = true;
   if (typeof railDirty !== 'undefined') railDirty = true;
   if (typeof linkCache !== 'undefined') linkCache.quick = '';
-  // La primera vez en la Luna: el módulo lunar en el medio
-  if (name === 'moon' && !S.entities.some((e) => e.type === 'lander')) {
+  // La primera vez en la Luna (o en Vulcano): el módulo de aterrizaje en el medio
+  if (name !== 'earth' && !S.entities.some((e) => e.type === 'lander')) {
     const e = makeEntity('lander', (W >> 1) - 1, (H >> 1) - 1, 0);
     e.id = S.nextId++;
     S.entities.push(e); occupy(e, e);
     reveal(W >> 1, H >> 1, 40);
+    if (name === 'vulcan' && !S.peaceful) vulcanWorms();
   }
 }
 
@@ -136,7 +137,8 @@ function travel(to) {
   if (!playerOn()) return false;
   if (NET.on && NET.role !== 'host') { toast('El viaje lo hace el anfitrión: cuando él viaja, van todos.'); return false; }
   if (myVehicle()) exitVehicle(true);
-  const fuel = to === 'moon' ? MOON_FUEL : MOON_BACK_FUEL;
+  const from0 = S.surface || 'earth';
+  const fuel = to === 'moon' ? MOON_FUEL : to === 'vulcan' ? VULCAN_FUEL : from0 === 'vulcan' ? 40 : MOON_BACK_FUEL;
   if (avail('rocket_fuel') < fuel) { toast(`Hace falta ${fuel} de combustible de cohete (en tu mochila o en la Nave).`); return false; }
   takeItem('rocket_fuel', fuel);
   const from = S.surface || 'earth';
@@ -145,12 +147,12 @@ function travel(to) {
   const saved = S.surf[to] || null;
   delete S.surf[to];
   closeInspector();
-  travelOverlay(to === 'moon' ? '🚀 Rumbo a la Luna…' : '🌍 Volviendo a la Tierra…');
+  travelOverlay(to === 'moon' ? '🚀 Rumbo a la Luna…' : to === 'vulcan' ? '🌋 Rumbo a Vulcano…' : '🌍 Volviendo a la Tierra…');
   sfx('launch');
   unpackSurface(to, saved);
   // Dónde aparecés: al lado del módulo lunar, o de la plataforma de la Tierra (o de la Nave)
   const p = S.player;
-  const base = S.entities.find((e) => e.type === (to === 'moon' ? 'lander' : 'moonpad')) || S.entities.find((e) => e.type === 'hub');
+  const base = S.entities.find((e) => e.type === (to !== 'earth' ? 'lander' : from === 'vulcan' ? 'vulcanpad' : 'moonpad')) || S.entities.find((e) => e.type === 'hub');
   const bx = base ? base.x + sizeOf(base.type) / 2 : W / 2, by = base ? base.y + sizeOf(base.type) + 1.5 : H / 2;
   p.x = bx; p.y = by; p.path = null; p.mine = null; p.queue.length = 0; p.surf = to;
   if (p.pet && !p.pet.gone) { p.pet.x = bx - 1; p.pet.y = by; }
@@ -161,7 +163,9 @@ function travel(to) {
   updateUI();
   toast(to === 'moon'
     ? '🌙 ¡Llegaste a la Luna! Sin aire ni carbón: traé paneles solares. Lo que entra al <b>Módulo lunar</b> llega a la Nave por radio. Buscá <b>regolito</b> (para la aleación lunar), <b>hielo</b> y <b>Helio-3</b>.'
-    : '🌍 Volviste a la Tierra. Lo que mandaste desde la Luna ya está en la Nave.');
+    : to === 'vulcan'
+      ? '🌋 ¡Llegaste a Vulcano! La lava no se cruza. Hay mucho <b>carbón</b>, <b>calcita</b> y <b>tungsteno</b>; una bomba de agua al lado de la lava saca lava para la <b>Fundición</b>. Cuidado con los gusanos gigantes. Lo que entra al módulo llega a la Nave.'
+      : `🌍 Volviste a la Tierra. Lo que mandaste desde ${from === 'vulcan' ? 'Vulcano' : 'la Luna'} ya está en la Nave.`);
   if (NET.on && NET.role === 'host') { NET.lastSnap = 0; if (typeof netSnapshot === 'function') netSnapshot(); }
   save();
   return true;

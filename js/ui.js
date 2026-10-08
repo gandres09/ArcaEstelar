@@ -397,6 +397,7 @@ function currentHint() {
   const d = S.delivered;
   const hasMinerOn = (ore) => S.entities.some((e) => (e.type === 'miner' || e.type === 'eminer') && oreAt(e.x, e.y) === ore);
   const st = stageOf();
+  if (S.surface === 'vulcan') return '🌋 <b>Estás en Vulcano.</b> Poné una <b>bomba de agua</b> al lado de la lava para sacar lava, y con calcita la <b>Fundición</b> hace placas. El <b>tungsteno</b> va al horno o a la ensambladora (carburo). Llevá todo al módulo: llega a la Nave. Para volver, tocá el módulo.';
   if (S.surface === 'moon') return '🌙 <b>Estás en la Luna.</b> Poné taladros sobre el <b>regolito</b> y fundilo en aleación lunar; el <b>Helio-3</b> está lejos del módulo. Llevá todo al <b>Módulo lunar</b>: llega a la Nave. Para volver, tocá el módulo.';
   if (st >= 4) return '🌌 ¡El Arca salió del sistema solar! Ganaste. Podés seguir jugando todo lo que quieras.';
   if (st === 3) {
@@ -579,10 +580,17 @@ function inspectorContent(e) {
       break;
     case 'hub':
       if (e.type === 'lander') {
-        h += '<p>Tu base en la Luna. Todo lo que le entra (por cinta, brazo o a mano) llega por radio al <b>inventario de la Nave</b>, en la Tierra. Cerca suyo usás lo que tiene guardado la Nave.</p>' +
-          row('Para volver', `${MOON_BACK_FUEL} combustible de cohete (tenés ${Math.floor(avail('rocket_fuel'))})`) +
+        h += `<p>Tu base en ${onVulcan() ? 'Vulcano' : 'la Luna'}. Todo lo que le entra (por cinta, brazo o a mano) llega por radio al <b>inventario de la Nave</b>, en la Tierra. Cerca suyo usás lo que tiene guardado la Nave.</p>` +
+          row('Para volver', `${onVulcan() ? 40 : MOON_BACK_FUEL} combustible de cohete (tenés ${Math.floor(avail('rocket_fuel'))})`) +
           '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="earth">🌍 Volver a la Tierra</button></div>';
       } else h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
+      break;
+    case 'vulcanpad':
+      h += '<p>Un cohete que te lleva al planeta <b>Vulcano</b>: lava, carbón, calcita y tungsteno. Allá se hace la Fundición, el Taladro grande y la Cinta turbo.</p>' +
+        row('Combustible', `${VULCAN_FUEL} de cohete por viaje (tenés ${Math.floor(avail('rocket_fuel'))})`) +
+        '<p class="muted small">Mientras estás en Vulcano, la Tierra queda en pausa. Hay gusanos gigantes: llevá armas.</p>' +
+        (NET.on && NET.role !== 'host' ? '<p class="muted small">En línea, el viaje lo hace el anfitrión y van todos.</p>' : '') +
+        '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="vulcan">🌋 Viajar a Vulcano</button></div>';
       break;
     case 'moonpad':
       h += `<p>Un cohete chico que te lleva a la Luna con tu mochila${S.player && S.player.pet && !S.player.pet.gone ? ' y tu perrito' : ''}. Allá hay <b>regolito</b> (se funde en aleación lunar), <b>hielo</b> y <b>Helio-3</b>.</p>` +
@@ -1520,6 +1528,7 @@ function groundInfo(x, y, touch) {
   if (!tileExplored(x, y)) return '<b>Sin explorar</b><br><span class="muted">Construí cerca o poné un radar</span>';
   const o = oreAt(x, y);
   if (o === 'water') return '<b>Agua</b><br><span class="muted">Poné una bomba de agua en la orilla</span>';
+  if (o === 'lava') return '<b>Lava</b><br><span class="muted">No se cruza. Una bomba de agua en la orilla saca lava para la Fundición</span>';
   if (o === 'oil') return `<b>${ITEMS[o].name}</b><br>Rinde: <b>${fmt(oreAmountAt(x, y))}</b><br><span class="muted">Necesita una bomba de petróleo</span>`;
   if (o) {
     const v = veinInfo(x, y);
