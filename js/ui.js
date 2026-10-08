@@ -930,14 +930,18 @@ function inspectorContent(e) {
   }
   if (CONDITIONABLE.has(e.type) && hasTech('signal_network')) {
     const c = e.cond;
+    const wires = hasTech('combinators');
     h += '<div class="pick-title">Condición (red de señales)</div>';
-    h += `<div class="cond-row"><select data-cond="ch"><option value="-1"${c ? '' : ' selected'}>Siempre encendido</option>${SIGNAL_NAMES.map((n, i) => `<option value="${i}"${c && c.ch === i ? ' selected' : ''}>Canal ${n}</option>`).join('')}</select>`;
+    h += `<div class="cond-row"><select data-cond="ch"><option value="-1"${c ? '' : ' selected'}>Siempre encendido</option>${wires ? `<option value="w"${c && c.ch === 'w' ? ' selected' : ''}>Por cables</option>` : ''}${SIGNAL_NAMES.map((n, i) => `<option value="${i}"${c && c.ch === i ? ' selected' : ''}>Canal ${n}</option>`).join('')}</select>`;
     if (c) {
-      h += `<select data-cond="op">${['<', '>', '='].map((o) => `<option${c.op === o ? ' selected' : ''}>${o}</option>`).join('')}</select>` +
-        `<input type="number" data-cond="v" value="${c.v}" min="0" step="1"></div>` +
-        `<div class="muted small">Ahora: canal ${SIGNAL_NAMES[c.ch]} = ${signals[c.ch]} → ${e.off ? '<span class="bad">apagado</span>' : '<span class="ok">encendido</span>'}</div>`;
+      if (c.ch === 'w') h += signalSelect('data-cond="s"', c.s);
+      h += `<select data-cond="op">${Object.keys(COMPARE).map((o) => `<option${c.op === o ? ' selected' : ''}>${o}</option>`).join('')}</select>` +
+        `<input type="number" data-cond="v" value="${c.v}" step="1"></div>` +
+        `<div class="muted small">Ahora: ${c.ch === 'w' ? `${c.s ? signalName(c.s) : '(elegí una señal)'} = ${c.s ? wireSignal(e, 'm', c.s) : 0}` : `canal ${SIGNAL_NAMES[c.ch]} = ${signals[c.ch]}`} → ${e.off ? '<span class="bad">apagado</span>' : '<span class="ok">encendido</span>'}</div>`;
     } else h += '</div>';
   }
+  if (COMBINATORS.has(e.type)) h += combinatorPanel(e);
+  if (hasTech('combinators') && wireable(e)) h += wirePanel(e);
   if (MODULE_SLOTS[e.type] && hasTech('modules')) {
     const mods = e.modules || [];
     h += `<div class="pick-title">Módulos (${mods.length}/${MODULE_SLOTS[e.type]})</div><div class="picker">`;
@@ -1064,17 +1068,106 @@ function feedFrom(e, items, max) {
   return n;
 }
 
+// --------------------------- Cables y combinadores ---------------------------
+
+function signalSelect(attr, val, none = '(señal)') {
+  return `<select ${attr}><option value="">${none}</option>` +
+    VSIGNALS.map((k) => `<option value="${k}"${val === k ? ' selected' : ''}>${VSIGNAL_NAMES[k]}</option>`).join('') +
+    ITEM_ORDER.map((k) => `<option value="${k}"${val === k ? ' selected' : ''}>${ITEMS[k].name}</option>`).join('') + '</select>';
+}
+const sigList = (o) => { const ks = Object.keys(o || {}).filter((k) => o[k]); return ks.length ? ks.slice(0, 8).map((k) => `${signalName(k)} = <b>${o[k]}</b>`).join(' · ') + (ks.length > 8 ? ' …' : '') : '<span class="muted">nada</span>'; };
+
+function combinatorPanel(e) {
+  let h = '';
+  if (e.type === 'constant') {
+    const cs = e.consts || [];
+    h += `<div class="pick-title">Señales que pone</div>`;
+    for (let i = 0; i < 4; i++) {
+      const c = cs[i] || {};
+      h += `<div class="cond-row">${signalSelect(`data-cfg="cs" data-i="${i}"`, c.s, '(vacío)')}<input type="number" data-cfg="cv" data-i="${i}" value="${c.v || 0}" step="1"></div>`;
+    }
+    h += `<div class="actions"><button type="button" data-act="conston">${e.on === false ? '▶️ Prender' : '⏸️ Apagar'}</button></div>`;
+    return h;
+  }
+  const cfg = e.cfg || {};
+  const ops = e.type === 'arith' ? Object.keys(ARITH) : Object.keys(COMPARE);
+  h += `<div class="pick-title">${e.type === 'arith' ? 'Cuenta' : 'Condición'}</div>` +
+    `<div class="cond-row">${signalSelect('data-cfg="a"', cfg.a)}<select data-cfg="op">${ops.map((o) => `<option${(cfg.op || ops[0]) === o ? ' selected' : ''}>${o}</option>`).join('')}</select></div>` +
+    `<div class="cond-row">${signalSelect('data-cfg="bs"', cfg.bs, 'número →')}${cfg.bs ? '' : `<input type="number" data-cfg="b" value="${cfg.b || 0}" step="1">`}</div>` +
+    `<div class="pick-title">Sale como</div><div class="cond-row">${signalSelect('data-cfg="out"', cfg.out || 'sig_A')}` +
+    (e.type === 'decider' ? `<select data-cfg="mode"><option value="1"${cfg.mode !== 'in' ? ' selected' : ''}>valor 1</option><option value="in"${cfg.mode === 'in' ? ' selected' : ''}>lo que entra</option></select>` : '') + '</div>';
+  h += row('Entra', sigList(wireInput(e, 'i'))) + row('Sale', sigList(e.cout));
+  h += '<p class="muted small">Entrada: los cables de atrás. Salida: los de adelante (girá con R).</p>';
+  return h;
+}
+
+function wirePanel(e) {
+  const terms = COMBINATORS.has(e.type) && e.type !== 'constant' ? [['i', 'Entrada'], ['o', 'Salida']] : [['m', '']];
+  let h = '<div class="pick-title">Cables</div>';
+  for (const [t, name] of terms) {
+    h += `<div class="actions wire-row">${name ? `<span class="muted small">${name}:</span>` : ''}` +
+      `<button type="button" data-act="wire" data-v="r:${t}"><span class="sig-dot" style="background:${WIRE_COLORS.r}"></span> Cable rojo</button>` +
+      `<button type="button" data-act="wire" data-v="g:${t}"><span class="sig-dot" style="background:${WIRE_COLORS.g}"></span> Cable verde</button></div>`;
+  }
+  (e.w || []).forEach((w, i) => {
+    const b = at(w.x, w.y);
+    h += `<div class="wire-item"><span class="sig-dot" style="background:${WIRE_COLORS[w.c]}"></span> ${terms.length > 1 ? (w.m === 'i' ? 'Entrada' : 'Salida') + ' → ' : ''}${b ? (b.type === 'hub' ? 'Nave' : BUILDINGS[b.type].name) : '?'}${w.t === 'i' ? ' (entrada)' : w.t === 'o' ? ' (salida)' : ''} <button type="button" class="mini" data-act="unwire" data-v="${i}" title="Sacar cable">✕</button></div>`;
+  });
+  if ((e.w || []).length) {
+    if (terms.length === 1) h += row('En la red', sigList(wireInput(e, 'm')));
+  } else h += `<p class="muted small">Tocá un botón de cable y después el otro edificio (hasta ${WIRE_REACH} casillas; los postes llevan los cables más lejos). Cada cable lleva ${costText(WIRE_COST)}.</p>`;
+  return h;
+}
+
+// Modo cable: el próximo toque en un edificio lo conecta
+let wireMode = null;   // { e, c, term }
+function wireTap(t) {
+  const b = at(t.x, t.y);
+  const m = wireMode;
+  wireMode = null;
+  if (!b || b === m.e) { toast('Cable cancelado.'); return; }
+  const bt = wireTermOf(b, 'i');
+  const err = connectWire(m.e, m.term, b, bt, m.c);
+  if (err) { toast(err); sfx('error'); return; }
+  netTouch(m.e); netTouch(b);
+  sfx('place');
+  toast(`Cable ${WIRE_NAMES[m.c]} conectado a ${b.type === 'hub' ? 'la Nave' : BUILDINGS[b.type].name}${bt === 'i' ? ' (entrada)' : ''}.`);
+  openInspector(m.e);
+}
+
+$('inspector').addEventListener('change', (ev) => {
+  const el = ev.target.closest('[data-cfg]');
+  if (!el || !inspected) return;
+  const e = inspected, k = el.dataset.cfg, v = el.value;
+  if (k === 'cs' || k === 'cv') {
+    e.consts = e.consts || [];
+    const i = +el.dataset.i;
+    e.consts[i] = e.consts[i] || { s: null, v: 0 };
+    if (k === 'cs') e.consts[i].s = v || null; else e.consts[i].v = Math.round(+v || 0);
+  } else {
+    e.cfg = e.cfg || {};
+    if (k === 'b') e.cfg.b = Math.round(+v || 0);
+    else if (k === 'op') e.cfg.op = (ARITH[v] || COMPARE[v]) ? v : null;
+    else if (k === 'mode') e.cfg.mode = v === 'in' ? 'in' : '1';
+    else e.cfg[k] = v || null;
+  }
+  netTouch(e);
+  el.blur();
+  updateInspector();
+});
+
 // Condición de la red de señales
 $('inspector').addEventListener('change', (ev) => {
   const el = ev.target.closest('[data-cond]');
   if (!el || !inspected || inspected.type === 'train') return;
   const e = inspected;
   if (el.dataset.cond === 'ch') {
-    const ch = +el.value;
-    e.cond = ch < 0 ? null : { ch, op: (e.cond && e.cond.op) || '<', v: (e.cond && e.cond.v) || 100 };
+    const ch = el.value === 'w' ? 'w' : +el.value;
+    e.cond = ch !== 'w' && ch < 0 ? null : { ch, op: (e.cond && e.cond.op) || '<', v: (e.cond && e.cond.v) || 100, s: e.cond && e.cond.s };
     if (!e.cond) { e.off = false; delete e.cond; }
-  } else if (e.cond && el.dataset.cond === 'op') e.cond.op = ['<', '>', '='].includes(el.value) ? el.value : '<';
-  else if (e.cond && el.dataset.cond === 'v') e.cond.v = Math.max(0, Math.round(+el.value || 0));
+  } else if (e.cond && el.dataset.cond === 'op') e.cond.op = COMPARE[el.value] ? el.value : '<';
+  else if (e.cond && el.dataset.cond === 's') e.cond.s = el.value || null;
+  else if (e.cond && el.dataset.cond === 'v') e.cond.v = Math.round(+el.value || 0);
   netTouch(e);
   el.blur();
   updateInspector();
@@ -1145,6 +1238,9 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'tsdel': if (e.schedule) { e.schedule.splice(+v, 1); e.si = 0; e._path = null; e.state = 'idle'; netTrainSchedule(e); } break;
     case 'sch': e.ch = Math.max(0, Math.min(7, +v | 0)); break;
     case 'sitem': e.item = v === '*' || ITEMS[v] ? v : '*'; break;
+    case 'wire': { const [c, term] = String(v).split(':'); wireMode = { e, c, term }; toast(`🔌 Cable ${WIRE_NAMES[c]}: tocá el otro edificio (Esc para cancelar).`); return; }
+    case 'unwire': disconnectWire(e, +v); break;
+    case 'conston': e.on = e.on === false; break;
     case 'reqadd': e.req = e.req || {}; if (v && ITEMS[v]) e.req[v] = 50; break;
     case 'reqinc': { const [k, d] = String(v).split('|'); if (e.req && e.req[k] !== undefined) e.req[k] = Math.max(1, Math.min(400, e.req[k] + +d)); break; }
     case 'reqdel': if (e.req) delete e.req[v]; break;

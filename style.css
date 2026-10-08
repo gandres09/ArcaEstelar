@@ -636,3 +636,6 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 }
 .mapsize { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
 .mapsize select { font-size: 0.85rem; }
+.wire-row { align-items: center; flex-wrap: wrap; }
+.wire-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; margin: 2px 0; }
+.wire-item .mini { padding: 0 6px; min-height: 0; line-height: 1.4; }

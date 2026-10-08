@@ -246,6 +246,7 @@ function tryPlaceSingle(t) {
 // Un toque en la pantalla táctil
 function handleTap(t) {
   if (markMode) { placeMarkerAtTile(t); return; }
+  if (wireMode) { wireTap(t); return; }
   if (tool === 'hand') {
     const tr = trainNear(t.x, t.y);
     const e = at(t.x, t.y);
@@ -477,6 +478,8 @@ function endPointer(ev) {
   if (d && !d.moved && ev.type === 'pointerup') {
     if (isTouch()) {
       if (!handMining || handMining.prog < 0.25) handleTap(d.tile);
+    } else if (d.button === 0 && wireMode) {
+      wireTap(d.tile);
     } else if (d.button === 0 && markMode) {
       placeMarkerAtTile(d.tile);
     } else if (d.button === 0) {
@@ -568,7 +571,8 @@ window.addEventListener('keydown', (ev) => {
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   keys.add(k);
   if (k === 'escape') {
-    if (pending || beltPlan || area || pastePos) clearPlans();
+    if (wireMode) { wireMode = null; toast('Cable cancelado.'); }
+    else if (pending || beltPlan || area || pastePos) clearPlans();
     else if (tool !== 'hand') selectTool('hand');
     else closeInspector();
   } else if ((k >= '0' && k <= '9')) {

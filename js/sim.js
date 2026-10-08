@@ -379,6 +379,7 @@ function removeEntity(e, opts = {}) {
     if (!opts.silent) record({ kind: 'remove', snap: snapshot(e) });
     netPush({ k: 'r', t: e.type, x: e.x, y: e.y });
   }
+  if (e.w && e.w.length) dropWires(e);
   occupy(e, null);
   S.entities.splice(S.entities.indexOf(e), 1);
   e._dead = true;
@@ -826,7 +827,7 @@ function update(dt) {
     if (moonAir && BURNERS.has(e.type)) { e.active = false; continue; }   // sin oxígeno no hay fuego
     // Red de señales: si la condición no se cumple, el edificio queda apagado
     if (e.cond) {
-      e.off = !condOk(e.cond);
+      e.off = !condOk(e.cond, e);
       if (e.off) { e.active = false; if (e.type === 'lamp') e.lit = false; continue; }
     }
     switch (kindOf(e.type)) {
@@ -1424,11 +1425,13 @@ function readSignals() {
     e.value = sensorValue(e);
     signals[e.ch || 0] += e.value;
   }
+  circuitTick();
 }
 
-function condOk(c) {
-  const v = signals[c.ch || 0] || 0;
-  return c.op === '>' ? v > c.v : c.op === '=' ? v === c.v : v < c.v;
+function condOk(c, e) {
+  // Por cables: compara una señal de la red roja + verde del edificio
+  const v = c.ch === 'w' ? (e && c.s ? wireSignal(e, 'm', c.s) : 0) : signals[c.ch || 0] || 0;
+  return (COMPARE[c.op] || COMPARE['<'])(v, c.v);
 }
 
 // --------------------------- Mk2 y Mk3 ---------------------------
@@ -1436,7 +1439,7 @@ function condOk(c) {
 const MK_MAX = 3;
 const MK_BONUS = 0.35;   // +35 % por nivel
 const MK_TECH = { 2: 'mk2', 3: 'mk3' };
-const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest']);
+const MK_SKIP = new Set(['road', 'hub', 'lander', 'moonpad', 'shipyard', 'starport', 'landfill', 'rail', 'signal', 'station', 'train', 'pipe', 'fluidtank', 'sensor', 'lamp', 'armory', 'nest', 'worm', 'constant', 'arith', 'decider']);
 const MK_TYPES = new Set(Object.keys(BUILDINGS).filter((k) => !MK_SKIP.has(k) && !BUILDINGS[k].vehicle && !BUILDINGS[k].hidden));
 const mkMult = (e) => 1 + MK_BONUS * (((e && e.mk) || 1) - 1);
 const MK_ROMAN = ['', 'Mk1', 'Mk2', 'Mk3'];

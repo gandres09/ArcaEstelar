@@ -250,6 +250,12 @@ const BUILDINGS = {
   armory:      { name: 'Armería',             cat: 'producción', size: 2, hp: 300, character: true, cost: { iron_plate: 20, stone: 10, wood: 10 },
                  desc: 'Fabricá y mejorá armas y armaduras con materiales de la fábrica y partes de monstruos.' },
 
+  constant:    { name: 'Combinador constante', cat: 'energía', hp: 60, cost: { cable: 5, circuit: 2 }, tech: 'combinators',
+                 desc: 'Pone en sus cables las señales fijas que elijas (hasta 4). Sirve para dar números de referencia.' },
+  arith:       { name: 'Combinador aritmético', cat: 'energía', hp: 60, cost: { cable: 5, circuit: 5 }, tech: 'combinators',
+                 desc: 'Lee los cables de atrás (entrada), hace una cuenta (+ − × ÷ resto) y pone el resultado en los cables de adelante (salida).' },
+  decider:     { name: 'Combinador de decisión', cat: 'energía', hp: 60, cost: { cable: 5, circuit: 5 }, tech: 'combinators',
+                 desc: 'Lee los cables de atrás, compara (< > = ≠ ≤ ≥) y, si se cumple, pone una señal en los cables de adelante.' },
   sensor:      { name: 'Sensor',              cat: 'energía', hp: 80, cost: { iron_plate: 2, circuit: 5, cable: 5 }, tech: 'signal_network',
                  desc: 'Lee lo que hay en el edificio al que apunta (cofre, Nave, tanque, acumulador, cinta) y lo manda a un canal de la red de señales.' },
   pole:        { name: 'Poste eléctrico',     cat: 'energía', reach: 7, supply: 2, hp: 80, cost: { wood: 1, copper_plate: 1 },
@@ -346,7 +352,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;
@@ -449,6 +455,8 @@ const TECHS = {
                        desc: '+50 % más de daño en torretas.' },
   laser_turrets:     { name: 'Torretas láser',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['batteries', 'defense'],
                        desc: 'Torretas que no necesitan munición.' },
+  combinators:       { name: 'Combinadores',         packs: ['sci_red', 'sci_green'], units: 80, time: 15, req: ['signal_network'],
+                       desc: 'Cables rojo y verde para unir edificios, y combinadores constante, aritmético y de decisión: como los circuitos de Factorio.' },
   signal_network:    { name: 'Red de señales',      packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['electricity'],
                        desc: 'Sensores que mandan valores a 8 canales de colores, y condiciones para prender o apagar máquinas, brazos, cintas, bombas y lámparas.' },
   logistic_robots:   { name: 'Robots logísticos',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['construction_robots'],

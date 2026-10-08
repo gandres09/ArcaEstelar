@@ -20,7 +20,7 @@ const TYPE_COLOR = {
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
   road: '#a8664a', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
-  sensor: '#8fbff0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
+  sensor: '#8fbff0', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
 
 // Dibujos propios para los objetos que, con la forma genérica, se confundían entre sí
@@ -574,6 +574,26 @@ function drawBuilding(g, e, x0, y0, t) {
         g.fillStyle = 'rgba(0,0,0,0.7)'; g.fillRect(cx - w / 2, y0 - 7, w, 11);
         g.fillStyle = '#fff'; g.fillText(txt, cx, y0 - 1.5);
       }
+      break;
+    }
+
+    case 'constant': case 'arith': case 'decider': {
+      // Caja con pantallita: símbolo de la operación y luz si está dando salida
+      box(g, x0, y0, '#2b3036', e.type === 'constant' ? '#c9a23a' : e.type === 'arith' ? '#3f86e0' : '#b45fe0', 4);
+      if (e.type !== 'constant') {
+        const [dx, dy] = DIRS[e.dir || 0];
+        g.fillStyle = '#7d868f';
+        g.fillRect(cx - dx * 13 - 3, cy - dy * 13 - 3, 6, 6);   // borne de entrada
+        g.fillStyle = '#d6dee8';
+        g.fillRect(cx + dx * 13 - 3, cy + dy * 13 - 3, 6, 6);   // borne de salida
+      }
+      g.fillStyle = '#0d1a14';
+      g.fillRect(cx - 9, cy - 7, 18, 14);
+      const on = e.type === 'constant' ? e.on !== false && (e.consts || []).some((c) => c && c.s && c.v) : !!e.cout;
+      g.fillStyle = on ? '#7dff9a' : '#3a6a4a';
+      g.font = '700 11px "Chakra Petch", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const sym = e.type === 'constant' ? 'K' : (e.cfg && e.cfg.op) || (e.type === 'arith' ? '+' : '>');
+      g.fillText(sym === '*' ? '×' : sym === '/' ? '÷' : sym, cx, cy + 0.5);
       break;
     }
 
@@ -1601,6 +1621,26 @@ function drawItemsOn(g, e) {
   }
 }
 
+// Cables rojos y verdes: una curva colgando entre los dos bornes (cada cable se dibuja una vez)
+function drawWires(g, visible) {
+  if (!hasTech('combinators') && !S.entities.some((e) => e.w && e.w.length)) return;
+  g.lineWidth = 1.6;
+  for (const e of visible) {
+    if (!e.w) continue;
+    for (const w of e.w) {
+      const b = at(w.x, w.y);
+      if (!b) continue;
+      // Si los dos se ven, lo dibuja uno solo
+      if (visible.includes(b) && (b.x < e.x || (b.x === e.x && b.y < e.y) || (b === e))) continue;
+      const pa = wirePoint(e, w.m), pb = wirePoint(b, w.t);
+      const ax = pa.x * TILE, ay = pa.y * TILE, bx = (pa.x + wdx(pb.x - pa.x)) * TILE, by = (pa.y + wdy(pb.y - pa.y)) * TILE;
+      const off = w.c === 'r' ? -2 : 2, sag = Math.min(18, Math.hypot(bx - ax, by - ay) * 0.12);
+      g.strokeStyle = WIRE_COLORS[w.c];
+      g.beginPath(); g.moveTo(ax + off, ay); g.quadraticCurveTo((ax + bx) / 2 + off, (ay + by) / 2 + sag, bx + off, by); g.stroke();
+    }
+  }
+}
+
 // --------------------------- Bichos y efectos ---------------------------
 
 function drawBiter(g, b, t) {
@@ -1967,6 +2007,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
   } else {
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
+    drawWires(ctx, visible);
     // Marca de Mk2 / Mk3 en la esquina
     ctx.font = '700 9px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const e of visible) {
