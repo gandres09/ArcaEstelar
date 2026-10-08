@@ -68,6 +68,7 @@ function netFlush() {
   for (let a of NET.out) {
     if (a.lazy) { const e = a.lazy; a = { k: 'p', t: e.type, x: e.x, y: e.y, d: e.dir, f: entFields(e) }; }
     if (S.factions && a.fx === undefined) a.fx = myF() || 'f0';   // de qué jugador es (bases separadas)
+    if (a.sf === undefined) a.sf = surfName();                    // en qué planeta pasó
     const s = ++NET.seq;
     NET.own.push({ s, a });
     if (NET.role === 'host') NET.log.push({ g: ++NET.gs, c: NET.cid, a });
@@ -79,6 +80,16 @@ function netFlush() {
 }
 
 // --------------------------- Aplicar acciones de otros ---------------------------
+
+// Cada acción pasa en un planeta. El anfitrión la aplica en ese planeta (aunque él esté en otro);
+// los demás solo aplican las de su planeta. Las de la Nave, la investigación, etc. valen en todos.
+const SURF_FREE = new Set(['i', 'R', 'nf', 'gift', 'hp', 'me', 'ao']);
+function netApplyAny(a) {
+  const sf = a.sf || surfName();
+  if (SURF_FREE.has(a.k) || sf === surfName()) return netApply(a);
+  if (simAuthority()) { const r = withSurface(sf, () => netApply(a)); return r === undefined ? true : r; }
+  return true;   // pasó en otro planeta: lo lleva el anfitrión
+}
 
 function netApply(a) {
   NET.applying = true;
@@ -164,6 +175,8 @@ function netTick(dt) {
   if (!NET.on) return;
   netFlush();
   const peers = NET.wroom.peers();
+  // El anfitrión mantiene vivos los planetas donde hay alguien
+  if (NET.role === 'host') for (const p of peers) { const sf = p.presence && p.presence.sf; if (typeof sf === 'string' && sf !== surfName()) ensureSurface(sf); }
   if (NET.role === 'host') netHostProcess(peers);
   else netClientProcess(peers);
   NET.shadow = { ...S.inv };
@@ -193,7 +206,7 @@ function netHostProcess(peers) {
       if (s <= last) continue;
       const a = acts[i];
       if (!a || typeof a.k !== 'string') continue;
-      const ok = netApply(a);
+      const ok = netApplyAny(a);
       if (ok && a.k !== 'me') NET.log.push({ g: ++NET.gs, c: pr.cid, a });   // la copia de un personaje no hace falta reenviarla
       else if (a.k === 'p') { NET.rej.push([pr.cid, s, a.t]); if (NET.rej.length > 12) NET.rej.shift(); }
       last = s;
@@ -229,7 +242,7 @@ function netClientProcess(peers) {
       const g = g0 + i, en = entries[i];
       if (g <= NET.lastGs || !Array.isArray(en)) continue;
       const [c, a] = en;
-      if (c !== NET.cid && a) { netApply(a); NET.buf.push({ g, a }); }
+      if (c !== NET.cid && a) { netApplyAny(a); NET.buf.push({ g, a }); }
       NET.lastGs = g;
     }
     if (NET.buf.length > 400) NET.buf.splice(0, NET.buf.length - 400);
@@ -258,7 +271,7 @@ function netPlayerState() {
 
 function netSendPresence() {
   chatPrune();
-  const pres = { cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
+  const pres = { t: Date.now(), sf: surfName(), cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: SERVER.on ? null : netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
     hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null, tl: S.player && S.player.torch === false ? 0 : 1, dv: (S.player && S.player.vehicle) || null, dvt: (S.player && S.player.vehicle && myVehicle() && myVehicle().type) || null };
   if (NET.role === 'host') {
     pres.host = 1;
@@ -302,6 +315,7 @@ async function netSnapshot() {
   try {
     flushFluids();
     const { player, pinv, ...rest } = S;
+    rest.surf = packedSurfaces();   // los otros planetas, como están ahora
     const body = JSON.stringify({ s: rest, pollution: savePollution(), fog: encodeFog(), ore: encodeOre(), trees: encodeTrees(), acks: NET.acks, gs: NET.gs }, saveReplacer);
     const code = await gzipBase64(body);
     const CH = 200000, n = Math.max(1, Math.ceil(code.length / CH)), ver = Date.now();
@@ -345,12 +359,47 @@ async function netLoadSnapshot(meta, first) {
   return ok;
 }
 
+// La foto trae el planeta del anfitrión arriba y los demás guardados aparte.
+// Si yo estoy en otro planeta, se arma la foto "desde mi planeta".
+function netMySurfaceView(obj, first) {
+  const st = obj.s, hostSf = st.surface || 'earth';
+  let mine = surfName();
+  if (first) {
+    mine = 'earth';
+    try { const me = JSON.parse(localStorage.getItem(NET_ME_KEY) || 'null'); if (me && me.seed === st.seed && me.player && me.player.surf) mine = me.player.surf; } catch (_) { /* nada */ }
+  }
+  if (mine === hostSf) return obj;
+  const o = st.surf && st.surf[mine];
+  if (!o) return first ? obj : { ...obj, keepSurface: true };   // mi planeta todavía no está en la foto
+  const s2 = { ...st, surf: { ...st.surf } };
+  const hp = { mapW: st.mapW, mapH: st.mapH, ore: obj.ore, trees: obj.trees, fog: obj.fog, pollution: obj.pollution };
+  for (const k of SURF_KEYS) { hp[k] = st[k]; s2[k] = o[k]; }
+  s2.surf[hostSf] = hp;
+  delete s2.surf[mine];
+  s2.surface = mine; s2.mapW = o.mapW; s2.mapH = o.mapH;
+  return { ...obj, s: s2, ore: o.ore, trees: o.trees, fog: o.fog, pollution: o.pollution };
+}
+
 // Pone el mundo compartido, y deja intactos el personaje y la mochila propios
 function applyShared(obj, first) {
+  obj = netMySurfaceView(obj, first);
   const st = obj.s;
+  if (obj.keepSurface) {
+    // Solo lo compartido (Nave, investigación…); mi planeta sigue como está hasta la próxima foto
+    const cur = { surface: S.surface, mapW: S.mapW, mapH: S.mapH, surf: S.surf, player: S.player, pinv: S.pinv };
+    for (const k of SURF_KEYS) cur[k] = S[k];
+    S = { ...newState(st.seed, st.peaceful, !!st.character), ...st, ...cur };
+    ensureFactions();
+    const after = obj.gs || 0, myAck = (obj.acks && obj.acks[NET.cid]) || 0;
+    for (const x of NET.buf) if (x.g > after && SURF_FREE.has(x.a.k)) netApply(x.a);
+    for (const x of NET.own) if (x.s > myAck && SURF_FREE.has(x.a.k)) netApply(x.a);
+    NET.lastGs = Math.max(NET.lastGs, after);
+    NET.shadow = { ...S.inv };
+    return;
+  }
   const mine = { player: S.player, pinv: S.pinv };
   const myV = typeof myVehicle === 'function' ? myVehicle() : null;   // el vehículo que manejo: manda el mío, no la foto
-  const same = !first && S.seed === st.seed && W === (st.mapW || 320) && H === (st.mapH || 240) && oreBase;
+  const same = !first && S.seed === st.seed && W === (st.mapW || 320) && H === (st.mapH || 240) && surfName() === (st.surface || 'earth') && oreBase;
   if (!same) {
     setMapSize(st.mapW || 320, st.mapH || 240);
     S = { ...newState(st.seed, st.peaceful, !!st.character), ...st };
@@ -395,9 +444,9 @@ function applyShared(obj, first) {
   ensureFactions();
   // Lo que pasó después de la foto se vuelve a aplicar encima
   const after = obj.gs || 0;
-  for (const x of NET.buf) if (x.g > after) netApply(x.a);
+  for (const x of NET.buf) if (x.g > after) netApplyAny(x.a);
   const myAck = (obj.acks && obj.acks[NET.cid]) || 0;
-  for (const x of NET.own) if (x.s > myAck) netApply(x.a);
+  for (const x of NET.own) if (x.s > myAck) netApplyAny(x.a);
   NET.lastGs = Math.max(NET.lastGs, after);
   NET.shadow = { ...S.inv };
   netRemapRefs();
@@ -446,6 +495,7 @@ async function netTryHost(fromLocal) {
   NET.pending = [];
   NET.leaseAt = performance.now();
   NET.lastSnap = 0;
+  wakeSurfaces();   // los otros planetas vuelven a andar en esta compu
   return true;
 }
 
@@ -487,6 +537,8 @@ function netResetSession() {
 async function netShareCurrent() {
   if (!NET.canWrite) { toast('Para tener tu propio mundo necesitás permiso de edición en el juego.'); return false; }
   if (NET.on) return true;   // ya estoy en un mundo: las invitaciones van a ese
+  // Mi mundo ya está abierto en otra compu (por ejemplo, la que hace de servidor): entro a ese
+  if (NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) { await netJoin(myWorldId()); return NET.on; }
   netResetSession();
   if (!(await netEnterRoom(myWorldId()))) { toast('No se pudo abrir la sala en línea.'); return false; }
   NET.meta = null;
@@ -716,10 +768,40 @@ function initChat() {
   setInterval(chatRender, 1000);
 }
 
+// Cuando alguien se reconecta, su conexión vieja puede quedar un rato en la sala:
+// se toma una sola por persona (la más nueva) y se ignoran las que dejaron de hablar.
+const PEER_STALE_MS = 20000;
+const peerSeen = new Map();   // peer -> [última marca de su presencia, cuándo cambió (reloj de acá)]
+function peerTime(p) {
+  const t = p.presence.t || 0, now = Date.now();
+  let o = peerSeen.get(p.peer);
+  if (!o || o[0] !== t) { o = [t, now]; peerSeen.set(p.peer, o); }
+  return o[1];
+}
+function netLivePeers(peers) {
+  const now = Date.now(), best = new Map();
+  for (const p of peers) {
+    if (p.sameTab || p.kind !== 'viewer' || !p.presence || !p.presence.cid) continue;
+    const t = peerTime(p);
+    if (p.presence.t && now - t > PEER_STALE_MS) continue;   // dejó de hablar: conexión vieja
+    const who = p.by || p.presence.uid || p.presence.cid;
+    const o = best.get(who);
+    // La compu servidor (sin personaje) y el celular pueden ser la misma cuenta: gana el que juega
+    const pl = Array.isArray(p.presence.p), opl = o && Array.isArray(o.presence.p);
+    if (!o || (pl && !opl) || (pl === opl && (t > peerTime(o) || (t === peerTime(o) && (p.presence.t || 0) > (o.presence.t || 0))))) best.set(who, p);
+  }
+  if (peerSeen.size > 200) peerSeen.clear();
+  return [...best.values()];
+}
+
 function netUpdateAvatars(peers, dt) {
   const seen = new Set();
-  for (const p of peers) {
-    if (p.sameTab || p.kind !== 'viewer' || !p.presence || !Array.isArray(p.presence.p)) continue;
+  for (const p of netLivePeers(peers)) {
+    // Una conexión vieja de este mismo jugador (otra pestaña o antes de reconectar): no es otro avatar
+    if (NET.uid && (p.by || p.presence.uid) === NET.uid) continue;
+    if (!Array.isArray(p.presence.p)) continue;
+    // Está en otro planeta: no se ve, pero su chat sí llega
+    if ((p.presence.sf || 'earth') !== surfName()) { chatReceive(p.peer, { nick: cleanNick(p.presence.n), by: p.by || p.presence.uid || null }, p.presence.c); continue; }
     const [x, y, ang, moving, mining, step] = p.presence.p;
     if (![x, y].every(Number.isFinite)) continue;
     seen.add(p.peer);
@@ -757,7 +839,8 @@ async function netResolveNames() {
 
 function netPlayerCount() {
   if (!NET.wroom) return 0;
-  return NET.wroom.peers().filter((p) => p.kind === 'viewer' && p.presence && p.presence.cid).length;
+  const me = NET.wroom.peers().some((p) => p.sameTab) ? 1 : 0;
+  return me + netLivePeers(NET.wroom.peers()).filter((p) => (p.by || p.presence.uid) !== NET.uid).length;
 }
 
 // --------------------------- Amigos e invitaciones ---------------------------
@@ -964,7 +1047,14 @@ function netRenderModal() {
     h += `<p>🟢 ${mine ? '<b>Estás en tu mundo</b>' : `<b>Estás en el mundo de ${nm(NET.meta && NET.meta.owner)}</b>`}${NET.role === 'host' ? ' · sos el anfitrión (tu compu lleva la simulación y lo guarda)' : ''}.</p>`;
     h += '<ul class="net-list">';
     h += `<li>${dot(NET.uid, NET.cid)}Vos${NET.role === 'host' ? ' · anfitrión' : ''}</li>`;
-    for (const a of NET.avatars.values()) h += `<li>${dot(a.by)}${nm(a.by)}${a.host ? ' · anfitrión' : ''}${a.by && !NET.friends.includes(a.by) && a.by !== NET.uid ? ` <button type="button" class="small-btn" data-add="${escapeHtml(a.by)}">+ Amigo</button>` : ''}</li>`;
+    const PLANET = { earth: '🌍 Tierra', moon: '🌙 Luna', vulcan: '🌋 Vulcano' };
+    for (const p of netLivePeers(NET.wroom ? NET.wroom.peers() : [])) {
+      const by = p.by || p.presence.uid || null, pr = p.presence;
+      if (!Array.isArray(pr.p) || (by && by === NET.uid)) continue;   // la compu servidor no juega
+      const sf = pr.sf || 'earth';
+      h += `<li>${dot(by)}${nm(by)}${pr.host === 1 ? ' · anfitrión' : ''}${sf !== surfName() ? ` · ${PLANET[sf] || sf}` : ''}${by && !NET.friends.includes(by) ? ` <button type="button" class="small-btn" data-add="${escapeHtml(by)}">+ Amigo</button>` : ''}</li>`;
+    }
+    if (SERVER.on || netLivePeers(NET.wroom ? NET.wroom.peers() : []).some((p) => p.presence.host === 1 && !Array.isArray(p.presence.p))) h += '<li class="muted small">🖥️ Una compu servidor mantiene el mundo andando</li>';
     h += '</ul>';
     if (!NET.p2p) h += `<div class="actions"><button type="button" data-leave="1">${netInMyWorld() ? 'Cerrar mi mundo en línea' : 'Salir y volver a mi partida'}</button></div>`;
   } else if (NET.canWrite) {

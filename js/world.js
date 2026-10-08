@@ -7,7 +7,7 @@ let oreType;   // Uint8Array: id de mineral por casilla (0 = pasto)
 let oreAmt;    // Uint16Array: cantidad restante
 let pixelMap;  // canvas de W×H píxeles: un píxel por casilla (minimapa y zoom lejano)
 const CHUNK = 16;
-const chunkCache = new Map();
+let chunkCache = new Map();
 const MAX_CHUNKS = 60;
 
 function mulberry32(a) {
@@ -713,7 +713,7 @@ let chopped = new Set();        // casillas con árbol natural talado
 let planted = new Map();        // casilla -> árbol plantado
 let treeCount = new Uint16Array(0);
 let forestCell = new Float32Array(0);
-const treeCache = new Map();
+let treeCache = new Map();
 
 // ¿Hay un árbol natural en esta casilla? (solo pasto original, lejos de la Nave)
 function naturalTreeAt(x, y) {

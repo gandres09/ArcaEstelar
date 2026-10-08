@@ -135,21 +135,18 @@ function travelOverlay(text) {
 // Ir a la Luna (desde la plataforma) o volver a la Tierra (desde el módulo lunar)
 function travel(to) {
   if (!playerOn()) return false;
-  if (NET.on && NET.role !== 'host') { toast('El viaje lo hace el anfitrión: cuando él viaja, van todos.'); return false; }
   if (myVehicle()) exitVehicle(true);
   const from0 = S.surface || 'earth';
   const fuel = to === 'moon' ? MOON_FUEL : to === 'vulcan' ? VULCAN_FUEL : from0 === 'vulcan' ? 40 : MOON_BACK_FUEL;
   if (avail('rocket_fuel') < fuel) { toast(`Hace falta ${fuel} de combustible de cohete (en tu mochila o en la Nave).`); return false; }
   takeItem('rocket_fuel', fuel);
   const from = S.surface || 'earth';
-  if (!S.surf) S.surf = {};
-  S.surf[from] = packSurface();
-  const saved = S.surf[to] || null;
-  delete S.surf[to];
   closeInspector();
   travelOverlay(to === 'moon' ? '🚀 Rumbo a la Luna…' : to === 'vulcan' ? '🌋 Rumbo a Vulcano…' : '🌍 Volviendo a la Tierra…');
   sfx('launch');
-  unpackSurface(to, saved);
+  projs.length = 0; clouds.length = 0; combatBots.length = 0;
+  // El planeta que dejás sigue andando (lo simula esta compu o el anfitrión): viaja solo tu personaje
+  switchSurface(to);
   // Dónde aparecés: al lado del módulo lunar, o de la plataforma de la Tierra (o de la Nave)
   const p = S.player;
   const base = S.entities.find((e) => e.type === (to !== 'earth' ? 'lander' : from === 'vulcan' ? 'vulcanpad' : 'moonpad')) || hubOf(myF() || 'f0') || S.entities.find((e) => e.type === 'hub');
@@ -166,7 +163,7 @@ function travel(to) {
     : to === 'vulcan'
       ? '🌋 ¡Llegaste a Vulcano! La lava no se cruza. Hay mucho <b>carbón</b>, <b>calcita</b> y <b>tungsteno</b>; una bomba de agua al lado de la lava saca lava para la <b>Fundición</b>. Cuidado con los gusanos gigantes. Lo que entra al módulo llega a la Nave.'
       : `🌍 Volviste a la Tierra. Lo que mandaste desde ${from === 'vulcan' ? 'Vulcano' : 'la Luna'} ya está en la Nave.`);
-  if (NET.on && NET.role === 'host') { NET.lastSnap = 0; if (typeof netSnapshot === 'function') netSnapshot(); }
+  if (NET.on) { NET.presAt = 0; if (NET.role === 'host') { NET.lastSnap = 0; netSnapshot(); } }
   save();
   return true;
 }

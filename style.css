@@ -655,3 +655,10 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 .lore p { margin: 6px 0; line-height: 1.45; }
 #team-pick { display: flex; align-items: center; justify-content: center; }
 #team-pick .modal-box { max-width: 460px; }
+
+/* Modo servidor: un panel en el medio y nada más */
+body.server-mode #toolbar, body.server-mode #side, body.server-mode #topbar, body.server-mode #combat-bar, body.server-mode #inspector { display: none !important; }
+body.server-mode canvas { filter: brightness(0.25) blur(2px); }
+#server-panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 50; width: min(420px, calc(100vw - 32px)); padding: 18px 20px; }
+#server-panel h1 { margin: 0 0 8px; font-size: 20px; }
+#server-panel .row { display: flex; justify-content: space-between; margin: 4px 0; }

@@ -597,14 +597,14 @@ function inspectorContent(e) {
       h += '<p>Un cohete que te lleva al planeta <b>Vulcano</b>: lava, carbón, calcita y tungsteno. Allá se hace la Fundición, el Taladro grande y la Cinta turbo.</p>' +
         row('Combustible', `${VULCAN_FUEL} de cohete por viaje (tenés ${Math.floor(avail('rocket_fuel'))})`) +
         '<p class="muted small">Mientras estás en Vulcano, la Tierra queda en pausa. Hay gusanos gigantes: llevá armas.</p>' +
-        (NET.on && NET.role !== 'host' ? '<p class="muted small">En línea, el viaje lo hace el anfitrión y van todos.</p>' : '') +
+        (NET.on ? '<p class="muted small">Viajás solo vos: los demás siguen donde están y tu planeta sigue andando.</p>' : '') +
         '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="vulcan">🌋 Viajar a Vulcano</button></div>';
       break;
     case 'moonpad':
       h += `<p>Un cohete chico que te lleva a la Luna con tu mochila${S.player && S.player.pet && !S.player.pet.gone ? ' y tu perrito' : ''}. Allá hay <b>regolito</b> (se funde en aleación lunar), <b>hielo</b> y <b>Helio-3</b>.</p>` +
         row('Combustible', `${MOON_FUEL} de cohete por viaje (tenés ${Math.floor(avail('rocket_fuel'))})`) +
         '<p class="muted small">Mientras estás en la Luna, la fábrica de la Tierra queda en pausa (y al revés). Llevá paneles solares: allá no hay carbón.</p>' +
-        (NET.on && NET.role !== 'host' ? '<p class="muted small">En línea, el viaje lo hace el anfitrión y van todos.</p>' : '') +
+        (NET.on ? '<p class="muted small">Viajás solo vos: los demás siguen donde están y tu planeta sigue andando.</p>' : '') +
         '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="moon">🚀 Viajar a la Luna</button></div>';
       break;
     case 'belt': case 'fastbelt': case 'expressbelt':

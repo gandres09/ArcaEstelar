@@ -42,7 +42,7 @@ const saveReplacer = (k, v) => (k.startsWith('_') ? undefined : v);
 
 function serialize() {
   flushFluids();
-  return JSON.stringify({ ...S, pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre(), trees: encodeTrees() }, saveReplacer);
+  return JSON.stringify({ ...S, surf: packedSurfaces(), pollution: savePollution(), fog: encodeFog(), view: { ...view }, ore: encodeOre(), trees: encodeTrees() }, saveReplacer);
 }
 
 function save() {
@@ -112,6 +112,7 @@ function loadFrom(raw) {
     if (S.entities.some((e) => e.type === 'assembler' || e.type === 'lab' || e.type === 'miner'))
       setTimeout(() => toast('⚡ Cambio de reglas: el <b>taladro común</b> quema carbón (les regalé 5 a cada uno) y las <b>ensambladoras</b> y <b>laboratorios</b> necesitan electricidad. Poné un <b>Generador a carbón</b> y <b>Postes</b>.'), 1500);
   }
+  wakeSurfaces();
 }
 
 function load() {
@@ -415,7 +416,8 @@ async function init() {
   $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
   initCloud();
-  netInit().catch(() => {}).then(() => cloudInit(fresh));
+  netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => serverAutoStart());
+  $('btn-server').addEventListener('click', () => startServerMode(false));
 
   let last = performance.now();
   function frame(now) {
@@ -439,12 +441,16 @@ async function init() {
       }
     }
     stepPixelMap(document.hidden ? 0 : 6);
-    netTick(dt);
-    if (!launchAnim || launchAnim.t < 8) update(dt);
+    // En modo servidor con la pestaña oculta, la simulación la lleva el reloj del servidor
+    if (!(SERVER.on && document.hidden)) {
+      netTick(dt);
+      if (!launchAnim || launchAnim.t < 8) { update(dt); updateBackground(dt); }
+    }
     sampleProduction(dt);
     updateLaunch(dt);
-    render(ctx);
-    updateAudio(activeOnScreen);
+    // En modo servidor no se dibuja el mapa (gasta menos); la simulación sigue igual
+    if (SERVER.on) serverGuard(); else render(ctx);
+    if (!SERVER.on) updateAudio(activeOnScreen);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

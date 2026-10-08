@@ -1783,7 +1783,7 @@ function drawBiter(g, b, t) {
   g.restore();
 }
 
-const effects = []; // { x, y, t, life, kind, scale, color }
+let effects = []; // { x, y, t, life, kind, scale, color }
 
 function spawnExplosion(x, y, scale = 1) {
   effects.push({ x, y, t: 0, life: 0.6, kind: 'boom', scale });
@@ -1922,7 +1922,7 @@ function drawNight(ctx2, visible) {
 // --------------------------- Cuadro principal ---------------------------
 
 let launchAnim = null; // { yard, t }
-const particles = [];
+let particles = [];
 let showPollution = false;
 let activeOnScreen = 0;
 let lastRender = 0;
@@ -1997,7 +1997,7 @@ function drawGrid(g, vx0, vy0, vx1, vy1) {
 }
 
 // Humo de las máquinas que queman combustible
-const smoke = [];
+let smoke = [];
 const SMOKERS = { furnace: [0.55, 0.3, 6], boiler: [0.5, 0.25, 7], generator: [0.7, 0.2, 6], pumpjack: [0.3, 0.2, 5] };
 function updateSmoke(visible, dt) {
   for (const e of visible) {

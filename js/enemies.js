@@ -6,7 +6,7 @@
 let pollution = new Float32Array(PW * PH);
 let pollTimer = 0;
 let lastAttack = null;     // { x, y, t } último ataque a la fábrica
-const shots = [];          // disparos para dibujar { x1, y1, x2, y2, t, laser }
+let shots = [];          // disparos para dibujar { x1, y1, x2, y2, t, laser }
 
 const cellOf = (x, y) => Math.floor(wrapY(y) / POLL_CELL) * PW + Math.floor(wrapX(x) / POLL_CELL);
 const center = (e) => { const s = sizeOf(e.type) / 2; return { x: e.x + s, y: e.y + s }; };
@@ -493,7 +493,7 @@ function updateEnemies(dt) {
   while (shots.length && shots[0].t > 0.12) shots.shift();
   if (S.surface === 'moon' || (S.peaceful && !multiBase())) return;   // con bases separadas, las torretas pelean igual
 
-  S.evo = Math.min(1, S.evo + dt * 0.00002);
+  if (!simBg) S.evo = Math.min(1, S.evo + dt * 0.00002);
   if (tick) { nestStep(1); expandNests(1); }
 
   for (const b of S.biters) if (!b.dead) biterStep(b, dt);

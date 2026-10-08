@@ -9,6 +9,7 @@ let nets = [];          // redes eléctricas
 let wires = [];         // cables entre postes [x1, y1, x2, y2]
 let powerDirty = true;
 let undergroundDirty = true;
+let simBg = false;   // simulando un planeta donde no está el jugador de esta compu
 
 function newState(seed, peaceful, character = false) {
   return {
@@ -845,10 +846,12 @@ function update(dt) {
   if (powerDirty) rebuildPower();
   if (undergroundDirty) pairUndergrounds();
   NET.sim++;   // lo que pasa adentro de la simulación no se manda por la red
-  S.playTime += dt;
-  tickStats(dt);
-  S.dayTime += dt / DAY_LENGTH;
-  if (S.dayTime >= 1) { S.dayTime -= 1; S.day++; }
+  if (!simBg) {
+    S.playTime += dt;
+    tickStats(dt);
+    S.dayTime += dt / DAY_LENGTH;
+    if (S.dayTime >= 1) { S.dayTime -= 1; S.day++; }
+  }
   balancePower(dt);
   const sun = sunLevel() * weatherSolar() * (S.surface === 'moon' ? 1.5 : 1);   // en la Luna no hay aire: el sol pega más
   const tech = S.research.current && TECHS[S.research.current];
@@ -1314,23 +1317,28 @@ function update(dt) {
 
   if (S.factions) useMine();
   if (researchDone) for (const f of (doneF.size ? doneF : ['f0'])) asFaction(f, finishResearch);
-  S.stageTimer = (S.stageTimer || 0) + dt;
-  if (S.stageTimer >= 1) { S.stageTimer -= 1; stageTick(); }
+  // Las etapas se miden en la Tierra
+  if (!offEarth()) {
+    S.stageTimer = (S.stageTimer || 0) + dt;
+    if (S.stageTimer >= 1) { S.stageTimer -= 1; stageTick(); }
+  }
   updateFluids();
   // Lo que hace el personaje sí es una acción del jugador
-  NET.sim--;
-  const invBefore = NET.on ? { ...S.inv } : null;
-  updatePlayer(dt);
-  updateRpg(dt);
-  if (invBefore) netInvDelta(invBefore);
-  NET.sim++;
+  if (!simBg) {
+    NET.sim--;
+    const invBefore = NET.on ? { ...S.inv } : null;
+    updatePlayer(dt);
+    updateRpg(dt);
+    if (invBefore) netInvDelta(invBefore);
+    NET.sim++;
+  }
   updateTrains(dt);
   updateRobots(dt);
-  updateWeather(dt);
+  if (!simBg) updateWeather(dt);
   updateVehicles(dt);
   updateEnemies(dt);
   NET.sim--;
-  if (NET.on) NET.shadow = { ...S.inv };
+  if (NET.on && !simBg) NET.shadow = { ...S.inv };
 }
 
 // ¿Están todas las piezas de la nave?
