@@ -388,6 +388,12 @@ const BUILDINGS = {
                  desc: 'Acá se arma el Arca estelar para salir del sistema solar. Recibe las piezas por cinta o desde el inventario.' },
   providerchest: { name: 'Cofre de provisión', cat: 'robots', capacity: 400, hp: 200, cost: { steel: 8, circuit: 3, processor: 1 }, tech: 'logistic_robots',
                  desc: 'Los robots logísticos sacan de acá lo que piden los cofres de pedido. Llenalo con brazos o cintas.' },
+  storagechest: { name: 'Cofre de almacenamiento', cat: 'robots', as: 'providerchest', capacity: 400, hp: 200, cost: { steel: 8, circuit: 3, processor: 1 }, tech: 'logistic_robots',
+                 desc: 'Donde los robots guardan lo que sacan los cofres de provisión activa. Lo que tiene también se usa para los pedidos.' },
+  activechest: { name: 'Cofre de provisión activa', cat: 'robots', as: 'providerchest', capacity: 400, hp: 200, cost: { steel: 8, circuit: 3, processor: 1 }, tech: 'logistic_robots',
+                 desc: 'Los robots lo vacían siempre: llevan todo a los cofres de almacenamiento (o a la Nave si no hay).' },
+  bufferchest: { name: 'Cofre de búfer',      cat: 'robots', as: 'requesterchest', capacity: 400, hp: 200, cost: { steel: 8, circuit: 3, processor: 1 }, tech: 'logistic_robots',
+                 desc: 'Pide objetos como el de pedido, pero también los presta: sirve de depósito cerca de donde se usan (por ejemplo, para tus pedidos personales).' },
   requesterchest:{ name: 'Cofre de pedido',    cat: 'robots', capacity: 400, hp: 200, cost: { steel: 8, circuit: 3, processor: 1 }, tech: 'logistic_robots',
                  desc: 'Pedile objetos y cantidades: los robots logísticos se los traen de los cofres de provisión o de la Nave. Sacá con brazos.' },
   roboport:    { name: 'Puerto de robots',    cat: 'robots', power: 200, range: 25, bots: 5, hp: 400, cost: { steel: 45, gear: 45, processor: 45, robot_frame: 5 }, tech: 'construction_robots',
@@ -418,7 +424,7 @@ const TOOL_ORDER = Object.keys(BUILDINGS);
 // Edificios que funcionan como otro (por ejemplo, el horno de acero es un horno): comparten su lógica
 const kindOf = (t) => (BUILDINGS[t] && BUILDINGS[t].as) || t;
 const INSERTERS = new Set(Object.keys(BUILDINGS).filter((k) => kindOf(k) === 'inserter' || k === 'fastinserter'));
-const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
+const NO_DIR = new Set(['road', 'moonpad', 'lander', 'buggy', 'car', 'truck', 'tank', 'hover', 'lightningrod', 'antenna', 'mediumpole', 'substation', 'beacon', 'gate', 'flameturret', 'artillery', 'signal', 'providerchest', 'requesterchest', 'storagechest', 'activechest', 'bufferchest', 'nursery', 'purifier', 'uplink', 'fusion_plant', 'starport', 'pipe', 'fluidtank', 'roboport', 'rail', 'train', 'receiver', 'radar', 'landfill', 'pole', 'bigpole', 'solar', 'accumulator', 'lamp', 'wall', 'turret', 'laser', 'shipyard', 'hub', 'nest', 'worm', 'lab', 'constant', 'reactor', 'heatpipe', 'landmine', 'concrete_floor', 'refined_floor']);
 const BELTS = new Set(['belt', 'fastbelt', 'expressbelt']);
 const LANED = new Set(['belt', 'fastbelt', 'expressbelt', 'underground', 'splitter', 'sorter']);   // con dos carriles
 const UNDERGROUND_REACH = 5;

@@ -345,6 +345,7 @@ function updateInventory() {
     $('storage-note').textContent = near ? '📡 Tenés señal de la Nave: construís y fabricás con lo guardado ahí, sin sacarlo. Tocá un objeto para pasarlo de un lado al otro.' : 'Sin señal de la Nave: construís solo con lo que llevás en la mochila. Acercate a la Nave o a una antena.';
     $('storage-note').classList.toggle('ok', near);
     updateCraftUI();
+    updatePersonalRequests();
   }
 }
 
@@ -692,6 +693,7 @@ function inspectorContent(e) {
     case 'requesterchest': {
       const reqs = Object.entries(e.req || {});
       h += row('Guardado', `${e.total} / ${capOf(e)}`);
+      if (e.type === 'bufferchest') h += '<p class="muted small">Guarda lo que pidas y se lo presta a los cofres de pedido y a tus pedidos personales.</p>';
       h += '<p class="small"><b>Pedidos</b> (los robots logísticos los traen):</p>';
       if (!reqs.length) h += '<p class="muted small">Todavía no pediste nada. Elegí un objeto abajo.</p>';
       for (const [k, n] of reqs) {
@@ -710,7 +712,9 @@ function inspectorContent(e) {
       break;
     }
     case 'chest': case 'steelchest': case 'woodchest': case 'providerchest':
-      if (e.type === 'providerchest' && !portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
+      if (e.type === 'activechest') h += '<p class="muted small">Los robots lo vacían solos: llevan todo a los cofres de almacenamiento (o a la Nave).</p>';
+      if (e.type === 'storagechest') h += '<p class="muted small">Acá guardan los robots lo que sacan de los cofres de provisión activa.</p>';
+      if (kindOf(e.type) === 'providerchest' && !portsCovering(e.x, e.y).length) h += '<p class="bad small">Ningún puerto de robots con energía cubre este cofre.</p>';
       h += row('Guardado', `${e.total} / ${capOf(e)}`) + chestPicker(e);
       break;
     case 'generator':
@@ -1092,6 +1096,43 @@ function feedFrom(e, items, max) {
   }
   return n;
 }
+
+// --------------------------- Pedidos personales (robots logísticos) ---------------------------
+let lreqKey = '', lreqPickOpen = false;
+function updatePersonalRequests() {
+  const sec = $('lreq-sec'), p = S.player;
+  const on = playerOn() && hasTech('logistic_robots');
+  sec.hidden = !on;
+  if (!on) return;
+  const reqs = Object.entries(p.lreq || {});
+  const key = reqs.map(([k, n]) => k + n + ':' + Math.floor(S.pinv[k] || 0)).join(',') + '|' + (portsCovering(Math.floor(p.x), Math.floor(p.y)).length > 0);
+  if (key === lreqKey) return;
+  lreqKey = key;
+  let h = '';
+  if (!reqs.length) h += '<p class="muted small">Pedí lo que siempre querés tener encima (munición, cintas, celdas…): los robots logísticos te lo traen desde los cofres o la Nave.</p>';
+  for (const [k, n] of reqs) {
+    h += `<div class="row">${itemLabel(k)}<span>${Math.floor(S.pinv[k] || 0)} / ${n} ` +
+      `<button type="button" class="small-btn" data-lr="inc" data-v="${k}|-10">−</button><button type="button" class="small-btn" data-lr="inc" data-v="${k}|10">+</button>` +
+      `<button type="button" class="small-btn" data-lr="del" data-v="${k}">✕</button></span></div>`;
+  }
+  h += `<details class="req-pick"${lreqPickOpen ? ' open' : ''}><summary class="small">➕ Pedir otro objeto</summary><div class="pick-grid">`;
+  for (const k of ITEM_ORDER) if (!FLUIDS.has(k) && !(p.lreq || {})[k]) h += `<button type="button" class="pick" data-lr="add" data-v="${k}" title="${ITEMS[k].name}">${itemImg(k)}</button>`;
+  h += '</div></details>';
+  if (reqs.length && !key.endsWith('true')) h += '<p class="bad small">Estás fuera del área de los puertos de robots.</p>';
+  $('lreq').innerHTML = h;
+}
+$('lreq').addEventListener('toggle', (ev) => { if (ev.target.tagName === 'DETAILS') lreqPickOpen = ev.target.open; }, true);
+$('lreq').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-lr]');
+  if (!b || !playerOn()) return;
+  const p = S.player, v = b.dataset.v;
+  p.lreq = p.lreq || {};
+  if (b.dataset.lr === 'add' && ITEMS[v]) p.lreq[v] = 20;
+  else if (b.dataset.lr === 'del') delete p.lreq[v];
+  else if (b.dataset.lr === 'inc') { const [k, d] = v.split('|'); if (p.lreq[k] !== undefined) p.lreq[k] = Math.max(1, Math.min(500, p.lreq[k] + +d)); }
+  lreqKey = '';
+  updatePersonalRequests();
+});
 
 // --------------------------- Cables y combinadores ---------------------------
 

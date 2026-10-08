@@ -18,7 +18,7 @@ const TYPE_COLOR = {
   generator: '#5d6570', pole: '#a8743a', bigpole: '#a0aab5', solar: '#2c4a7a', accumulator: '#7d858f', lamp: '#f0e08a',
   woodchest: '#9a6a3a', nursery: '#6fbf5a', purifier: '#7fd1b5', uplink: '#ff8a5c', fusion_plant: '#ffd166', starport: '#8a7dff',
   wall: '#8f8676', turret: '#b8c08a', laser: '#9fa8ff', shipyard: '#6b737d', nest: '#9a3b6e',
-  road: '#a8664a', concrete_floor: '#9a9a94', refined_floor: '#6a6e72', landmine: '#5a2a20', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
+  storagechest: '#e8d070', activechest: '#c08ae5', bufferchest: '#8fe0a0', road: '#a8664a', concrete_floor: '#9a9a94', refined_floor: '#6a6e72', landmine: '#5a2a20', dispatcher: '#5aa0ff', moonpad: '#e0b84a', lander: '#d9a03a', lightningrod: '#d98a4a', antenna: '#7fd1ff', longinserter: '#d9534f', stackinserter: '#5cc47a', steelfurnace: '#7c8794', assembler3: '#2f8f8a', refinery: '#4f6b3a', beacon: '#6f8fd8',
   mediumpole: '#9aa3ad', substation: '#c0c8d0', pump: '#7da0c0', gate: '#d9b84a', flameturret: '#e07a3a', artillery: '#6b7a4a',
   sensor: '#8fbff0', centrifuge: '#7be05a', reactor: '#9aa3ad', heatex: '#d07a3a', heatpipe: '#c06a2a', steam_turbine: '#b8c6d2', constant: '#c9a23a', arith: '#3f86e0', decider: '#b45fe0', signal: '#e5534b', providerchest: '#d9534f', requesterchest: '#3f86e0', inserter: '#e0b84a', fastinserter: '#5aa0ff', receiver: '#f0a742', pipe: '#7d868f', fluidtank: '#9aa3ad', steelchest: '#7d858f', roboport: '#b8d27a', rail: '#8a7a66', station: '#f0a742', offshore: '#5aa0e0', boiler: '#c9a27a', steam_engine: '#b8c6d2', radar: '#c9d6dd',
 };
@@ -620,14 +620,16 @@ function drawBuilding(g, e, x0, y0, t) {
       break;
 
     case 'providerchest': case 'requesterchest': {
-      const prov = e.type === 'providerchest';
-      box(g, x0, y0, prov ? '#8a3a36' : '#2f5a8f', prov ? '#e58a85' : '#8fbff0', 4);
-      g.fillStyle = prov ? '#f2b8b4' : '#cfe4ff';
+      const prov = kindOf(e.type) === 'providerchest';
+      const C = { providerchest: ['#8a3a36', '#e58a85', '#f2b8b4'], requesterchest: ['#2f5a8f', '#8fbff0', '#cfe4ff'], storagechest: ['#8a7a2a', '#e8d070', '#f5e6a8'],
+        activechest: ['#6a3a8a', '#c08ae5', '#e2c8f5'], bufferchest: ['#2f7a3a', '#8fe0a0', '#c8f5d2'] }[e.type] || ['#555', '#999', '#ccc'];
+      box(g, x0, y0, C[0], C[1], 4);
+      g.fillStyle = C[2];
       g.fillRect(cx - 3, cy - 3, 6, 5);
       g.fillStyle = 'rgba(0,0,0,0.35)';
       g.fillRect(x0 + 5, cy - 4, TILE - 10, 1.5);
       if (!prov && e.req) { const k = Object.keys(e.req)[0]; if (k) drawItem(g, k, x0 + TILE - 9, y0 + 9, 3.5); }
-      if (e.total) drawProgress(g, x0, y0, e.total / 400, prov ? '#e58a85' : '#8fbff0');
+      if (e.total) drawProgress(g, x0, y0, e.total / 400, C[1]);
       break;
     }
 

@@ -1613,7 +1613,7 @@ function arkDeliver(e) {
 // Lo que mejora cada tipo de edificio con Mk
 function mkEffect(type) {
   const k = kindOf(type), d = BUILDINGS[type];
-  if (['chest', 'steelchest', 'woodchest', 'providerchest', 'requesterchest', 'accumulator'].includes(k)) return 'capacidad';
+  if (['chest', 'steelchest', 'woodchest', 'providerchest', 'requesterchest', 'accumulator'].includes(kindOf(k))) return 'capacidad';
   if (d.output) return 'energía';
   if (k === 'pole' || type === 'bigpole' || type === 'lightningrod' || type === 'antenna') return 'alcance';
   if (k === 'wall') return 'vida';

@@ -134,6 +134,8 @@ function updateLogistics(dt) {
   // Vuelos: puerto → origen (levanta) → destino (deja) → puerto
   for (const f of S.lflights) {
     const leg = f.legs[f.i];
+    // Pedidos personales: el robot persigue al personaje
+    if (leg[2] === 'drop' && f.dst === 'player' && S.player) { leg[0] = S.player.x; leg[1] = S.player.y; }
     const dx = wdx(leg[0] - f.x), dy = wdy(leg[1] - f.y), d = Math.hypot(dx, dy);
     const step = ROBOT_SPEED * dt;
     if (d > step) { f.x = wrapX(f.x + dx / d * step); f.y = wrapY(f.y + dy / d * step); continue; }
@@ -146,8 +148,10 @@ function updateLogistics(dt) {
       if (src) { src.store[f.item] -= n; src.total -= n; if (!src.store[f.item]) delete src.store[f.item]; } else S.inv[f.item] -= n;
       f.carry = n;
     } else if (leg[2] === 'drop') {
-      const dst = S.entities.find((e) => e.id === f.dst);
-      if (dst) { add(dst.store, f.item, f.carry); dst.total += f.carry; } else add(S.inv, f.item, f.carry);
+      const dst = f.dst === 'player' ? null : S.entities.find((e) => e.id === f.dst);
+      if (dst) { add(dst.store, f.item, f.carry); dst.total += f.carry; }
+      else if (f.dst === 'player' && S.player) add(S.pinv, f.item, f.carry);
+      else add(S.inv, f.item, f.carry);
       f.carry = 0;
     } else { f.done = true; continue; }
     f.i++;
@@ -166,21 +170,27 @@ function updateLogistics(dt) {
   for (const f of S.lflights) busy[f.port] = (busy[f.port] || 0) + 1;
   const freePort = (x, y) => ports.filter((p) => (busy[p.id] || 0) < LOGI_BOTS)
     .sort((a, b) => wdist(a.x, a.y, x, y) - wdist(b.x, b.y, x, y))[0];
-  const providers = S.entities.filter((e) => e.type === 'providerchest' && e.total > 0 && portNear(e));
+  const providers = S.entities.filter((e) => LOGI_SOURCES.has(e.type) && e.total > 0 && portNear(e));
   const hub = S.entities.find((e) => e.type === 'hub');
   const hubIn = hub && portNear(hub);
   // Lo que ya viene en camino a cada cofre
   const coming = {};
   for (const f of S.lflights) if (f.i <= f.legs.findIndex((l) => l[2] === 'drop')) { const k = f.dst + ':' + f.item; coming[k] = (coming[k] || 0) + f.n; }
-  for (const r of S.entities) {
-    if (r.type !== 'requesterchest' || !r.req || !portNear(r)) continue;
+  // Quién pide: cofres de pedido y de búfer, y el personaje (sus pedidos personales)
+  const askers = S.entities.filter((r) => (r.type === 'requesterchest' || r.type === 'bufferchest') && r.req && portNear(r));
+  const pl = S.player;
+  if (playerOn() && pl.lreq && Object.keys(pl.lreq).length && portsCovering(Math.floor(pl.x), Math.floor(pl.y)).length) {
+    askers.push({ id: 'player', x: pl.x - 0.5, y: pl.y - 0.5, req: pl.lreq, store: S.pinv, total: 0, player: true });
+  }
+  for (const r of askers) {
     for (const item in r.req) {
-      let missing = r.req[item] - (r.store[item] || 0) - (coming[r.id + ':' + item] || 0);
-      while (missing > 0 && r.total + (coming[r.id + ':' + item] || 0) < capOf(r)) {
+      let missing = r.req[item] - Math.floor(r.store[item] || 0) - (coming[r.id + ':' + item] || 0);
+      while (missing > 0 && (r.player || r.total + (coming[r.id + ':' + item] || 0) < capOf(r))) {
         const n = Math.min(LOGI_CARGO, missing);
-        // El cofre de provisión más cercano con ese objeto; si no, la Nave
+        // El cofre más cercano con ese objeto (un búfer no le saca a otro búfer); si no, la Nave
         let src = null, bd = Infinity;
         for (const pv of providers) {
+          if (pv === r || (r.type === 'bufferchest' && pv.type === 'bufferchest')) continue;
           const reserved = S.lflights.filter((f) => f.src === pv.id && f.item === item && !f.carry).reduce((a, f) => a + f.n, 0);
           if ((pv.store[item] || 0) - reserved <= 0) continue;
           const d = wdist(pv.x, pv.y, r.x, r.y);
@@ -201,4 +211,30 @@ function updateLogistics(dt) {
       }
     }
   }
+  // Provisión activa: se vacía en los cofres de almacenamiento (o en la Nave)
+  const storages = S.entities.filter((e) => e.type === 'storagechest' && portNear(e));
+  for (const a of S.entities) {
+    if (a.type !== 'activechest' || !a.total || !portNear(a)) continue;
+    const item = Object.keys(a.store).find((k) => a.store[k] > 0);
+    if (!item) continue;
+    const reserved = S.lflights.filter((f) => f.src === a.id && !f.carry).reduce((x, f) => x + f.n, 0);
+    const n = Math.min(LOGI_CARGO, a.store[item] - reserved);
+    if (n <= 0) continue;
+    let dst = null, bd = Infinity;
+    for (const st of storages) {
+      if (st.total + (coming[st.id + ':*'] || 0) + n > capOf(st)) continue;
+      const d = wdist(st.x, st.y, a.x, a.y);
+      if (d < bd) { bd = d; dst = st; }
+    }
+    if (!dst && !hubIn) continue;
+    const port = freePort(a.x, a.y);
+    if (!port) return;
+    busy[port.id] = (busy[port.id] || 0) + 1;
+    const px = port.x + 0.5, py = port.y + 0.5;
+    const tx = dst ? dst.x + 0.5 : hub.x + 1.5, ty = dst ? dst.y + 0.5 : hub.y + 1.5;
+    S.lflights.push({ port: port.id, x: px, y: py, item, n, carry: 0, src: a.id, dst: dst ? dst.id : 'hub', i: 0,
+      legs: [[a.x + 0.5, a.y + 0.5, 'pick'], [tx, ty, 'drop'], [px, py, 'home']] });
+    if (dst) coming[dst.id + ':*'] = (coming[dst.id + ':*'] || 0) + n;
+  }
 }
+const LOGI_SOURCES = new Set(['providerchest', 'storagechest', 'activechest', 'bufferchest']);
