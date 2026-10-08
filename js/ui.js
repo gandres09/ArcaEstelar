@@ -881,7 +881,7 @@ function inspectorContent(e) {
     case 'antenna': {
       signalNodes();
       const L = linkLevel();
-      h += row('Señal', e._linked ? '<span class="ok">conectada a la Nave</span>' : '<span class="bad">sin señal: acercala a la Nave o a otra antena</span>') +
+      h += powerRow(e) + row('Señal', e._linked ? '<span class="ok">conectada a la Nave</span>' : !(e.sat > 0.3) ? '<span class="bad">sin energía: conectala con postes</span>' : '<span class="bad">sin señal: acercala a la Nave o a otra antena</span>') +
         row('Alcance', `${ANTENNA_LINK[L]} casillas`) + row('Alcance de la Nave', `${SHIP_LINK[L]} casillas`) +
         `<p class="muted small">Cerca de una antena conectada usás lo guardado en la Nave para construir y fabricar.${L < 3 ? ' Investigá <b>Señal de la Nave</b> para llegar más lejos.' : ''}</p>`;
       break;

@@ -1050,6 +1050,12 @@ function update(dt) {
         break;
       }
 
+      case 'antenna':
+        // Sin energía la antena no pasa la señal de la Nave
+        e.sat = drawPower(e, def.power);
+        e.active = e.sat > 0.3;
+        break;
+
       case 'dispatcher': {
         // Saca de la Nave el objeto elegido y lo deja adelante (con energía)
         e.active = false;
