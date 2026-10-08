@@ -32,6 +32,7 @@ function ensureFactions() {
 function myF() {
   if (!S || !S.factions || !multiBase()) return 'f0';
   if (typeof NET !== 'undefined' && NET.on && NET.uid) {
+    if (typeof SERVER !== 'undefined' && SERVER.on) return 'f0';   // la compu servidor no juega
     if (S.factionOf[NET.uid]) return S.factionOf[NET.uid];
     if (netInMyWorld()) { S.factionOf[NET.uid] = 'f0'; return 'f0'; }   // el dueño del mundo es la primera base
     return null;
@@ -150,19 +151,37 @@ function checkNeedBase() {
   box.innerHTML = `<div class="modal-box panel"><h1>🏳️ Tu base</h1>
     <p>En este mundo cada jugador tiene su propia Nave, su inventario y su investigación. Tu base aparece a unas ${BASE_DIST} casillas de las demás.</p>
     <div class="actions" style="flex-direction:column;align-items:stretch">
-      <button type="button" class="primary" data-team="ally">🤝 Aliado de ${escapeHtml(host)}: no se pueden atacar y se pueden mandar cosas</button>
+      ${freeBase() ? `<button type="button" class="primary" data-team="claim">🏠 Tomar la base principal (la que ya está armada)</button>` : ''}
+      <button type="button" class="${freeBase() ? '' : 'primary'}" data-team="ally">🤝 Aliado de ${escapeHtml(host)}: no se pueden atacar y se pueden mandar cosas</button>
       <button type="button" data-team="enemy">⚔️ Enemigo: vale todo (torretas, armas y robots contra el otro)</button>
     </div></div>`;
   document.body.appendChild(box);
   box.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-team]');
     if (!b) return;
+    if (b.dataset.team === 'claim') { box.remove(); claimBase(freeBase()); return; }
     const maxTeam = Math.max(...Object.values(S.factions).map((F) => F.team || 1));
     const team = b.dataset.team === 'ally' ? teamOf('f0') : maxTeam + 1;
     box.remove();
     joinWithBase(team);
   });
 }
+// Una base que no es de nadie (por ejemplo, la del mundo que abrió la compu servidor)
+function freeBase() {
+  if (!S.factions) return null;
+  const owned = new Set(Object.values(S.factionOf || {}));
+  return Object.keys(S.factions).find((f) => !owned.has(f) && hubOf(f)) || null;
+}
+function claimBase(f) {
+  if (!f) return;
+  S.factionOf[NET.uid] = f;
+  if (NET.nick && S.factions[f]) S.factions[f].name = NET.nick;
+  netPush({ k: 'cf', u: NET.uid, f, n: NET.nick || null });
+  useMine();
+  goToMyBase();
+  toast('🏠 ¡La base principal es tuya!');
+}
+
 function joinWithBase(team) {
   const nick = NET.nick || null;
   const fid = createFaction(NET.uid, team, nick);

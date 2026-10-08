@@ -418,6 +418,9 @@ async function init() {
   initCloud();
   netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => { if (!p2pFromUrl()) serverAutoStart(); });
   $('btn-server').addEventListener('click', () => startServerMode(false));
+  // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
+  $('btn-public').hidden = !(typeof P2P !== 'undefined' && P2P.standalone);
+  $('btn-public').addEventListener('click', () => { closeModals(); toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) toast(P2P.error || 'No se pudo conectar: fijate que la compu servidor esté prendida.'); }); });
 
   let last = performance.now();
   function frame(now) {

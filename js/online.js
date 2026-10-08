@@ -83,7 +83,7 @@ function netFlush() {
 
 // Cada acción pasa en un planeta. El anfitrión la aplica en ese planeta (aunque él esté en otro);
 // los demás solo aplican las de su planeta. Las de la Nave, la investigación, etc. valen en todos.
-const SURF_FREE = new Set(['i', 'R', 'nf', 'gift', 'hp', 'me', 'ao']);
+const SURF_FREE = new Set(['i', 'R', 'nf', 'cf', 'gift', 'hp', 'me', 'ao']);
 function netApplyAny(a) {
   const sf = a.sf || surfName();
   if (SURF_FREE.has(a.k) || sf === surfName()) return netApply(a);
@@ -130,6 +130,13 @@ function netApply(a) {
       case 'hn': { const n = at(a.x, a.y); if (n) damageEntity(n, a.d); return true; }
       // Bases separadas: un jugador nuevo arma su base, regalos entre aliados y golpes entre jugadores
       case 'nf': if (a.u && !(S.factionOf || {})[a.u]) createFaction(a.u, a.t, a.n); return true;
+      case 'cf': {
+        if (!a.u || !S.factions || !S.factions[a.f] || (S.factionOf || {})[a.u]) return true;
+        if (Object.values(S.factionOf).includes(a.f)) return true;   // ya la tomó otro
+        S.factionOf[a.u] = a.f;
+        if (a.n) S.factions[a.f].name = a.n;
+        return true;
+      }
       case 'gift': if (S.factions && S.factions[a.to] && ITEMS[a.i] && a.n > 0) add(S.factions[a.to].inv, a.i, a.n); return true;
       case 'hp': if (a.u && a.u === NET.uid && S.player) hurtPlayer(a.d, a.n); return true;
       case 'pk': if (S.drops) S.drops = S.drops.filter((d) => d.id !== a.id); return true;

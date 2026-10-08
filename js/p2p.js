@@ -264,9 +264,16 @@ const p2pUser = {
 
 // --------------------------- Conexión ---------------------------
 
+// Servidores de ayuda para que la conexión pase aunque haya routers complicados
+const P2P_ICE = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+];
 function p2pPeerOptions() {
-  return { debug: 0, ...(window.P2P_SERVER || {}) };
+  return { debug: 0, config: { iceServers: P2P_ICE }, ...(window.P2P_SERVER || {}) };
 }
+// El servidor público: siempre el mismo código, así se entra con un botón
+const P2P_PUBLIC = window.P2P_PUBLIC_CODE || 'ARCASERV';
 
 function p2pOnHostMessage(conn, m) {
   const peer = conn.peer;
@@ -481,7 +488,9 @@ function p2pPanelHtml() {
   } else if (P2P.peer) {
     h += `<p>🟢 Conectado a la sala <b>${p2pPretty(P2P.code)}</b>.</p><div class="actions"><button type="button" data-p2p="close">Salir de la sala</button></div>`;
   } else {
-    h += '<p>Sin cuentas ni invitaciones: uno crea la sala y el otro escribe el código.</p>' +
+    h += '<div class="actions"><button type="button" class="primary" data-p2p="public">🌍 Entrar al servidor público</button></div>' +
+      '<p class="muted small">Es el mundo que mantiene la compu servidor. Si no entra, fijate que esté prendida con el modo servidor.</p>' +
+      '<p>O sin servidor: uno crea la sala y el otro escribe el código.</p>' +
       '<div class="actions"><button type="button" class="primary" data-p2p="create">Crear sala con mi partida</button></div>' +
       '<div class="net-nick"><label for="p2p-in">¿Te pasaron un código?</label><input id="p2p-in" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX"><button type="button" class="small-btn primary" data-p2p="join">Unirme</button></div>';
   }
@@ -496,6 +505,7 @@ document.addEventListener('click', async (ev) => {
   const a = b.dataset.p2p;
   if (a === 'create') p2pCreate();
   else if (a === 'join') p2pJoin($('p2p-in').value);
+  else if (a === 'public') p2pJoin(P2P_PUBLIC);
   else if (a === 'close') p2pClose();
   else if (a === 'copy') {
     try { await navigator.clipboard.writeText(p2pPretty(P2P.code)); toast('Código copiado.'); } catch (_) { toast('Código: ' + p2pPretty(P2P.code)); }

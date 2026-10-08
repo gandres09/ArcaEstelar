@@ -15,16 +15,13 @@ async function startServerMode(auto) {
   if (auto && NET.available && NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) return false;
   // Fuera de Claude (GitHub): la sala con código, siempre el mismo código
   if (!NET.available && typeof P2P !== 'undefined' && P2P.standalone) {
-    let code = null;
-    try { code = localStorage.getItem(SERVER_CODE_KEY); } catch (_) { /* nada */ }
-    if (!code || code.length !== 8) code = p2pNewCode();
-    try { localStorage.setItem(SERVER_CODE_KEY, code); } catch (_) { /* nada */ }
-    if (!(await p2pCreate(code))) { toast('No se pudo abrir la sala del servidor. Revisá internet y probá de nuevo.'); return false; }
+    if (!(await p2pCreate(P2P_PUBLIC))) { toast('No se pudo abrir la sala del servidor. Revisá internet y probá de nuevo.'); return false; }
   }
   if (!NET.available) { toast('No se pudo conectar el juego en línea.'); return false; }
   if (NET.on && NET.role !== 'host') { toast('Para ser servidor tenés que estar en tu propio mundo (salí del mundo de tu amigo).'); return false; }
   if (!NET.on && !(await netShareCurrent())) return false;
   SERVER.on = true;
+  serverDropPlayer();
   SERVER.t0 = Date.now();
   SERVER.last = performance.now();
   try { localStorage.setItem(SERVER_KEY, '1'); } catch (_) { /* sin almacenamiento */ }
@@ -76,9 +73,14 @@ function serverTick() {
   serverGuard();
 }
 
-// El personaje de la compu servidor no juega: queda a salvo en la Nave
+// La compu servidor no tiene personaje, y su base principal queda libre para el primero que la tome
+function serverDropPlayer() {
+  if (!S) return;
+  S.player = null;
+  if (S.factionOf && NET.uid && S.factionOf[NET.uid]) { delete S.factionOf[NET.uid]; NET.presAt = 0; }
+}
 function serverGuard() {
-  if (S && S.player) { S.player.safeT = 5; S.player.hp = Math.max(S.player.hp || 1, 1); }
+  if (S && S.player) serverDropPlayer();
   if (NET.on && NET.role !== 'host' && NET.canWrite && performance.now() - NET.leaseAt > 5000) {
     NET.leaseAt = performance.now();
     netTryHost(false).then((ok) => { if (ok) netLobbyPresence(); });
@@ -112,9 +114,8 @@ function renderServerPanel() {
     <div class="row"><span>Prendido hace</span><b>${hh} h ${mm} min</b></div>
     <div class="row"><span>Jugadores conectados</span><b>${players}</b></div>
     <div class="row"><span>Tiempo de juego del mundo</span><b>${Math.floor(S.playTime / 3600)} h ${Math.floor((S.playTime % 3600) / 60)} min</b></div>
-    ${NET.p2p && P2P.code ? (() => { const l = p2pLinks(); return `<div class="row"><span>Código de la sala</span><b>${p2pPretty(P2P.code)}</b></div>
-    <div class="actions"><button type="button" class="primary" data-copy="${escapeHtml(l.owner)}">📋 Link para vos</button><button type="button" data-copy="${escapeHtml(l.friend)}">📋 Link para tu amigo</button></div>
-    <p class="muted small">Abrí <b>tu link</b> en tu compu o celular: entrás con tu base de siempre. A tu amigo pasale el suyo (o el código). El código no cambia aunque se reinicie el servidor.</p>`; })()
+    ${NET.p2p && P2P.code ? `<p>🌍 <b>Servidor público.</b> Desde sus compus abran el juego y toquen <b>🌐 → Entrar al servidor público</b>.</p>
+    <p class="muted small">Esta compu no tiene personaje: los únicos que juegan son los que entran.</p>`
     : '<p class="muted small">Ustedes entran desde el celular o desde otra compu: vos con <b>🌐 → Entrar a mi mundo</b>, tu amigo con <b>🌐 → Unirme</b>.</p>'}
     <p class="muted small">Dejá esta pestaña abierta (la podés minimizar) y configurá la compu para que no se suspenda.</p>
     <div class="actions"><button type="button" data-srv="stop">Dejar de ser servidor</button></div>`;
