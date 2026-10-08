@@ -634,3 +634,5 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
   .mapopt-table select { font-size: 0.68rem; max-width: 64px; padding: 1px 0; }
   .mapopt-table th { font-size: 0.68rem; padding: 2px 1px; }
 }
+.mapsize { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+.mapsize select { font-size: 0.85rem; }

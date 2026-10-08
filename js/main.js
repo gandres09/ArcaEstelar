@@ -133,7 +133,10 @@ function optSelect(id, val, min = 0) {
   return `<select id="${id}">${MAP_OPT_STEPS.filter(([v]) => v >= min).map(([v, n]) => `<option value="${v}" ${v === val ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
 }
 function buildMapOptsUI(o = defaultMapOpts()) {
-  let h = '<table class="mapopt-table"><tr><th></th><th>Frecuencia</th><th>Tamaño</th><th>Riqueza</th></tr>';
+  let h = `<label class="mapsize">Tamaño del mapa <select id="mo-size">${Object.entries({ normal: 'Normal (1600 × 1200)', grande: 'Grande (2400 × 1800)', enorme: 'Enorme (3200 × 2400)' })
+    .map(([k, n]) => `<option value="${k}" ${o.size === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    <p class="muted small" id="mo-size-warn" ${o.size === 'normal' ? 'hidden' : ''}>Los mapas más grandes tardan más en crearse y cargarse; en el celular pueden andar lento.</p>`;
+  h += '<table class="mapopt-table"><tr><th></th><th>Frecuencia</th><th>Tamaño</th><th>Riqueza</th></tr>';
   for (const r of MAP_OPT_ROWS) {
     if (r.res) {
       const v = o.res[r.k];
@@ -142,6 +145,7 @@ function buildMapOptsUI(o = defaultMapOpts()) {
   }
   h += '</table><label><input type="checkbox" id="mo-biomes" ' + (o.biomes ? 'checked' : '') + '> Biomas (pasto, estepa y desiertos)</label>';
   $('mapopts').innerHTML = h;
+  $('mo-size').onchange = () => { $('mo-size-warn').hidden = $('mo-size').value === 'normal'; };
   $('mapopts-reset').onclick = () => buildMapOptsUI();
 }
 function readMapOpts() {
@@ -151,11 +155,13 @@ function readMapOpts() {
     else o[r.k] = +$('mo-' + r.k).value;
   }
   o.biomes = $('mo-biomes').checked;
+  o.size = $('mo-size').value;
   return o;
 }
 
 function startNewGame(seed, peaceful, character = true, opts = null) {
-  setMapSize(MAP_SIZE[0], MAP_SIZE[1]);
+  const sz = (opts && MAP_SIZES[opts.size]) || MAP_SIZE;
+  setMapSize(sz[0], sz[1]);
   S = newState(seed, peaceful, character);
   S.powerRules = 1;
   S.mapGen = 7;
@@ -421,6 +427,7 @@ async function init() {
         if (o) { netPush({ k: 'm', x: handMining.x, y: handMining.y }); add(S.inv, o, 1); countProduced(o); } else handMining = null;
       }
     }
+    stepPixelMap(document.hidden ? 0 : 6);
     netTick(dt);
     if (!launchAnim || launchAnim.t < 8) update(dt);
     sampleProduction(dt);

@@ -40,7 +40,7 @@ const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 // Como el menú de Factorio: frecuencia, tamaño y riqueza de cada recurso, más agua, árboles, acantilados y nidos
 const MAP_OPT_RES = ['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'oil'];
 function defaultMapOpts() {
-  const o = { res: {}, water: 1, trees: 1, cliffs: 1, enemies: 1, biomes: true };
+  const o = { size: 'normal', res: {}, water: 1, trees: 1, cliffs: 1, enemies: 1, biomes: true };
   for (const k of MAP_OPT_RES) o.res[k] = { freq: 1, size: 1, rich: 1 };
   return o;
 }
@@ -411,21 +411,40 @@ function tilePixel(x, y) {
   return mixRgb(base, hexToRgb(ITEMS[o].color), o === 'oil' ? 0.7 : 0.55);
 }
 
+// El mapa en píxeles se arma de a poco (unas filas por cuadro), empezando por donde está la cámara,
+// así cargar o crear una partida no se traba aunque el mapa sea enorme
+let pixelRows = 0, pixelRow0 = 0;
 function resetMapGraphics() {
   chunkCache.clear();
   treeCache.clear();
   pixelMap = document.createElement('canvas');
   pixelMap.width = W; pixelMap.height = H;
   const g = pixelMap.getContext('2d');
-  const img = g.createImageData(W, H);
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const [r, gg, b] = tilePixel(x, y), i = (y * W + x) * 4;
-      img.data[i] = r; img.data[i + 1] = gg; img.data[i + 2] = b; img.data[i + 3] = 255;
+  g.fillStyle = rgbStr(mixRgb(GRASS_DARK, GRASS_LIGHT, 0.5));
+  g.fillRect(0, 0, W, H);
+  pixelRows = 0;
+  pixelRow0 = H >> 1;
+}
+// Orden de las filas: la del centro y después hacia arriba y abajo alternando
+const pixelRowAt = (k) => wrapY(pixelRow0 + (k & 1 ? -((k + 1) >> 1) : k >> 1));
+function stepPixelMap(ms = 6) {
+  if (!pixelMap || pixelRows >= H) return;
+  if (pixelRows === 0 && typeof view !== 'undefined' && view.x !== undefined) pixelRow0 = wrapY(Math.floor(view.y / TILE));
+  const g = pixelMap.getContext('2d');
+  const t0 = performance.now();
+  const img = g.createImageData(W, 1);
+  while (pixelRows < H && performance.now() - t0 < ms) {
+    for (let k = 0; k < 4 && pixelRows < H; k++, pixelRows++) {
+      const y = pixelRowAt(pixelRows);
+      for (let x = 0; x < W; x++) {
+        const [r, gg, b] = tilePixel(x, y), i = x * 4;
+        img.data[i] = r; img.data[i + 1] = gg; img.data[i + 2] = b; img.data[i + 3] = 255;
+      }
+      g.putImageData(img, 0, y);
     }
   }
-  g.putImageData(img, 0, 0);
 }
+const finishPixelMap = () => stepPixelMap(1e9);
 
 function invalidateTile(x, y) {
   x = wrapX(x); y = wrapY(y);

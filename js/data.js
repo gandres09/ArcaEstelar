@@ -7,6 +7,7 @@
 const TILE = 32;
 let W = 640, H = 480;                             // tamaño del mapa en casillas (da la vuelta en los bordes)
 const MAP_SIZE = [1600, 1200];                    // tamaño de las partidas nuevas (enorme, para explorar)
+const MAP_SIZES = { normal: [1600, 1200], grande: [2400, 1800], enorme: [3200, 2400] };
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];  // derecha, abajo, izquierda, arriba
 const DIR_ARROWS = ['→', '↓', '←', '↑'];
 const SAVE_KEY = 'mini-fabrica-v4';
