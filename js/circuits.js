@@ -159,7 +159,7 @@ function wireOutputOf(e) {
     }
     case 'arith': case 'decider': return e.cout || null;
     case 'sensor': return e.value ? { [e.item && e.item !== '*' ? e.item : 'sig_A']: e.value } : null;
-    case 'hub': { const o = {}; for (const k in S.inv) if (S.inv[k] >= 1) o[k] = Math.floor(S.inv[k]); return o; }
+    case 'hub': { const o = {}, inv = factionInv(e); for (const k in inv) if (inv[k] >= 1) o[k] = Math.floor(inv[k]); return o; }
     case 'accumulator': return { sig_A: Math.round(100 * (e.stored || 0) / BUILDINGS.accumulator.capacity) };
     case 'fluidtank': { const n = fnets[e._fnet]; return n && n.fluid && n.amount >= 1 ? { [n.fluid]: Math.floor(n.amount) } : null; }
     default:

@@ -2117,6 +2117,16 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
     for (const e of visible) drawBuilding(ctx, e, e.x * TILE, e.y * TILE, time);
     for (const e of visible) drawItemsOn(ctx, e);
     drawWires(ctx, visible);
+    if (multiBase()) {
+      const me = myF() || 'f0';
+      ctx.lineWidth = 2;
+      for (const e of visible) {
+        if (!isPlayer(e) || fOf(e) === me || e.type === 'road' || e.type === 'concrete_floor' || e.type === 'refined_floor') continue;
+        const s = sizeOf(e.type) * TILE;
+        ctx.strokeStyle = isFoeF(me, fOf(e)) ? 'rgba(229,83,75,0.85)' : teamColor(fOf(e));
+        ctx.strokeRect(e.x * TILE + 1.5, e.y * TILE + 1.5, s - 3, s - 3);
+      }
+    }
     // Marca de Mk2 / Mk3 en la esquina
     ctx.font = '700 9px "Chakra Petch", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const e of visible) {
@@ -2454,7 +2464,7 @@ function renderMinimap(mc) {
     if (isEnemyB(e) && !tileExplored(e.x, e.y)) continue;
     const x = v.px(e.x), y = v.py(e.y);
     if (!inside(x, y)) continue;
-    g.fillStyle = e.type === 'nest' ? '#ff3b3b' : e.type === 'worm' ? '#ff8a3b' : TYPE_COLOR[e.type] || '#fff';
+    g.fillStyle = e.type === 'nest' ? '#ff3b3b' : e.type === 'worm' ? '#ff8a3b' : multiBase() && fOf(e) !== (myF() || 'f0') ? (isFoeF(myF(), fOf(e)) ? '#ff5a5a' : teamColor(fOf(e))) : TYPE_COLOR[e.type] || '#fff';
     g.fillRect(x, y, Math.max(1.5, s * k), Math.max(1.5, s * k));
   }
   // Aventura: ruinas sin saquear, guaridas con jefe y tu mochila perdida

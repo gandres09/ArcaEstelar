@@ -344,9 +344,14 @@ function turretStep(e, dt) {
     if (d < bd) { bd = d; target = b; }
   }
   let nest = null;
+  // Bases separadas: la torreta le tira al personaje enemigo de esta compu
+  if (!target && multiBase() && playerOn() && isFoeF(fOf(e), myF() || 'f0') && S.player.hp > 0) {
+    const p = S.player, d = wdist(tx, ty, p.x, p.y);
+    if (d < bd) { target = { x: p.x, y: p.y, me: true }; bd = d; }
+  }
   if (!target) {
     for (const n of S.entities) {
-      if (!isEnemyB(n)) continue;
+      if (!isEnemyB(n) && !(multiBase() && isPlayer(n) && isFoeF(fOf(e), fOf(n)))) continue;
       const h = sizeOf(n.type) / 2, d = wdist(tx, ty, n.x + h, n.y + h);
       if (d < bd) { bd = d; nest = n; }
     }
@@ -366,7 +371,10 @@ function turretStep(e, dt) {
   if (!fire) return;
   sfx(e.type === 'laser' ? 'laser' : 'shot', e.x, e.y);
   const dmg = def.dmg * weaponMult() * mkMult(e) * (e.type === 'turret' ? e.shotMul || 1 : 1);
-  if (target) {
+  if (target && target.me) {
+    hurtPlayer(dmg * 0.6, BUILDINGS[e.type].name.toLowerCase() + ' enemiga');
+    shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
+  } else if (target) {
     hitBiter(target, dmg);
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
   } else {
@@ -483,7 +491,7 @@ function updateEnemies(dt) {
   if (tick) { pollTimer -= 1; diffusePollution(); }
   for (const s of shots) s.t += dt;
   while (shots.length && shots[0].t > 0.12) shots.shift();
-  if (S.peaceful || S.surface === 'moon') return;
+  if (S.surface === 'moon' || (S.peaceful && !multiBase())) return;   // con bases separadas, las torretas pelean igual
 
   S.evo = Math.min(1, S.evo + dt * 0.00002);
   if (tick) { nestStep(1); expandNests(1); }

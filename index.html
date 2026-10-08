@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=1791475552">
+  <link rel="stylesheet" href="style.css?v=1791476974">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -146,6 +146,7 @@
         <legend>Modo</legend>
         <label><input type="radio" name="mode" id="opt-character" value="character" checked> Con personaje: empezás sin nada y construís con tus manos</label>
         <label><input type="radio" name="mode" id="opt-classic" value="classic"> Clásico: sin personaje, con materiales para arrancar</label>
+        <label><input type="checkbox" id="opt-multibase"> 🏳️ Bases separadas para jugar en línea: cada jugador con su Nave, su inventario y su investigación, aliados o enemigos (como Age of Empires)</label>
       </fieldset>
       <fieldset class="opts">
         <legend>Enemigos</legend>
@@ -180,7 +181,7 @@
         <li>👆 Tocá el suelo para caminar, y un mineral o un árbol para juntarlo.</li>
         <li>🏗️ Elegí qué construir en la barra de abajo. Lo que llega a la <b>Nave</b> queda guardado.</li>
         <li>🧭 Si no sabés qué hacer, mirá <b>Siguiente paso</b>. Lo demás… se descubre.</li>
-        <li>🌐 Con amigos: ☰ → <b>En línea y amigos</b>.</li>
+        <li>🌐 Con amigos: ☰ → <b>En línea y amigos</b>. Al crear partida podés elegir <b>Bases separadas</b>: cada uno con su Nave, aliados o enemigos.</li>
       </ul>
       <p class="muted small">Teclado: <kbd>WASD</kbd> moverse · <kbd>R</kbd> girar · <kbd>Esc</kbd> cancelar · <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshacer.</p>
 
@@ -271,35 +272,36 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=1791475552"></script>
-  <script src="js/world.js?v=1791475552"></script>
-  <script src="js/sim.js?v=1791475552"></script>
-  <script src="js/circuits.js?v=1791475552"></script>
-  <script src="js/weather.js?v=1791475552"></script>
-  <script src="js/enemies.js?v=1791475552"></script>
-  <script src="js/trains.js?v=1791475552"></script>
-  <script src="js/robots.js?v=1791475552"></script>
-  <script src="js/fluids.js?v=1791475552"></script>
-  <script src="js/player.js?v=1791475552"></script>
-  <script src="js/online.js?v=1791475552"></script>
-  <script src="js/p2p.js?v=1791475552"></script>
-  <script src="js/cloud.js?v=1791475552"></script>
-  <script src="js/pet.js?v=1791475552"></script>
-  <script src="js/rpg.js?v=1791475552"></script>
-  <script src="js/render.js?v=1791475552"></script>
-  <script src="js/vehicles.js?v=1791475552"></script>
-  <script src="js/markers.js?v=1791475552"></script>
-  <script src="js/moon.js?v=1791475552"></script>
-  <script src="js/weapons.js?v=1791475552"></script>
-  <script src="js/suit.js?v=1791475552"></script>
-  <script src="js/vulcan.js?v=1791475552"></script>
-  <script src="js/rpgdraw.js?v=1791475552"></script>
-  <script src="js/audio.js?v=1791475552"></script>
-  <script src="js/ui.js?v=1791475552"></script>
-  <script src="js/progress.js?v=1791475552"></script>
-  <script src="js/blueprints.js?v=1791475552"></script>
-  <script src="js/input.js?v=1791475552"></script>
-  <script src="js/dragdrop.js?v=1791475552"></script>
-  <script src="js/main.js?v=1791475552"></script>
+  <script src="js/data.js?v=1791476974"></script>
+  <script src="js/world.js?v=1791476974"></script>
+  <script src="js/sim.js?v=1791476974"></script>
+  <script src="js/factions.js?v=1791476974"></script>
+  <script src="js/circuits.js?v=1791476974"></script>
+  <script src="js/weather.js?v=1791476974"></script>
+  <script src="js/enemies.js?v=1791476974"></script>
+  <script src="js/trains.js?v=1791476974"></script>
+  <script src="js/robots.js?v=1791476974"></script>
+  <script src="js/fluids.js?v=1791476974"></script>
+  <script src="js/player.js?v=1791476974"></script>
+  <script src="js/online.js?v=1791476974"></script>
+  <script src="js/p2p.js?v=1791476974"></script>
+  <script src="js/cloud.js?v=1791476974"></script>
+  <script src="js/pet.js?v=1791476974"></script>
+  <script src="js/rpg.js?v=1791476974"></script>
+  <script src="js/render.js?v=1791476974"></script>
+  <script src="js/vehicles.js?v=1791476974"></script>
+  <script src="js/markers.js?v=1791476974"></script>
+  <script src="js/moon.js?v=1791476974"></script>
+  <script src="js/weapons.js?v=1791476974"></script>
+  <script src="js/suit.js?v=1791476974"></script>
+  <script src="js/vulcan.js?v=1791476974"></script>
+  <script src="js/rpgdraw.js?v=1791476974"></script>
+  <script src="js/audio.js?v=1791476974"></script>
+  <script src="js/ui.js?v=1791476974"></script>
+  <script src="js/progress.js?v=1791476974"></script>
+  <script src="js/blueprints.js?v=1791476974"></script>
+  <script src="js/input.js?v=1791476974"></script>
+  <script src="js/dragdrop.js?v=1791476974"></script>
+  <script src="js/main.js?v=1791476974"></script>
 </body>
 </html>

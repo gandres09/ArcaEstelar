@@ -34,8 +34,9 @@ function signalNodes() {
   const quick = now + ':' + S.entities.length + ':' + linkLevel();
   if (linkCache.quick === quick) return linkCache.nodes;
   const L = linkLevel();
-  const hub = S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
-  const ants = S.entities.filter((e) => e.type === 'antenna');
+  const me = (typeof myF === 'function' && myF()) || 'f0';
+  const hub = S.entities.find((e) => (e.type === 'hub' || e.type === 'lander') && fOf(e) === me);
+  const ants = S.entities.filter((e) => e.type === 'antenna' && fOf(e) === me);
   const nodes = [];
   if (hub) { const s = sizeOf(hub.type) / 2; nodes.push({ x: hub.x + s, y: hub.y + s, r: SHIP_LINK[L], e: hub }); }
   for (const a of ants) a._linked = false;
@@ -56,7 +57,7 @@ function nearStorage() {
   const p = S.player;
   for (const n of signalNodes()) if (wdist(p.x, p.y, n.x, n.y) <= n.r) return true;
   if (S.techs.logistic_network) {
-    for (const e of S.entities) if (e.type === 'receiver' && wdist(p.x, p.y, e.x + 0.5, e.y + 0.5) <= 4) return true;
+    for (const e of S.entities) if (e.type === 'receiver' && fOf(e) === (myF() || 'f0') && wdist(p.x, p.y, e.x + 0.5, e.y + 0.5) <= 4) return true;
   }
   return false;
 }
@@ -173,6 +174,7 @@ function moveBy(p, dx, dy) {
 
 // Construir: si está cerca se hace ya; si no, va a la cola y el personaje camina hasta ahí
 function userPlace(type, x, y, dir, extra) {
+  if (multiBase() && !myF()) { toast('Primero elegí tu base (aliado o enemigo).'); return null; }
   if (!playerOn()) return place(type, x, y, dir);
   const s = sizeOf(type);
   if (!S.player.queue.length && inReach(x + (s - 1) / 2, y + (s - 1) / 2)) return place(type, x, y, dir);

@@ -83,7 +83,7 @@ const SHIP_SAFE = 28;   // cerca de la nave no aparecen criaturas
 
 const rpgOn = () => playerOn();
 function shipCenter() {
-  const hub = S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
+  const hub = (typeof hubOf === 'function' && hubOf(myF() || 'f0')) || S.entities.find((e) => e.type === 'hub' || e.type === 'lander');
   return hub ? { x: hub.x + sizeOf(hub.type) / 2, y: hub.y + sizeOf(hub.type) / 2 } : { x: W / 2, y: H / 2 };
 }
 // Nivel de peligro de una zona: crece con la distancia a la nave
@@ -365,11 +365,24 @@ function targetsNear(x, y, r) {
   const out = [];
   for (const c of S.creatures) { const d = wdist(x, y, c.x, c.y); if (d <= r + CREATURES[c.k].size * 0.5) out.push({ kind: 'c', o: c, d, x: c.x, y: c.y }); }
   for (const b of S.biters) { if (b.dead) continue; const d = wdist(x, y, b.x, b.y); if (d <= r + 0.3) out.push({ kind: 'b', o: b, d, x: b.x, y: b.y }); }
-  for (const n of S.entities) { if (!isEnemyB(n)) continue; const h = sizeOf(n.type) / 2, d = wdist(x, y, n.x + h, n.y + h); if (d <= r + h) out.push({ kind: 'n', o: n, d, x: n.x + h, y: n.y + h }); }
+  const pvp = multiBase();
+  for (const n of S.entities) { if (!isEnemyB(n) && !(pvp && n.type !== 'hub' && n.type !== 'lander' && isFoeE(n))) continue; const h = sizeOf(n.type) / 2, d = wdist(x, y, n.x + h, n.y + h); if (d <= r + h) out.push({ kind: 'n', o: n, d, x: n.x + h, y: n.y + h }); }
+  // Los personajes enemigos (en línea)
+  if (pvp && NET.on) for (const a of NET.avatars.values()) {
+    const af = a.by && S.factionOf[a.by];
+    if (!af || !isFoeF(myF(), af) || !(a.hpr > 0)) continue;
+    const d = wdist(x, y, a.x, a.y);
+    if (d <= r + 0.4) out.push({ kind: 'p', o: a, d, x: a.x, y: a.y });
+  }
   return out.sort((a, b) => a.d - b.d);
 }
 
 function hitTarget(t, dmg, byMe) {
+  if (t.kind === 'p') {
+    // A otro jugador: el golpe se lo manda a su compu
+    if (byMe) { netPush({ k: 'hp', u: t.o.by, d: Math.round(dmg), n: NET.nick || 'un enemigo' }); t.o.hitT = 0.3; }
+    return;
+  }
   if (t.kind === 'c') {
     const c = t.o;
     c.hp -= dmg; c.hitT = 0.3; c.angry = true;

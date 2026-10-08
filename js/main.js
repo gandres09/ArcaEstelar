@@ -99,6 +99,7 @@ function loadFrom(raw) {
   }
   undoStack.length = 0;
   rebuildGrid();
+  ensureFactions();
   addLegacyUranium();
   // Partidas de antes de los pedidos del Arca: lo que ya estaba en el Dique vuelve a la Nave
   if (S.arkOrder === undefined) {
@@ -156,6 +157,7 @@ function readMapOpts() {
     else o[r.k] = +$('mo-' + r.k).value;
   }
   o.biomes = $('mo-biomes').checked;
+  o.multiBase = $('opt-multibase').checked;
   o.size = $('mo-size').value;
   return o;
 }
@@ -167,6 +169,8 @@ function startNewGame(seed, peaceful, character = true, opts = null) {
   S.powerRules = 1;
   S.mapGen = 8;
   S.mapOpts = opts || defaultMapOpts();
+  S.multiBase = !!(opts && opts.multiBase && character);
+  ensureFactions();
   generateMap(seed);
   loadPollution(null);
   decodeFog(null);

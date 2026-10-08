@@ -574,6 +574,14 @@ function inspectorContent(e) {
   let h = `<div class="insp-head"><b>${e.type === 'hub' ? 'Nave estrellada' : def.name}</b>` +
     `${NO_DIR.has(e.type) ? '' : ` <span class="muted">${DIR_ARROWS[e.dir]}</span>`}` +
     `<button type="button" class="close" data-act="close">✕</button></div>`;
+  // Bases separadas: lo de otro jugador solo se mira
+  if (multiBase() && isPlayer(e) && !isVehicle(e.type) && e.type !== 'train' && fOf(e) !== (myF() || 'f0')) {
+    const f = fOf(e);
+    return h + row('Es de', `<span class="sig-dot" style="background:${teamColor(f)}"></span> ${escapeHtml(factionName(f))}`) +
+      row('Relación', isFoeF(myF(), f) ? '<span class="bad">enemigo: atacalo con armas, torretas o cohetes</span>' : '<span class="ok">aliado</span>') +
+      row('Vida', `${Math.round(e.hp ?? maxHp(e))} / ${Math.round(maxHp(e))}`) +
+      (e.type === 'hub' && !isFoeF(myF(), f) ? '<p class="muted small">Para mandarle cosas, abrí tu propia Nave.</p>' : '');
+  }
   switch (kindOf(e.type)) {
     case 'armory':
       h += armoryHtml();
@@ -583,7 +591,7 @@ function inspectorContent(e) {
         h += `<p>Tu base en ${onVulcan() ? 'Vulcano' : 'la Luna'}. Todo lo que le entra (por cinta, brazo o a mano) llega por radio al <b>inventario de la Nave</b>, en la Tierra. Cerca suyo usás lo que tiene guardado la Nave.</p>` +
           row('Para volver', `${onVulcan() ? 40 : MOON_BACK_FUEL} combustible de cohete (tenés ${Math.floor(avail('rocket_fuel'))})`) +
           '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="earth">🌍 Volver a la Tierra</button></div>';
-      } else h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>';
+      } else h += '<p>Tu nave ya no vuela, pero es tu <b>refugio</b> y tu <b>almacén</b>: todo lo que entra a la Nave va a tu inventario, y cerca de ella usás lo que tiene guardado.</p>' + alliesPanelHtml();
       break;
     case 'vulcanpad':
       h += '<p>Un cohete que te lleva al planeta <b>Vulcano</b>: lava, carbón, calcita y tungsteno. Allá se hace la Fundición, el Taladro grande y la Cinta turbo.</p>' +
@@ -1345,6 +1353,12 @@ $('inspector').addEventListener('pointerdown', (ev) => {
     case 'fuel': {
       const n = feedFrom(e, ['coal', 'solid_fuel', 'wood'], 10);
       if (!n) toast(e.fuel >= 10 ? 'Ya está lleno de combustible.' : 'No tenés carbón ni madera en el inventario.');
+      break;
+    }
+    case 'gift': {
+      const [to, k] = String(v).split('|');
+      const n = giftTo(to, k, 50);
+      toast(n ? `🎁 Le mandaste ${n} ${ITEMS[k].name.toLowerCase()} a ${escapeHtml(factionName(to))}.` : 'No se pudo mandar.');
       break;
     }
     case 'takespent':

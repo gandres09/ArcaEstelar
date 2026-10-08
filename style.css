@@ -653,3 +653,5 @@ input.mk-name:focus { border-color: var(--accent); outline: none; }
 .suit-grid .pick.empty { border: 1px dashed var(--border); border-radius: 8px; height: 44px; }
 .lore { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; margin: 6px 0 10px; font-style: normal; }
 .lore p { margin: 6px 0; line-height: 1.45; }
+#team-pick { display: flex; align-items: center; justify-content: center; }
+#team-pick .modal-box { max-width: 460px; }

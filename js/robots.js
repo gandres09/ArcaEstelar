@@ -25,6 +25,7 @@ function addGhost(type, x, y, dir, extra = {}) {
   if (ghostAt(x, y)) return null;
   if (!placeableIgnoringCost(type, x, y).ok) return null;
   const g = { id: S.nextId++, type, x, y, dir, recipe: extra.recipe || null, filter: extra.filter || null };
+  if (S.factions && curF && curF !== 'f0') g.f = curF;
   S.ghosts.push(g);
   netPush({ k: 'g', t: type, x, y, d: dir, r: g.recipe, f: g.filter });
   return g;
@@ -86,9 +87,11 @@ function updateRobots(dt) {
     }
   }
   for (const job of jobs) {
-    const port = portsCovering(job.x, job.y).filter((p) => p.busy < BUILDINGS.roboport.bots)
+    const jf = job.ghost ? fOf(job.ghost) : fOf(job.repair);   // cada uno con sus robots
+    const port = portsCovering(job.x, job.y).filter((p) => p.busy < BUILDINGS.roboport.bots && fOf(p) === jf)
       .sort((a, b) => wdist(a.x, a.y, job.x, job.y) - wdist(b.x, b.y, job.x, job.y))[0];
     if (!port) continue;
+    useFaction(jf);
     // Los materiales salen del inventario al despegar
     if (job.ghost) {
       // Los robots sacan los materiales de la Nave
@@ -97,11 +100,16 @@ function updateRobots(dt) {
     } else if ((S.inv.iron_plate || 0) >= 1) S.inv.iron_plate -= 1;
     else continue;
     port.busy++;
-    S.flights.push({ job: job.key, gtype: job.ghost ? job.ghost.type : null, port: port.id, x: port.x + 0.5, y: port.y + 0.5, px: port.x + 0.5, py: port.y + 0.5, tx: job.x + 0.5, ty: job.y + 0.5, back: false });
+    S.flights.push({ job: job.key, f: jf, gtype: job.ghost ? job.ghost.type : null, port: port.id, x: port.x + 0.5, y: port.y + 0.5, px: port.x + 0.5, py: port.y + 0.5, tx: job.x + 0.5, ty: job.y + 0.5, back: false });
   }
+  if (S.factions) useMine();
 }
 
 function finishJob(f) {
+  if (S.factions) return asFaction(f.f || 'f0', () => finishJobInner(f));
+  return finishJobInner(f);
+}
+function finishJobInner(f) {
   if (f.job[0] === 'g') {
     const id = +f.job.slice(1);
     const g = S.ghosts.find((x) => x.id === id);
@@ -142,16 +150,17 @@ function updateLogistics(dt) {
     f.x = leg[0]; f.y = leg[1];
     if (leg[2] === 'pick') {
       const src = f.src === 'hub' ? null : S.entities.find((e) => e.id === f.src);
-      const have = src ? (src.store[f.item] || 0) : Math.floor(S.inv[f.item] || 0);
+      const finv = S.factions && f.port ? factionInv(S.entities.find((e) => e.id === f.port)) : S.inv;
+      const have = src ? (src.store[f.item] || 0) : Math.floor(finv[f.item] || 0);
       const n = Math.min(f.n, have);
       if (n <= 0) { f.i = f.legs.length - 1; continue; }   // ya no estaba: vuelve
-      if (src) { src.store[f.item] -= n; src.total -= n; if (!src.store[f.item]) delete src.store[f.item]; } else S.inv[f.item] -= n;
+      if (src) { src.store[f.item] -= n; src.total -= n; if (!src.store[f.item]) delete src.store[f.item]; } else finv[f.item] -= n;
       f.carry = n;
     } else if (leg[2] === 'drop') {
       const dst = f.dst === 'player' ? null : S.entities.find((e) => e.id === f.dst);
       if (dst) { add(dst.store, f.item, f.carry); dst.total += f.carry; }
       else if (f.dst === 'player' && S.player) add(S.pinv, f.item, f.carry);
-      else add(S.inv, f.item, f.carry);
+      else add(S.factions && f.port ? factionInv(S.entities.find((e) => e.id === f.port)) : S.inv, f.item, f.carry);
       f.carry = 0;
     } else { f.done = true; continue; }
     f.i++;
@@ -162,24 +171,31 @@ function updateLogistics(dt) {
   }
 
   S.logiTimer = (S.logiTimer || 0) + dt;
-  if (S.logiTimer < 1 || !logisticsOn()) return;
+  if (S.logiTimer < 1) return;
   S.logiTimer = 0;
-  const ports = S.entities.filter((p) => p.type === 'roboport' && p.powered);
+  // Con bases separadas, cada jugador con sus cofres, sus puertos y su Nave
+  const fs = S.factions ? Object.keys(S.factions) : ['f0'];
+  for (const f of fs) { if (S.factions) useFaction(f); if (logisticsOn()) logisticsFor(f); }
+  if (S.factions) useMine();
+}
+function logisticsFor(LF) {
+  const mine = (e) => fOf(e) === LF;
+  const ports = S.entities.filter((p) => p.type === 'roboport' && p.powered && mine(p));
   if (!ports.length) return;
   const busy = {};
   for (const f of S.lflights) busy[f.port] = (busy[f.port] || 0) + 1;
   const freePort = (x, y) => ports.filter((p) => (busy[p.id] || 0) < LOGI_BOTS)
     .sort((a, b) => wdist(a.x, a.y, x, y) - wdist(b.x, b.y, x, y))[0];
-  const providers = S.entities.filter((e) => LOGI_SOURCES.has(e.type) && e.total > 0 && portNear(e));
-  const hub = S.entities.find((e) => e.type === 'hub');
+  const providers = S.entities.filter((e) => LOGI_SOURCES.has(e.type) && e.total > 0 && mine(e) && portNear(e));
+  const hub = S.entities.find((e) => e.type === 'hub' && mine(e));
   const hubIn = hub && portNear(hub);
   // Lo que ya viene en camino a cada cofre
   const coming = {};
   for (const f of S.lflights) if (f.i <= f.legs.findIndex((l) => l[2] === 'drop')) { const k = f.dst + ':' + f.item; coming[k] = (coming[k] || 0) + f.n; }
   // Quién pide: cofres de pedido y de búfer, y el personaje (sus pedidos personales)
-  const askers = S.entities.filter((r) => (r.type === 'requesterchest' || r.type === 'bufferchest') && r.req && portNear(r));
+  const askers = S.entities.filter((r) => (r.type === 'requesterchest' || r.type === 'bufferchest') && r.req && mine(r) && portNear(r));
   const pl = S.player;
-  if (playerOn() && pl.lreq && Object.keys(pl.lreq).length && portsCovering(Math.floor(pl.x), Math.floor(pl.y)).length) {
+  if (playerOn() && LF === (myF() || 'f0') && pl.lreq && Object.keys(pl.lreq).length && portsCovering(Math.floor(pl.x), Math.floor(pl.y)).length) {
     askers.push({ id: 'player', x: pl.x - 0.5, y: pl.y - 0.5, req: pl.lreq, store: S.pinv, total: 0, player: true });
   }
   for (const r of askers) {
@@ -212,9 +228,9 @@ function updateLogistics(dt) {
     }
   }
   // Provisión activa: se vacía en los cofres de almacenamiento (o en la Nave)
-  const storages = S.entities.filter((e) => e.type === 'storagechest' && portNear(e));
+  const storages = S.entities.filter((e) => e.type === 'storagechest' && mine(e) && portNear(e));
   for (const a of S.entities) {
-    if (a.type !== 'activechest' || !a.total || !portNear(a)) continue;
+    if (a.type !== 'activechest' || !a.total || !mine(a) || !portNear(a)) continue;
     const item = Object.keys(a.store).find((k) => a.store[k] > 0);
     if (!item) continue;
     const reserved = S.lflights.filter((f) => f.src === a.id && !f.carry).reduce((x, f) => x + f.n, 0);

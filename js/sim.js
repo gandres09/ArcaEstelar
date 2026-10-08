@@ -351,6 +351,7 @@ function place(type, x, y, dir, opts = {}) {
   }
   const e = makeEntity(type, x, y, dir);
   e.id = S.nextId++;
+  if (S.factions && curF && curF !== 'f0') e.f = curF;   // de quién es (bases separadas)
   if (type === 'underground') e.mode = undergroundModeFor(x, y, dir);
   S.entities.push(e);
   occupy(e, e);
@@ -376,6 +377,7 @@ function place(type, x, y, dir, opts = {}) {
 
 function removeEntity(e, opts = {}) {
   if (!e || e.type === 'hub' || e.type === 'lander' || isEnemyB(e) || !S.entities.includes(e)) return false;
+  if (!opts.destroyed && multiBase() && fOf(e) !== curF) return false;   // lo de otro jugador no se desarma
   if (!opts.destroyed) {
     if (!opts.silent) sfx('remove');
     if (!opts.noRefund) {
@@ -589,7 +591,8 @@ function accept(t, item, src, dry = false, lane = -1) {
     case 'hub': case 'receiver':
       // El receptor necesita energía para mandar las cosas a la Nave
       if (t.type === 'receiver' && !(t.sat > 0.3)) return false;
-      return ok(() => { add(S.inv, item, 1); add(S.delivered, item, 1); if (t.type === 'receiver') t.busyT = 1; });
+      // Va a la Nave del dueño (con bases separadas, cada uno tiene la suya)
+      return ok(() => { add(factionInv(t), item, 1); add(S.factions ? S.factions[fOf(t)].delivered : S.delivered, item, 1); if (t.type === 'receiver') t.busyT = 1; });
     case 'belt': case 'fastbelt': case 'expressbelt': case 'underground': case 'splitter': case 'sorter': {
       if (t.type === 'underground' && t.mode !== 'in') return false;
       const [dx, dy] = DIRS[t.dir];
@@ -737,9 +740,11 @@ function takeFrom(src, dst, ins) {
       if (!hasTech('logistic_network') || !(src.sat > 0.3)) return null;
       src.busyT = 1;
     // fallthrough: con la red logística, el receptor da acceso al inventario
-    case 'hub':
-      for (const k of wantedBy(dst)) if ((S.inv[k] || 0) >= 1 && want(k)) { S.inv[k]--; return k; }
+    case 'hub': {
+      const inv = factionInv(src);
+      for (const k of wantedBy(dst)) if ((inv[k] || 0) >= 1 && want(k)) { inv[k]--; return k; }
       return null;
+    }
   }
   return null;
 }
@@ -799,25 +804,27 @@ function labSpeedMult() { return 1 + 0.1 * infLevel('inf_lab'); }
 
 function setResearch(id) {
   if (!techAvailable(id)) return;
-  if (S.research.current !== id) S.research = { current: id, progress: 0 };
+  if (S.research.current !== id) setRes(id);
   netPush({ k: 'R', id });
 }
+
+// Cambia la investigación sin reemplazar el objeto (con bases separadas, es el de la facción)
+function setRes(id) { S.research.current = id; S.research.progress = 0; delete S.research._done; }
 
 function finishResearch() {
   const id = S.research.current;
   const name = techName(id);
-  for (const e of S.entities) if (e.type === 'lab') { e.prog = 0; e.working = false; }
+  for (const e of S.entities) if (e.type === 'lab' && fOf(e) === (curF || 'f0')) { e.prog = 0; e.working = false; }
   if (TECHS[id].infinite) {
     // Las infinitas siguen solas con el próximo nivel
     S.inf = S.inf || {};
     S.inf[id] = infLevel(id) + 1;
-    S.research = { current: id, progress: 0 };
+    setRes(id);
   } else {
     S.techs[id] = true;
-    S.research = { current: null, progress: 0 };
+    setRes(null);
   }
-  toast(`🔬 Investigación terminada: <b>${name}</b>`);
-  sfx('research');
+  if (!S.factions || curF === myF()) { toast(`🔬 Investigación terminada: <b>${name}</b>`); sfx('research'); }
   onTechFinished(id);
   save();
 }
@@ -850,7 +857,9 @@ function update(dt) {
   readSignals();
   heatStep(dt);
   const moonAir = S.surface === 'moon';
+  const mb = multiBase(), doneF = new Set();
   for (const e of S.entities) {
+    if (mb && fOf(e) !== curF) useFaction(fOf(e));   // cada edificio usa la Nave y la investigación de su dueño
     const def = BUILDINGS[e.type];
     if (moonAir && BURNERS.has(e.type)) { e.active = false; continue; }   // sin oxígeno no hay fuego
     // Red de señales: si la condición no se cumple, el edificio queda apagado
@@ -1119,7 +1128,8 @@ function update(dt) {
 
       case 'lab': {
         e.active = false;
-        if (!tech || researchDone) break;
+        const tech = S.research.current && TECHS[S.research.current];
+        if (!tech || S.research._done) break;
         if (!e.working) {
           if (tech.packs.every((p) => (e.packs[p] || 0) >= 1)) {
             for (const p of tech.packs) e.packs[p]--;
@@ -1138,7 +1148,7 @@ function update(dt) {
           S.research.progress++;
           e.bonus = (e.bonus || 0) + lfx.prod;
           if (e.bonus >= 1) { e.bonus -= 1; S.research.progress++; }
-          if (S.research.progress >= techUnits(S.research.current)) researchDone = true;
+          if (S.research.progress >= techUnits(S.research.current)) { S.research._done = true; researchDone = true; doneF.add(curF); }
         }
         break;
       }
@@ -1302,7 +1312,8 @@ function update(dt) {
     }
   }
 
-  if (researchDone) finishResearch();
+  if (S.factions) useMine();
+  if (researchDone) for (const f of (doneF.size ? doneF : ['f0'])) asFaction(f, finishResearch);
   S.stageTimer = (S.stageTimer || 0) + dt;
   if (S.stageTimer >= 1) { S.stageTimer -= 1; stageTick(); }
   updateFluids();
@@ -1444,7 +1455,7 @@ function sensorValue(e) {
   if (!t) return 0;
   const it = e.item || '*';
   const fromStore = (st) => (it === '*' ? Object.values(st).reduce((a, b) => a + b, 0) : st[it] || 0);
-  if (t.type === 'hub') return Math.floor(fromStore(S.inv));
+  if (t.type === 'hub') return Math.floor(fromStore(factionInv(t)));
   if (t.store) return fromStore(t.store);
   if (t.type === 'accumulator') return Math.round(100 * (t.stored || 0) / BUILDINGS.accumulator.capacity);
   if (t.type === 'pipe' || t.type === 'fluidtank') { const n = fnets[t._fnet]; return n && (it === '*' || n.fluid === it) ? Math.floor(n.amount) : 0; }

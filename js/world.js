@@ -312,6 +312,8 @@ function generateMap(seed) {
 
   // Partidas de antes del uranio: sus menas agregadas después (siempre iguales)
   if (gen < 8 && S && Array.isArray(S.uranPatches)) S.uranPatches.forEach(([px, py, r], i) => uranPatch(px, py, r, i));
+  // Bases de los otros jugadores: sus menas de inicio
+  applyBasePatches();
 
   // Despejar la zona de la Nave
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) { oreType[y * W + x] = 0; oreAmt[y * W + x] = 0; }

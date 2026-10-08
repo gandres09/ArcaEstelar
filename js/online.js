@@ -67,6 +67,7 @@ function netFlush() {
   if (!NET.out.length) return;
   for (let a of NET.out) {
     if (a.lazy) { const e = a.lazy; a = { k: 'p', t: e.type, x: e.x, y: e.y, d: e.dir, f: entFields(e) }; }
+    if (S.factions && a.fx === undefined) a.fx = myF() || 'f0';   // de qué jugador es (bases separadas)
     const s = ++NET.seq;
     NET.own.push({ s, a });
     if (NET.role === 'host') NET.log.push({ g: ++NET.gs, c: NET.cid, a });
@@ -81,6 +82,8 @@ function netFlush() {
 
 function netApply(a) {
   NET.applying = true;
+  const prevF = curF;
+  if (S.factions && a.fx && S.factions[a.fx]) useFaction(a.fx);
   try {
     switch (a.k) {
       case 'p': {
@@ -103,7 +106,7 @@ function netApply(a) {
       case 'cx': blowCliffs(a.x, a.y); return true;
       case 'g': addGhost(a.t, a.x, a.y, a.d, { recipe: a.r, filter: a.f }); return true;
       case 'gx': removeGhostsIn(a.r); return true;
-      case 'R': if (TECHS[a.id] && techAvailable(a.id) && S.research.current !== a.id) S.research = { current: a.id, progress: 0 }; return true;
+      case 'R': if (TECHS[a.id] && techAvailable(a.id) && S.research.current !== a.id) setRes(a.id); return true;
       case 'L': {
         const y = at(a.x, a.y);
         if (y && (y.type === 'shipyard' || y.type === 'starport') && !launchAnim) { closeInspector(); startLaunch(y); }
@@ -113,7 +116,11 @@ function netApply(a) {
       // Aventura: golpes, botín y ruinas de los demás jugadores
       case 'hc': { const c = (S.creatures || []).find((k) => k.id === a.id); if (c) { c.hp -= a.d; c.angry = true; if (c.hp <= 0 && !c.dead) killCreature(c, false); } return true; }
       case 'hb': { const b = S.biters.find((k) => k.id === a.id); if (b && !b.dead) { b.hp -= a.d; if (b.hp <= 0) { b.dead = true; dropLoot(b.x, b.y, [['quitina', 0.35, 1, 1]], 1); } } return true; }
-      case 'hn': { const n = at(a.x, a.y); if (isEnemyB(n)) damageEntity(n, a.d); return true; }
+      case 'hn': { const n = at(a.x, a.y); if (n) damageEntity(n, a.d); return true; }
+      // Bases separadas: un jugador nuevo arma su base, regalos entre aliados y golpes entre jugadores
+      case 'nf': if (a.u && !(S.factionOf || {})[a.u]) createFaction(a.u, a.t, a.n); return true;
+      case 'gift': if (S.factions && S.factions[a.to] && ITEMS[a.i] && a.n > 0) add(S.factions[a.to].inv, a.i, a.n); return true;
+      case 'hp': if (a.u && a.u === NET.uid && S.player) hurtPlayer(a.d, a.n); return true;
       case 'pk': if (S.drops) S.drops = S.drops.filter((d) => d.id !== a.id); return true;
       case 'rl': { const r = (S.ruins || []).find((k) => k.id === a.id); if (r) r.looted = true; return true; }
       case 'me': {
@@ -147,6 +154,7 @@ function netApply(a) {
     return false;
   } finally {
     NET.applying = false;
+    if (S.factions) useFaction(prevF);
   }
 }
 
@@ -384,6 +392,7 @@ function applyShared(obj, first) {
     S.vehicles.push(myV);
   }
   rebuildGrid();
+  ensureFactions();
   // Lo que pasó después de la foto se vuelve a aplicar encima
   const after = obj.gs || 0;
   for (const x of NET.buf) if (x.g > after) netApply(x.a);
@@ -392,6 +401,7 @@ function applyShared(obj, first) {
   NET.lastGs = Math.max(NET.lastGs, after);
   NET.shadow = { ...S.inv };
   netRemapRefs();
+  if (first || !same) setTimeout(checkNeedBase, 600);
 }
 
 // Después de cambiar todo el estado, las referencias viejas apuntan a los edificios nuevos

@@ -152,7 +152,7 @@ function travel(to) {
   unpackSurface(to, saved);
   // Dónde aparecés: al lado del módulo lunar, o de la plataforma de la Tierra (o de la Nave)
   const p = S.player;
-  const base = S.entities.find((e) => e.type === (to !== 'earth' ? 'lander' : from === 'vulcan' ? 'vulcanpad' : 'moonpad')) || S.entities.find((e) => e.type === 'hub');
+  const base = S.entities.find((e) => e.type === (to !== 'earth' ? 'lander' : from === 'vulcan' ? 'vulcanpad' : 'moonpad')) || hubOf(myF() || 'f0') || S.entities.find((e) => e.type === 'hub');
   const bx = base ? base.x + sizeOf(base.type) / 2 : W / 2, by = base ? base.y + sizeOf(base.type) + 1.5 : H / 2;
   p.x = bx; p.y = by; p.path = null; p.mine = null; p.queue.length = 0; p.surf = to;
   if (p.pet && !p.pet.gone) { p.pet.x = bx - 1; p.pet.y = by; }
