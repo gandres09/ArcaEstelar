@@ -416,7 +416,11 @@ async function init() {
   $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
   initCloud();
-  netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => { if (!p2pFromUrl()) serverAutoStart(); });
+  netInit().catch(() => {}).then(() => cloudInit(fresh)).then(() => {
+    if (p2pFromUrl()) return;
+    // Con ?servidor=1 en el link, esta compu arranca sola como servidor
+    if (new URLSearchParams(location.search).get('servidor') === '1') { closeModals(); setTimeout(() => startServerMode(false), 1500); } else serverAutoStart();
+  });
   $('btn-server').addEventListener('click', () => startServerMode(false));
   // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
   $('btn-public').hidden = !(typeof P2P !== 'undefined' && P2P.standalone);
