@@ -31,27 +31,40 @@ const ACHIEVEMENTS = [
 
 const countOf = (type) => { let n = 0; for (const e of S.entities) if (e.type === type) n++; return n; };
 
+// Dónde se guardan los logros: en tu partida; jugando en el mundo de otro, en esta compu
+// (si no, cada foto del mundo que llega del anfitrión los "borra" y vuelven a salir)
+let achLocal = null, achLocalKey = '';
+function achStore() {
+  if (!(typeof NET !== 'undefined' && NET.on && NET.role !== 'host')) { S.ach = S.ach || {}; return S.ach; }
+  const key = 'mini-fabrica-logros-' + S.seed + '-' + (NET.uid || NET.nick || '');
+  if (achLocalKey !== key) {
+    achLocalKey = key;
+    try { achLocal = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (_) { achLocal = {}; }
+  }
+  return achLocal;
+}
 function checkAchievements() {
-  S.ach = S.ach || {};
+  const ach = achStore();
   for (const a of ACHIEVEMENTS) {
-    if (S.ach[a.id] || !a.test()) continue;
-    S.ach[a.id] = Math.round(S.playTime);
+    if (ach[a.id] !== undefined || !a.test()) continue;
+    ach[a.id] = Math.round(S.playTime);
+    if (ach === achLocal) { try { localStorage.setItem(achLocalKey, JSON.stringify(achLocal)); } catch (_) { /* nada */ } }
     toast(`🏆 Logro: <b>${a.name}</b>`);
     sfx('research');
   }
 }
 
 function renderAchievements() {
-  S.ach = S.ach || {};
-  const got = ACHIEVEMENTS.filter((a) => S.ach[a.id]).length;
+  const ach = achStore();
+  const got = ACHIEVEMENTS.filter((a) => ach[a.id] !== undefined).length;
   let h = `<p class="muted">${got} de ${ACHIEVEMENTS.length} logros</p><div class="ach-list">`;
   for (const a of ACHIEVEMENTS) {
-    const done = S.ach[a.id] !== undefined;
+    const done = ach[a.id] !== undefined;
     const p = !done && a.prog ? a.prog() : null;
     h += `<div class="ach ${done ? 'done' : ''}">
       <div class="ach-icon">${done ? '🏆' : '🔒'}</div>
       <div><b>${a.name}</b><div class="muted small">${a.desc}</div>
-      ${done ? `<div class="ok small">Logrado a los ${Math.floor(S.ach[a.id] / 60)} min</div>` : ''}
+      ${done ? `<div class="ok small">Logrado a los ${Math.floor(ach[a.id] / 60)} min</div>` : ''}
       ${p ? `<div class="bar"><div style="width:${Math.min(100, 100 * p[0] / p[1]).toFixed(0)}%"></div></div><div class="muted small">${fmt(p[0])} / ${fmt(p[1])}</div>` : ''}</div>
     </div>`;
   }
