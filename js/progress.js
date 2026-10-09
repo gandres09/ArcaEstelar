@@ -43,15 +43,28 @@ function achStore() {
   }
   return achLocal;
 }
+// Los logros ya anunciados en esta compu, por mundo: nunca se anuncia dos veces el mismo
+const ACH_SEEN_KEY = 'mini-fabrica-logros-vistos';
+function achSeen() {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(ACH_SEEN_KEY) || '{}') || {}; } catch (_) { all = {}; }
+  return all;
+}
 function checkAchievements() {
+  if (!S || (typeof NET !== 'undefined' && (NET.busy || NET.loading))) return;   // cambiando de mundo: se espera
   const ach = achStore();
+  const seenAll = achSeen(), w = String(S.seed), seen = new Set(seenAll[w] || []);
+  let changed = false;
   for (const a of ACHIEVEMENTS) {
     if (ach[a.id] !== undefined || !a.test()) continue;
     ach[a.id] = Math.round(S.playTime);
     if (ach === achLocal) { try { localStorage.setItem(achLocalKey, JSON.stringify(achLocal)); } catch (_) { /* nada */ } }
+    if (seen.has(a.id)) continue;
+    seen.add(a.id); changed = true;
     toast(`🏆 Logro: <b>${a.name}</b>`);
     sfx('research');
   }
+  if (changed) { seenAll[w] = [...seen]; try { localStorage.setItem(ACH_SEEN_KEY, JSON.stringify(seenAll)); } catch (_) { /* nada */ } }
 }
 
 function renderAchievements() {
