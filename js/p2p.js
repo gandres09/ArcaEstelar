@@ -326,6 +326,13 @@ function p2pOnGuestMessage(m) {
       p2pFire(m.room, p2pPeersOf(m.room).filter((p) => p.peer !== P2P.me));
       break;
     }
+    case 'go':   // es el servidor de la laptop: vamos a su dirección
+      if (typeof m.url === 'string' && /^https:\/\/[^/]+$/.test(m.url)) {
+        toast('🌍 Te llevo al servidor de la laptop…');
+        try { localStorage.setItem('mini-fabrica-servidor-url', m.url); } catch (_) { /* nada */ }
+        setTimeout(() => { location.href = m.url; }, 700);
+      }
+      break;
     case 'dump':
       for (const [path, body] of m.store) p2pStore.set(path, body);
       for (const l of p2pDbListeners) l.fire();
@@ -563,8 +570,36 @@ async function wsConnect(admin) {
   return false;
 }
 
+// Faro: el servidor de la laptop atiende el botón "Entrar al servidor público" de la página de
+// GitHub y le dice a dónde ir (su dirección de Tailscale), así nadie tiene que acordársela
+let beaconPeer = null;
+async function wsBeacon() {
+  if (beaconPeer) return;
+  if (!window.ARCA_URL) {
+    try { window.ARCA_URL = (await (await fetch('/estado', { cache: 'no-store' })).json()).direccion || ''; } catch (_) { /* nada */ }
+    if (!window.ARCA_URL) { setTimeout(wsBeacon, 60000); return; }
+  }
+  try { await p2pLoadLib(); } catch (_) { setTimeout(wsBeacon, 60000); return; }
+  const open = () => new Promise((res) => {
+    const peer = new window.Peer(P2P_PREFIX + P2P_PUBLIC, p2pPeerOptions(true));
+    const t = setTimeout(() => { try { peer.destroy(); } catch (_) { /* nada */ } res(null); }, 20000);
+    peer.on('open', () => { clearTimeout(t); res(peer); });
+    peer.on('error', () => { clearTimeout(t); try { peer.destroy(); } catch (_) { /* nada */ } res(null); });
+  });
+  const peer = await open();
+  if (!peer) { setTimeout(wsBeacon, 30000); return; }
+  beaconPeer = peer;
+  peer.on('connection', (conn) => {
+    conn.on('open', () => { p2pSend(conn, { t: 'go', url: window.ARCA_URL }); setTimeout(() => { try { conn.close(); } catch (_) { /* nada */ } }, 4000); });
+  });
+  peer.on('disconnected', () => { try { if (!peer.destroyed) peer.reconnect(); } catch (_) { /* nada */ } });
+  peer.on('close', () => { if (beaconPeer === peer) { beaconPeer = null; setTimeout(wsBeacon, 5000); } });
+  setInterval(() => { if (beaconPeer === peer && (peer.destroyed || peer.disconnected)) { try { peer.destroy(); } catch (_) { /* nada */ } beaconPeer = null; wsBeacon(); } }, 30000);
+}
+
 // La pestaña del servidor: carga el mundo guardado (o arma uno nuevo) y lo lleva
 async function wsBootServer() {
+  setTimeout(wsBeacon, 3000);
   await new Promise((r) => setTimeout(r, 1500));   // que lleguen los mundos guardados
   const wid = Object.keys(NET.worlds || {})[0];
   if (wid) await netJoin(wid);

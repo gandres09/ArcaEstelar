@@ -33,6 +33,31 @@ const arg = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 
 const flag = (name) => args.includes('--' + name);
 const PORT = +arg('puerto', process.env.PORT || 8080);
 const SIZE = arg('tamano', 'enorme');
+// La dirección pública (la de Tailscale Funnel). Se puede poner a mano con --url; si no, se averigua sola.
+let PUBLIC_URL = arg('url', process.env.ARCA_URL || '');
+function findPublicUrl() {
+  if (arg('url', process.env.ARCA_URL || '')) return;
+  const exe = process.platform === 'win32' ? 'tailscale.exe' : 'tailscale';
+  const cands = process.platform === 'win32' ? [exe, 'C:\\Program Files\\Tailscale\\tailscale.exe'] : [exe, '/Applications/Tailscale.app/Contents/MacOS/Tailscale'];
+  const tryOne = (i) => {
+    if (i >= cands.length) return;
+    let out = '';
+    let p;
+    try { p = spawn(cands[i], ['status', '--json'], { stdio: ['ignore', 'pipe', 'ignore'] }); } catch (_) { tryOne(i + 1); return; }
+    p.on('error', () => tryOne(i + 1));
+    p.stdout.on('data', (d) => { out += d; });
+    p.on('exit', (code) => {
+      if (code !== 0) { tryOne(i + 1); return; }
+      try {
+        const name = String(JSON.parse(out).Self.DNSName || '').replace(/\.$/, '');
+        if (name && ('https://' + name) !== PUBLIC_URL) { PUBLIC_URL = 'https://' + name; log('🌍 Dirección para jugar desde cualquier lado: ' + PUBLIC_URL); }
+      } catch (_) { /* nada */ }
+    });
+  };
+  tryOne(0);
+}
+findPublicUrl();
+setInterval(findPublicUrl, 10 * 60 * 1000);
 const TOKEN = crypto.randomBytes(12).toString('hex');   // solo para el Chrome del servidor
 
 const log = (...a) => console.log(new Date().toLocaleTimeString(), ...a);
@@ -222,7 +247,7 @@ function serve(req, res) {
   if (u.pathname === '/estado') {
     const players = [...clients.values()].filter((c) => !c.admin).map((c) => c.uid);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ ok: true, jugadores: players, servidorConectado: [...clients.values()].some((c) => c.admin), partesGuardadas: store.size, guardadoHace: lastSave ? Math.round((Date.now() - lastSave) / 1000) + ' s' : 'todavía no' }, null, 1));
+    res.end(JSON.stringify({ ok: true, jugadores: players, servidorConectado: [...clients.values()].some((c) => c.admin), direccion: PUBLIC_URL || null, partesGuardadas: store.size, guardadoHace: lastSave ? Math.round((Date.now() - lastSave) / 1000) + ' s' : 'todavía no' }, null, 1));
     return;
   }
   let rel = decodeURIComponent(u.pathname);
@@ -233,7 +258,7 @@ function serve(req, res) {
     if (err) { res.writeHead(404); res.end('No está'); return; }
     let out = body;
     if (rel === '/index.html') {
-      const cfg = `<script>window.ARCA_SERVER = true; window.ARCA_NEW = ${JSON.stringify({ size: SIZE, multiBase: true, peaceful: flag('pacifico') })};</script>`;
+      const cfg = `<script>window.ARCA_SERVER = true; window.ARCA_NEW = ${JSON.stringify({ size: SIZE, multiBase: true, peaceful: flag('pacifico') })}; window.ARCA_URL = ${JSON.stringify(PUBLIC_URL || '')};${arg('sala-prueba') ? ` window.P2P_PUBLIC_CODE = ${JSON.stringify(arg('sala-prueba'))};` : ''}</script>`;
       out = Buffer.from(body.toString('utf8').replace('<head>', '<head>\n  ' + cfg));
     }
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
