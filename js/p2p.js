@@ -257,8 +257,8 @@ function p2pNickOf(uid) {
 const p2pUser = {
   id: async () => P2P.uid,
   me: async () => ({ id: P2P.uid, name: '', color: '#3987e5' }),
-  can: async () => P2P.host,       // el mundo lo lleva solo la compu que abrió la sala
-  canEdit: async () => P2P.host,
+  can: async () => P2P.host || !!P2P.admin,       // el mundo lo lleva solo la compu que abrió la sala (o el servidor)
+  canEdit: async () => P2P.host || !!P2P.admin,
   isOwner: async () => P2P.host,
   search: async () => [],
   profiles: async (ids) => Object.fromEntries([].concat(ids).map((i) => [i, { id: i, name: p2pNickOf(i), color: '#3987e5', isMe: i === P2P.uid }])),
@@ -440,6 +440,13 @@ async function p2pStartGame() {
 
 function p2pLostHost() {
   if (!P2P.peer) return;
+  if (P2P.ws) {
+    const admin = P2P.admin;
+    toast(admin ? 'Se cortó la conexión con el servidor. Reintento…' : '🔌 Se cortó la conexión con el servidor. Reintento solo…');
+    p2pClose(true);
+    wsRetry(admin, 0);
+    return;
+  }
   const code = P2P.code;
   toast('🔌 Se cortó la conexión con el anfitrión. Reintento solo…');
   p2pClose();
@@ -452,6 +459,82 @@ function p2pRetry(code, n) {
     if (P2P.peer) return;
     if (!(await p2pJoin(code))) p2pRetry(code, n + 1);
   }, n ? 8000 : 3000);
+}
+
+// --------------------------- Servidor dedicado (la laptop) ---------------------------
+// Cuando el juego se abre desde el servidor de la laptop, se conecta por WebSocket a ese
+// servidor, que guarda el mundo en el disco y reparte lo de cada uno (igual que la sala con
+// código, pero siempre prendido y sin depender de la conexión directa entre compus).
+const ARCA_SERVER = !!window.ARCA_SERVER;
+const wsUrl = () => (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+
+async function wsConnect(admin) {
+  if (P2P.peer) return true;
+  if (!admin) {
+    if (!NET.nick) { try { NET.nick = cleanNick(localStorage.getItem(NICK_KEY)); } catch (_) { /* nada */ } }
+    if (!NET.nick) {
+      const n = cleanNick(prompt('¿Cómo te llamás en el juego? Usá siempre el mismo nombre (en la compu y en el celular) para seguir con tu personaje y tu base.') || '');
+      if (n.length < 2) { toast('Para entrar escribí tu nombre de jugador (☰ → 🌍 Entrar al servidor).'); return false; }
+      NET.nick = n;
+      try { localStorage.setItem(NICK_KEY, n); } catch (_) { /* nada */ }
+    }
+  }
+  P2P.uid = admin ? 'servidor' : p2pNameUid(NET.nick);
+  p2pSetStatus('Conectando al servidor…');
+  const q = new URLSearchParams(location.search);
+  const url = wsUrl() + '?uid=' + encodeURIComponent(P2P.uid) + (admin ? '&k=' + encodeURIComponent(q.get('k') || '') : '');
+  const ok = await new Promise((res) => {
+    let ws;
+    try { ws = new WebSocket(url); } catch (_) { res(false); return; }
+    const timer = setTimeout(() => { try { ws.close(); } catch (_) { /* nada */ } res(false); }, 12000);
+    const conn = { peer: 'srv', open: false, send: (s) => { if (ws.readyState === 1) ws.send(s); }, close: () => ws.close() };
+    const recv = p2pReceiver((m) => {
+      if (m && m.t === 'hello') {
+        clearTimeout(timer);
+        P2P.me = m.peer; P2P.admin = !!m.admin; P2P.ws = true; P2P.host = false; P2P.code = 'SERVIDOR';
+        P2P.peer = { destroy: () => { try { ws.close(); } catch (_) { /* nada */ } } };
+        P2P.hostConn = conn; conn.open = true;
+        res(true);
+        return;
+      }
+      p2pOnGuestMessage(m);
+    });
+    ws.onmessage = (ev) => recv(ev.data);
+    ws.onclose = () => { conn.open = false; clearTimeout(timer); if (P2P.hostConn === conn) p2pLostHost(); else res(false); };
+    ws.onerror = () => {};
+  });
+  if (!ok) { p2pSetStatus('', 'No se pudo conectar con el servidor. Fijate que la laptop esté prendida.'); return false; }
+  p2pApplyPres('lobby', P2P.me, P2P.uid, {});
+  await p2pStartGame();
+  p2pSetStatus('Conectado');
+  if (P2P.admin) return wsBootServer();
+  // Entrar al mundo del servidor en cuanto llegue
+  const t0 = Date.now();
+  while (Date.now() - t0 < 15000) {
+    const wid = Object.keys(NET.worlds || {})[0];
+    if (wid && netWorldHostAlive(wid)) { await netJoin(wid); return NET.on; }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  toast('El servidor todavía está arrancando el mundo. Probá de nuevo en un ratito (☰ → 🌍 Entrar al servidor).');
+  return false;
+}
+
+// La pestaña del servidor: carga el mundo guardado (o arma uno nuevo) y lo lleva
+async function wsBootServer() {
+  await new Promise((r) => setTimeout(r, 1500));   // que lleguen los mundos guardados
+  const wid = Object.keys(NET.worlds || {})[0];
+  if (wid) await netJoin(wid);
+  if (!NET.on) {
+    const cfg = window.ARCA_NEW || {};
+    startNewGame((Math.random() * 2 ** 31) | 0, !!cfg.peaceful, true, { ...defaultMapOpts(), size: cfg.size || 'enorme', multiBase: cfg.multiBase !== false });
+    await netShareCurrent();
+  }
+  return startServerMode(true);
+}
+
+function wsRetry(admin, n) {
+  if (n > 200 || P2P.peer) return;
+  setTimeout(async () => { if (P2P.peer) return; if (!(await wsConnect(admin))) wsRetry(admin, n + 1); }, n ? 5000 : 2000);
 }
 
 // Links para entrar directo a la sala (el del dueño entra con su misma base)
@@ -478,7 +561,7 @@ function p2pClose(quiet) {
   P2P.conns.clear();
   if (P2P.hostConn) { try { P2P.hostConn.close(); } catch (_) { /* nada */ } }
   if (P2P.peer) { try { P2P.peer.destroy(); } catch (_) { /* nada */ } }
-  Object.assign(P2P, { peer: null, hostConn: null, host: false, code: null, me: null });
+  Object.assign(P2P, { peer: null, hostConn: null, host: false, code: null, me: null, ws: false, admin: false });
   p2pRooms.clear(); p2pStore.clear(); p2pLeases.clear();
   delete window.claude;
   Object.assign(NET, { available: false, p2p: false, room: null, db: null, user: null, worlds: {}, lobby: [] });
@@ -496,7 +579,8 @@ function p2pPanelHtml() {
   } else if (P2P.peer) {
     h += `<p>🟢 Conectado a la sala <b>${p2pPretty(P2P.code)}</b>.</p><div class="actions"><button type="button" data-p2p="close">Salir de la sala</button></div>`;
   } else {
-    h += '<div class="actions"><button type="button" class="primary" data-p2p="public">🌍 Entrar al servidor público</button></div>' +
+    h += (ARCA_SERVER ? '<div class="actions"><button type="button" class="primary" data-p2p="ws">🌍 Entrar al servidor</button></div>' : '') +
+      '<div class="actions"><button type="button" class="primary" data-p2p="public">🌍 Entrar al servidor público</button></div>' +
       '<p class="muted small">Es el mundo que mantiene la compu servidor. Si no entra, fijate que esté prendida con el modo servidor.</p>' +
       '<p>O sin servidor: uno crea la sala y el otro escribe el código.</p>' +
       '<div class="actions"><button type="button" class="primary" data-p2p="create">Crear sala con mi partida</button></div>' +
@@ -514,6 +598,7 @@ document.addEventListener('click', async (ev) => {
   if (a === 'create') p2pCreate();
   else if (a === 'join') p2pJoin($('p2p-in').value);
   else if (a === 'public') p2pJoin(P2P_PUBLIC);
+  else if (a === 'ws') wsConnect(false);
   else if (a === 'close') p2pClose();
   else if (a === 'copy') {
     try { await navigator.clipboard.writeText(p2pPretty(P2P.code)); toast('Código copiado.'); } catch (_) { toast('Código: ' + p2pPretty(P2P.code)); }

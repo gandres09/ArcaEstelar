@@ -420,6 +420,12 @@ async function init() {
     if (p2pFromUrl()) return;
     // Con ?servidor=1 en el link, esta compu arranca sola como servidor
     const sv = new URLSearchParams(location.search).get('servidor');
+    // Juego servido por el servidor de la laptop: la pestaña del servidor lo lleva, los demás entran solos
+    if (ARCA_SERVER) {
+      closeModals();
+      if (sv === 'ws') { document.body.classList.add('server-mode'); wsConnect(true).then((ok) => { if (!ok) wsRetry(true, 1); }); } else setTimeout(() => wsConnect(false), 600);
+      return;
+    }
     if (sv === 'nuevo') {
       // Servidor nuevo desde cero: mapa enorme, bases separadas (aliados o enemigos). Una sola vez:
       // el link pasa a ser ?servidor=1, así recargar no borra el mundo.
@@ -433,7 +439,8 @@ async function init() {
   $('btn-server').addEventListener('click', () => startServerMode(false));
   // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
   $('btn-public').hidden = !(typeof P2P !== 'undefined' && P2P.standalone);
-  $('btn-public').addEventListener('click', () => { closeModals(); toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) toast(P2P.error || 'No se pudo conectar: fijate que la compu servidor esté prendida.'); }); });
+  if (ARCA_SERVER) $('btn-public').textContent = '🌍 Entrar al servidor';
+  $('btn-public').addEventListener('click', () => { closeModals(); if (ARCA_SERVER) { wsConnect(false); return; } toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) toast(P2P.error || 'No se pudo conectar: fijate que la compu servidor esté prendida.'); }); });
 
   let last = performance.now();
   function frame(now) {

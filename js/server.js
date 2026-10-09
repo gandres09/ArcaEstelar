@@ -11,6 +11,7 @@ const SERVER_CODE_KEY = 'mini-fabrica-servidor-sala';
 const SERVER = { on: false, worker: null, timer: 0, last: 0, t0: 0, wake: null, ticks: 0, audio: null };
 
 async function startServerMode(auto) {
+  if (SERVER.on && NET.on) { renderServerPanel(); return true; }   // ya estaba (por ejemplo, después de reconectar)
   // Otra pestaña ya es el servidor de mi mundo: esta queda para jugar
   if (auto && NET.available && NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) return false;
   // Fuera de Claude (GitHub): la sala con código, siempre el mismo código
