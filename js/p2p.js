@@ -271,8 +271,17 @@ const P2P_ICE = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ];
-function p2pPeerOptions() {
-  return { debug: 0, config: { iceServers: P2P_ICE }, ...(window.P2P_SERVER || {}) };
+function p2pPeerOptions(host) {
+  const o = { debug: 0, config: { iceServers: P2P_ICE }, ...(window.P2P_SERVER || {}) };
+  // La compu que tiene la sala usa siempre la misma llave: así, si se cae o se recarga,
+  // recupera su código al instante en vez de esperar a que el código quede libre
+  if (host) {
+    let t = null;
+    try { t = localStorage.getItem('mini-fabrica-p2p-llave'); } catch (_) { /* nada */ }
+    if (!t) { t = Math.random().toString(36).slice(2, 12); try { localStorage.setItem('mini-fabrica-p2p-llave', t); } catch (_) { /* nada */ } }
+    o.token = t;
+  }
+  return o;
 }
 // El servidor público: siempre el mismo código, así se entra con un botón
 const P2P_PUBLIC = window.P2P_PUBLIC_CODE || 'ARCASERV';
@@ -349,7 +358,7 @@ async function p2pCreate(fixed) {
     // Recién recargada, la dirección vieja puede seguir ocupada unos segundos
     if (fixed && tries) { p2pSetStatus('Recuperando la sala ' + p2pPretty(fixed) + '…'); await new Promise((r) => setTimeout(r, 4000)); }
     const ok = await new Promise((res) => {
-      const peer = new window.Peer(P2P_PREFIX + code, p2pPeerOptions());
+      const peer = new window.Peer(P2P_PREFIX + code, p2pPeerOptions(true));
       peer.on('open', (id) => { P2P.peer = peer; P2P.me = id; P2P.code = code; P2P.host = true; res(true); });
       peer.on('error', (err) => { if (!P2P.peer) { peer.destroy(); res(err && err.type === 'unavailable-id' ? 'again' : false); } else p2pSetStatus(P2P.status, 'Problema de conexión: ' + (err && err.type || err)); });
     });
@@ -357,7 +366,19 @@ async function p2pCreate(fixed) {
     if (ok === false) { p2pSetStatus('', 'No se pudo crear la sala. Revisá tu conexión a internet.'); return false; }
   }
   if (!P2P.peer) { p2pSetStatus('', 'No se pudo crear la sala.'); return false; }
-  P2P.peer.on('connection', (conn) => {
+  p2pWireHost(P2P.peer);
+  p2pApplyPres('lobby', P2P.me, P2P.uid, {});
+  await p2pStartGame();
+  p2pSetStatus('Sala abierta');
+  // Mi partida pasa a ser el mundo de la sala
+  await netShareCurrent();
+  netRenderModal();
+  return true;
+}
+
+// Lo que escucha la compu que tiene la sala: los que se conectan
+function p2pWireHost(peer) {
+  peer.on('connection', (conn) => {
     conn.on('open', () => {
       P2P.conns.set(conn.peer, conn);
       // El recién llegado recibe todos los datos compartidos y quién está en la sala general
@@ -373,15 +394,38 @@ async function p2pCreate(fixed) {
     conn.on('close', () => { p2pHostDropPeer(conn.peer); if (!$('online').hidden) netRenderModal(); });
     conn.on('error', () => p2pHostDropPeer(conn.peer));
   });
-  P2P.peer.on('disconnected', () => { try { P2P.peer.reconnect(); } catch (_) { /* nada */ } });
-  p2pApplyPres('lobby', P2P.me, P2P.uid, {});
-  await p2pStartGame();
-  p2pSetStatus('Sala abierta');
-  // Mi partida pasa a ser el mundo de la sala
-  await netShareCurrent();
-  netRenderModal();
-  return true;
+  peer.on('disconnected', () => { P2P.lostAt = P2P.lostAt || Date.now(); try { if (!peer.destroyed) peer.reconnect(); } catch (_) { /* nada */ } });
+  peer.on('open', () => { P2P.lostAt = 0; });
+  peer.on('error', (err) => { if (err && ['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) P2P.lostAt = P2P.lostAt || Date.now(); });
 }
+
+// La sala se cayó (la compu se quedó sin internet un rato, se suspendió, etc.): se vuelve a abrir
+// con el mismo código, sin perder el mundo ni a los que estaban
+let p2pReviving = false;
+async function p2pRevive() {
+  if (p2pReviving || !P2P.host || !P2P.code) return;
+  p2pReviving = true;
+  const code = P2P.code;
+  try { P2P.peer.destroy(); } catch (_) { /* nada */ }
+  for (let i = 0; i < 40 && P2P.code === code; i++) {
+    const r = await new Promise((res) => {
+      const peer = new window.Peer(P2P_PREFIX + code, p2pPeerOptions(true));
+      const t = setTimeout(() => { try { peer.destroy(); } catch (_) { /* nada */ } res(false); }, 15000);
+      peer.on('open', () => { clearTimeout(t); res(peer); });
+      peer.on('error', () => { clearTimeout(t); try { peer.destroy(); } catch (_) { /* nada */ } res(false); });
+    });
+    if (r) { P2P.peer = r; P2P.lostAt = 0; p2pWireHost(r); console.info('Sala recuperada'); break; }
+    await new Promise((res) => setTimeout(res, 6000));
+  }
+  p2pReviving = false;
+}
+setInterval(() => {
+  if (!P2P.host || !P2P.peer || p2pReviving) return;
+  const pe = P2P.peer;
+  if (pe.destroyed || (pe.disconnected && P2P.lostAt && Date.now() - P2P.lostAt > 20000)) p2pRevive();
+  else if (pe.disconnected) { P2P.lostAt = P2P.lostAt || Date.now(); try { pe.reconnect(); } catch (_) { /* nada */ } }
+}, 10000);
+window.addEventListener('online', () => { if (P2P.host && P2P.peer && (P2P.peer.disconnected || P2P.peer.destroyed)) setTimeout(p2pRevive, 2000); });
 
 // Unirse con un código
 async function p2pJoin(rawCode) {

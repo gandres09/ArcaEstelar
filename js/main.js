@@ -440,7 +440,7 @@ async function init() {
   // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
   $('btn-public').hidden = !(typeof P2P !== 'undefined' && P2P.standalone);
   if (ARCA_SERVER) $('btn-public').textContent = '🌍 Entrar al servidor';
-  $('btn-public').addEventListener('click', () => { closeModals(); if (ARCA_SERVER) { wsConnect(false); return; } toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) toast(P2P.error || 'No se pudo conectar: fijate que la compu servidor esté prendida.'); }); });
+  $('btn-public').addEventListener('click', () => { closeModals(); if (ARCA_SERVER) { wsConnect(false); return; } toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) { toast('No encuentro el servidor público: fijate que la laptop esté prendida, con internet y con el servidor abierto. Sigo intentando solo unos minutos…'); p2pRetry(P2P_PUBLIC, 0); } }); });
 
   let last = performance.now();
   function frame(now) {
