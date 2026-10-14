@@ -113,6 +113,7 @@ function buildToolbar() {
   mk(bar, 'delete', 'Desarmar', 'X', '<span class="emoji">🗑️</span>');
   mk(bar, null, 'Girar', 'R', '<span class="emoji">🔄</span>', () => rotateAction(1));
   mk(bar, null, 'Deshacer', 'Ctrl Z', '<span class="emoji">↶</span>', undoAction);
+  mk(bar, 'move', 'Mover', 'M', '<span class="emoji">🚚</span>');
   mk(bar, 'copy', 'Copiar', 'C', '<span class="emoji">📋</span>');
   if (clipboard) mk(bar, 'paste', 'Pegar', 'V', '<span class="emoji">📌</span>');
   const sep = document.createElement('div');
@@ -270,7 +271,10 @@ function updateConfirm() {
     if (area.mode === 'delete') {
       if (!area.b) { text = 'Tocá de nuevo para desarmar, o la otra esquina para elegir una zona.'; btns = ['cancel']; }
       else { text = `Desarmar ${entitiesIn(rectOf(area.a, area.b)).length} edificios`; btns = ['ok', 'cancel']; }
-    } else if (!area.b && isTouch()) { text = 'Tocá la otra esquina de la zona a copiar.'; btns = ['cancel']; }
+    } else if (!area.b && isTouch()) { text = area.mode === 'move' ? 'Tocá la otra esquina de la zona a mover.' : 'Tocá la otra esquina de la zona a copiar.'; btns = ['cancel']; }
+  } else if (tool === 'move' && !area) {
+    text = isTouch() ? 'Tocá un edificio para moverlo, o dos esquinas para mover una zona.' : 'Clic en un edificio para moverlo, o arrastrá para elegir una zona.';
+    btns = ['cancel'];
   } else if (tool === 'paste' && clipboard) {
     if (isTouch()) {
       text = pastePos ? `Tocá de nuevo para pegar ${clipboard.items.length} edificios.` : 'Tocá dónde pegar.';
@@ -290,7 +294,7 @@ function updateConfirm() {
   }
   const labels = { close: '✕', ok: '✔ Construir', cancel: '✕', flip: '↺ Esquina', rotate: '🔄 Girar', save: '💾 Guardar plano' };
   if (area && area.mode === 'delete') labels.ok = '✔ Desarmar';
-  if (tool === 'paste') labels.ok = '✔ Pegar';
+  if (tool === 'paste') labels.ok = clipboard && clipboard.moving ? '✔ Poner' : '✔ Pegar';
   const html = text ? `<span class="confirm-text">${text}</span>` + btns.map((b) => `<button type="button" data-c="${b}" class="${b === 'ok' ? 'primary' : ''}">${labels[b]}</button>`).join('') : '';
   if (html !== confirmHtml) { confirmHtml = html; el.innerHTML = html; }
   el.hidden = !html;

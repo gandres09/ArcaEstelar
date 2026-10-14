@@ -343,6 +343,13 @@ function turretStep(e, dt) {
     const d = wdist(tx, ty, b.x, b.y);
     if (d < bd) { bd = d; target = b; }
   }
+  // También las criaturas salvajes (escarabajos, arañas, jefes…)
+  let tc = false;
+  for (const c of S.creatures || []) {
+    if (c.dead) continue;
+    const d = wdist(tx, ty, c.x, c.y);
+    if (d < bd) { bd = d; target = c; tc = true; }
+  }
   let nest = null;
   // Bases separadas: la torreta le tira al personaje enemigo de esta compu
   if (!target && multiBase() && playerOn() && isFoeF(fOf(e), myF() || 'f0') && S.player.hp > 0) {
@@ -375,7 +382,7 @@ function turretStep(e, dt) {
     hurtPlayer(dmg * 0.6, BUILDINGS[e.type].name.toLowerCase() + ' enemiga');
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
   } else if (target) {
-    hitBiter(target, dmg);
+    if (tc) hitTarget({ kind: 'c', o: target }, dmg, false); else hitBiter(target, dmg);
     shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, laser: e.type === 'laser' });
   } else {
     damageEntity(nest, dmg);
@@ -393,6 +400,7 @@ function flameStep(e, dt) {
   const tx = e.x + 0.5, ty = e.y + 0.5;
   let target = null, bd = def.range * weatherRange();
   for (const b of S.biters) { if (b.dead) continue; const d = wdist(tx, ty, b.x, b.y); if (d < bd) { bd = d; target = b; } }
+  for (const c of S.creatures || []) { if (c.dead) continue; const d = wdist(tx, ty, c.x, c.y); if (d < bd) { bd = d; target = c; } }
   if (!target) return;
   e.aim = Math.atan2(wdy(target.y - ty), wdx(target.x - tx));
   if (!(e.flames > 0)) { e.fuel--; e.flames = 12; }   // 1 barril de petróleo = 12 llamaradas
@@ -400,6 +408,7 @@ function flameStep(e, dt) {
   e.cd = 0.25;
   const dmg = def.dmg * weaponMult() * mkMult(e);
   for (const b of S.biters) if (!b.dead && wdist(target.x, target.y, b.x, b.y) < 1.6) hitBiter(b, b === target ? dmg : dmg * 0.6);
+  for (const c of (S.creatures || []).slice()) if (!c.dead && wdist(target.x, target.y, c.x, c.y) < 1.6) hitTarget({ kind: 'c', o: c }, c === target ? dmg : dmg * 0.6, false);
   shots.push({ x1: tx, y1: ty, x2: tx + wdx(target.x - tx), y2: ty + wdy(target.y - ty), t: 0, flame: true });
   sfx('shot', e.x, e.y);
 }

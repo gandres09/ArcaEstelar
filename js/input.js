@@ -159,6 +159,35 @@ function copyArea(r) {
   selectTool('paste');
 }
 
+// Mover: se levanta lo que hay en la zona (los materiales vuelven a tu inventario) y se
+// coloca en otro lado como si fuera un plano. Lo que tenían adentro (cofres, hornos) vuelve a tu inventario.
+function moveArea(r) {
+  const me = myF() || 'f0';
+  const list = entitiesIn(r).filter((e) => !isEnemyB(e) && !['hub', 'lander', 'shipyard', 'starport'].includes(e.type) && fOf(e) === me);
+  if (!list.length) { toast('No hay nada tuyo para mover ahí (la Nave no se mueve).'); return; }
+  const ux = (e) => r.x0 + wdx(e.x - r.x0), uy = (e) => r.y0 + wdy(e.y - r.y0);
+  const x0 = Math.min(...list.map(ux)), y0 = Math.min(...list.map(uy));
+  const x1 = Math.max(...list.map((e) => ux(e) + sizeOf(e.type) - 1)), y1 = Math.max(...list.map((e) => uy(e) + sizeOf(e.type) - 1));
+  clipboard = {
+    w: x1 - x0 + 1, h: y1 - y0 + 1, moving: true,
+    items: list.map((e) => {
+      const it = { type: e.type, dx: ux(e) - x0, dy: uy(e) - y0, dir: e.dir, recipe: e.recipe || null, filter: e.filter || null };
+      if (e.prio) it.prio = e.prio;
+      if (e.type === 'station') it.mode = e.mode;
+      if (e.req) it.req = { ...e.req };
+      if (e.mk > 1) it.mk = e.mk;
+      return it;
+    }),
+  };
+  // Se levanta todo (aunque esté lejos): los materiales y lo que tenían adentro vuelven a tu inventario
+  beginBatch();
+  for (const e of list) removeEntity(e);
+  endBatch();
+  sfx('remove');
+  toast(`Levantaste ${list.length} edificio${list.length > 1 ? 's' : ''}. ${isTouch() ? 'Tocá dónde ponerlos (dos veces).' : 'Clic dónde ponerlos, R para girar.'} Si cancelás, quedan en tu inventario.`);
+  selectTool('paste');
+}
+
 function rotateClipboard() {
   if (!clipboard) return;
   const { w, h } = clipboard;
@@ -191,6 +220,8 @@ function pasteAt(t) {
       if (it.prio) e.prio = it.prio;
       if (it.mode && e.type === 'station') e.mode = it.mode;
       if (it.req && e.type === 'requesterchest') e.req = { ...it.req };
+      // Al mover, vuelve con sus mejoras (se pagan con lo que devolvió al levantarlo)
+      if (it.mk > 1) for (let g = 0; g < 4 && (e.mk || 1) < it.mk; g++) { const r = canMkUp(e); if (!r.ok) break; pay(r.cost); e.mk = r.next; }
       netTouch(e);
     } else if (!e) fail++;
   }
@@ -277,6 +308,12 @@ function handleTap(t) {
   } else if (tool === 'copy') {
     if (!area) area = { mode: 'copy', a: t, b: null };
     else { const r = rectOf(area.a, t); area = null; copyArea(r); }
+  } else if (tool === 'move') {
+    // Un toque en un edificio lo levanta solo a él; si no, se elige una zona (dos esquinas)
+    const e = !area && at(t.x, t.y);
+    if (e && !isEnemyB(e)) moveArea({ x0: e.x, y0: e.y, x1: e.x + sizeOf(e.type) - 1, y1: e.y + sizeOf(e.type) - 1 });
+    else if (!area) area = { mode: 'move', a: t, b: null };
+    else { const r = rectOf(area.a, t); area = null; moveArea(r); }
   } else if (tool === 'paste') {
     if (sameTile(pastePos, t)) pasteAt(t); else pastePos = t;
   } else if (isLineTool(tool)) {
@@ -341,7 +378,7 @@ function getPreview() {
 
   if (hover && !isTouch()) {
     const e = at(hover.x, hover.y);
-    const color = tool === 'delete' ? '#e5534b' : tool === 'copy' ? '#5aa0ff' : 'rgba(255,255,255,0.45)';
+    const color = tool === 'delete' ? '#e5534b' : tool === 'copy' ? '#5aa0ff' : tool === 'move' ? '#f0b44d' : 'rgba(255,255,255,0.45)';
     if (e) pv.marks.push({ x: e.x, y: e.y, size: sizeOf(e.type), color });
     else pv.marks.push({ x: hover.x, y: hover.y, color });
   }
@@ -392,7 +429,7 @@ canvas.addEventListener('pointerdown', (ev) => {
   if (isTouch()) return; // en táctil se decide al soltar (toque) o se mueve la cámara
 
   // Mouse
-  if (tool === 'delete' || tool === 'copy') {
+  if (tool === 'delete' || tool === 'copy' || tool === 'move') {
     area = { mode: tool, a: t, b: null };
   } else if (tool === 'paste') {
     // se pega al soltar
@@ -501,6 +538,10 @@ function endPointer(ev) {
         area = null;
       } else if (tool === 'copy') {
         area = null;
+      } else if (tool === 'move') {
+        const e = at(d.tile.x, d.tile.y);
+        area = null;
+        if (e && !isEnemyB(e)) moveArea({ x0: e.x, y0: e.y, x1: e.x + sizeOf(e.type) - 1, y1: e.y + sizeOf(e.type) - 1 });
       } else if (tool === 'paste') {
         pasteAt(d.tile);
       }
@@ -510,7 +551,7 @@ function endPointer(ev) {
     const r = rectOf(area.a, hover);
     const mode = area.mode;
     area = null;
-    if (mode === 'delete') deleteArea(r); else copyArea(r);
+    if (mode === 'delete') deleteArea(r); else if (mode === 'move') moveArea(r); else copyArea(r);
   }
   if (dragging || deleting) endBatch();
   panning = null; dragging = null; deleting = false; handMining = null; downAt = null;

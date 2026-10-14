@@ -2084,7 +2084,7 @@ function drawWorld(ctx, vx0, vy0, vx1, vy1, lod, rdt) {
     }
   }
 
-  const building = BUILDINGS[tool] || tool === 'delete' || tool === 'copy' || tool === 'paste';
+  const building = BUILDINGS[tool] || tool === 'delete' || tool === 'copy' || tool === 'move' || tool === 'paste';
   if (!lod && building) drawGrid(ctx, vx0, vy0, vx1, vy1);
 
   // Zonas de energía al elegir algo eléctrico
