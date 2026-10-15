@@ -57,7 +57,97 @@ async function getBilling() {
   try { if ('getDigitalGoodsService' in window) billing = await window.getDigitalGoodsService(PLAY_BILLING); } catch (_) { billing = null; }
   return billing;
 }
-const testPurchases = () => /[?&]pruebas=1/.test(location.search) || location.hostname === 'localhost';
+const testPurchases = () => !IS_APP && (/[?&]pruebas=1/.test(location.search) || location.hostname === 'localhost');
+
+// --------------------------- App de Android (Capacitor) ---------------------------
+// En la app nativa (carpeta app/) las compras van por Google Play Billing
+// (cordova-plugin-purchase) y los anuncios por AdMob. La configuración la pone
+// app/copiar-juego.mjs en window.ARCA_APP = { rewarded, test }.
+
+const IS_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const ADMOB_TEST_REWARDED = 'ca-app-pub-3940256099942544/5224354917';   // anuncio de prueba de Google
+let nativeStore = null;
+
+function nativeStoreInit() {
+  const P = window.CdvPurchase;
+  if (!P || nativeStore) return;
+  const { store, ProductType, Platform } = P;
+  nativeStore = store;
+  store.register(SHOP_ORDER.map((id) => ({ id, type: ProductType.NON_CONSUMABLE, platform: Platform.GOOGLE_PLAY })));
+  const refresh = () => {
+    for (const id of SHOP_ORDER) {
+      const pr = store.get(id, Platform.GOOGLE_PLAY);
+      if (!pr) continue;
+      if (pr.pricing && pr.pricing.price) SHOP[id].price = pr.pricing.price;
+      if (pr.owned) grantPurchase(id);
+    }
+    if (!$('tienda').hidden) renderShop();
+  };
+  store.when()
+    .productUpdated(refresh)
+    .approved((t) => t.verify())
+    .verified((r) => r.finish())   // "finish" confirma la compra en Play (si no, Google la devuelve a los 3 días)
+    .finished((t) => {
+      for (const pr of t.products) {
+        if (!SHOP[pr.id] || shopOwned.has(pr.id)) continue;
+        grantPurchase(pr.id);
+        toast(`${SHOP[pr.id].icon} ¡Gracias! Ya tenés <b>${SHOP[pr.id].name}</b>.`);
+        sfx('research');
+      }
+      refresh();
+    });
+  store.initialize([Platform.GOOGLE_PLAY]).then(refresh).catch(() => {});
+}
+
+async function nativeBuy(id) {
+  if (!nativeStore) { toast('La tienda de Google Play todavía está cargando. Probá en unos segundos.'); return; }
+  const pr = nativeStore.get(id, window.CdvPurchase.Platform.GOOGLE_PLAY);
+  const offer = pr && pr.getOffer();
+  if (!offer) { toast('Ese producto todavía no está disponible en Google Play.'); return; }
+  const err = await offer.order();
+  if (err && err.code !== window.CdvPurchase.ErrorCode.PAYMENT_CANCELLED) toast('La compra no se completó.');
+}
+
+let admob = null, admobReady = false, admobLoading = null, admobPending = null;
+async function admobInit() {
+  admob = window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob;
+  if (!admob) return;
+  const cfg = window.ARCA_APP || {};
+  let earned = false;
+  admob.addListener('onRewardedVideoAdReward', () => { earned = true; });
+  admob.addListener('onRewardedVideoAdShowed', () => { earned = false; if (audio.master) audio.master.gain.value = 0; });
+  admob.addListener('onRewardedVideoAdDismissed', () => {
+    if (audio.master) audio.master.gain.value = audio.settings.muted ? 0 : 1;
+    const cb = admobPending; admobPending = null;
+    if (cb && earned) cb();
+    else if (cb) toast('Para recibir el regalo hay que mirar el anuncio hasta el final.');
+    admobPrepare();
+  });
+  admob.addListener('onRewardedVideoAdFailedToShow', () => { admobPending = null; toast('No se pudo mostrar el anuncio. Probá en un ratito.'); admobPrepare(); });
+  try {
+    const ci = await admob.requestConsentInfo();
+    if (ci && ci.isConsentFormAvailable && ci.status === 'REQUIRED') await admob.showConsentForm();
+  } catch (_) { /* sin formulario de consentimiento */ }
+  try { await admob.initialize({ initializeForTesting: !!cfg.test }); } catch (_) { admob = null; return; }
+  admobPrepare();
+}
+function admobPrepare() {
+  if (!admob || admobReady) return Promise.resolve();
+  if (admobLoading) return admobLoading;
+  const cfg = window.ARCA_APP || {};
+  admobLoading = admob.prepareRewardVideoAd({ adId: cfg.rewarded || ADMOB_TEST_REWARDED, isTesting: !!cfg.test || !cfg.rewarded })
+    .then(() => { admobReady = true; })
+    .catch(() => { admobReady = false; })
+    .finally(() => { admobLoading = null; });
+  return admobLoading;
+}
+async function admobShow(onReward) {
+  if (!admobReady) { toast('Cargando el anuncio…'); await admobPrepare(); }
+  if (!admobReady) { toast('Ahora no hay anuncios disponibles. Probá en un ratito.'); admobPrepare(); return; }
+  admobReady = false;
+  admobPending = onReward;
+  admob.showRewardVideoAd().catch(() => { /* se maneja con los eventos */ });
+}
 
 // Precios reales desde Play (si está), si no los de referencia
 async function loadPrices() {
@@ -72,6 +162,7 @@ async function loadPrices() {
 
 async function buy(id) {
   if (!SHOP[id] || owns(id)) return;
+  if (IS_APP) { await nativeBuy(id); renderShop(); return; }
   const svc = await getBilling();
   if (svc) {
     try {
@@ -102,6 +193,16 @@ function redeemCode() {
 }
 
 async function restorePurchases(quiet) {
+  if (IS_APP) {
+    if (!nativeStore) { if (!quiet) toast('La tienda de Google Play todavía está cargando.'); return; }
+    if (quiet) return;   // al abrir, las compras se recuperan solas
+    const before = shopOwned.size;
+    try { await nativeStore.restorePurchases(); } catch (_) { /* nada */ }
+    for (const id of SHOP_ORDER) if (nativeStore.owned(id)) grantPurchase(id);
+    toast(shopOwned.size > before ? '✔️ Compras recuperadas.' : 'Revisé tu cuenta de Google Play: no encontré compras nuevas.');
+    renderShop();
+    return;
+  }
   const svc = await getBilling();
   if (!svc) { if (!quiet) toast('Para recuperar compras, abrí el juego desde la app de Google Play.'); return; }
   try {
@@ -136,6 +237,7 @@ function adsInit() {
 
 function showRewardedAd(onReward) {
   if (owns('sin_anuncios')) { onReward(); return; }
+  if (IS_APP && admob) { admobShow(onReward); return; }
   if (adsReady && window.adBreak) {
     let given = false, offered = false;
     window.adBreak({
@@ -389,9 +491,15 @@ function updateShopChips() {
 setInterval(updateShopChips, 5000);
 
 function initShop() {
-  adsInit();
-  loadPrices();
-  restorePurchases(true);
+  if (IS_APP) {
+    admobInit();
+    if (window.CdvPurchase) nativeStoreInit();
+    else document.addEventListener('deviceready', nativeStoreInit, { once: true });
+  } else {
+    adsInit();
+    loadPrices();
+    restorePurchases(true);
+  }
   $('btn-tienda').addEventListener('click', () => openModal('tienda'));
   $('btn-ropero').addEventListener('click', () => openModal('ropero'));
   $('gift-chip').addEventListener('click', () => openModal('regalo'));

@@ -164,7 +164,7 @@ function readMapOpts() {
 }
 
 // Instalable como app (y sin internet, jugando solo). No en Claude ni en el servidor de la laptop.
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && window.top === window && !window.ARCA_SERVER) {
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && window.top === window && !window.ARCA_SERVER && !window.Capacitor) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
 }
 

@@ -1,0 +1,80 @@
+# Arma la app de Android (carpeta app/) cada vez que cambia el juego.
+# Resultado (pestaña Actions → la corrida → "Artifacts"):
+#   - arca-estelar-apk: para instalar y probar en el celular
+#   - arca-estelar-aab: el archivo que se sube a Google Play
+# Configuración (Settings → Secrets and variables → Actions):
+#   Variables: ADMOB_APP_ID, ADMOB_REWARDED_ID (sin ellas usa los anuncios de prueba de Google)
+#   Secrets:   ARCA_KEYSTORE_B64, ARCA_KEYSTORE_PASSWORD (la llave de subida de Play)
+name: App de Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'style.css'
+      - 'js/**'
+      - 'icons/**'
+      - 'app/**'
+      - '.github/workflows/app-android.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Instalar dependencias y copiar el juego
+        working-directory: app
+        env:
+          ADMOB_REWARDED_ID: ${{ vars.ADMOB_REWARDED_ID }}
+        run: |
+          npm ci
+          npm run sync
+
+      - name: Llave de firma
+        env:
+          ARCA_KEYSTORE_B64: ${{ secrets.ARCA_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$ARCA_KEYSTORE_B64" ]; then
+            echo "$ARCA_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/arca-subida.jks"
+            echo "ARCA_KEYSTORE=$RUNNER_TEMP/arca-subida.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Sin llave de firma: el .aab sale sin firmar (no se puede subir a Play)."
+          fi
+
+      - name: Compilar
+        working-directory: app/android
+        env:
+          ARCA_KEYSTORE_PASSWORD: ${{ secrets.ARCA_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon \
+            -PVERSION_CODE=${{ github.run_number }} \
+            -PVERSION_NAME=1.0.${{ github.run_number }} \
+            -PADMOB_APP_ID=${{ vars.ADMOB_APP_ID }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arca-estelar-apk
+          path: |
+            app/android/app/build/outputs/apk/release/*.apk
+            app/android/app/build/outputs/apk/debug/*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arca-estelar-aab
+          path: app/android/app/build/outputs/bundle/release/*.aab

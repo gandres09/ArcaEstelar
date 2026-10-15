@@ -86,7 +86,7 @@ Respuestas sugeridas (revisalas con lo que pregunte el formulario en ese momento
 - **Mensajes en la app** (chat del juego): se envían a los otros jugadores de la sala. Opcional, mismo uso.
 - **¿Los datos se encriptan en tránsito?** Sí (las conexiones entre jugadores van cifradas).
 - **¿Se pueden borrar?** Sí: se borran al borrar los datos de la app.
-- **Anuncios** (si activás los anuncios de Google): Google recopila el **identificador de publicidad** y datos de uso del anuncio para mostrarlo y medirlo. Declaralo como "Identificadores del dispositivo" → compartido con Google, para "Publicidad".
+- **Anuncios** (AdMob en la app): Google recopila el **identificador de publicidad** y datos de uso del anuncio para mostrarlo y medirlo. Declaralo como "Identificadores del dispositivo" → compartido con Google, para "Publicidad".
 - **Compras**: las procesa Google Play; el juego no ve tus datos de pago.
 - Sin ubicación, contactos ni fotos.
 

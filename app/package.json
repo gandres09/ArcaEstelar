@@ -1,0 +1,19 @@
+{
+  "name": "arca-estelar-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Arca Estelar como app de Android (Capacitor)",
+  "scripts": {
+    "copiar": "node copiar-juego.mjs",
+    "sync": "node copiar-juego.mjs && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor-community/admob": "8.2.1",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "cordova-plugin-purchase": "13.19.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

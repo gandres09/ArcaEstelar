@@ -1,5 +1,9 @@
 # Cómo subir Arca Estelar a Google Play
 
+> **Novedad:** ahora hay una **app nativa** (carpeta `app/`, guía en `app/LEEME.md`) que se arma sola en GitHub,
+> con AdMob y Play Billing. **Usá esa en vez de PWABuilder**: los pasos 2 y 3 de abajo ya no hacen falta
+> (el `.aab` sale de GitHub → Actions → App de Android). El resto (cuenta, prueba cerrada, productos, ficha) sigue igual.
+
 El juego ya está preparado como **app web instalable** (ícono, nombre, pantalla completa y
 funciona sin internet). Para Play Store se lo "envuelve" con **PWABuilder**, que arma el paquete
 de Android sin programar nada.
