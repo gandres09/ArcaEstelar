@@ -417,6 +417,7 @@ async function init() {
   });
   $('btn-bp').addEventListener('click', () => openModal('planos'));
   initBlueprints();
+  initShop();
   initPet();
   $('btn-pet').addEventListener('click', () => { closeModals(); openPetPanel(); });
   $('net-chip').addEventListener('click', () => openModal('online'));
@@ -473,6 +474,8 @@ async function init() {
     if (!SERVER.on) {
       netTick(dt);
       if (!launchAnim || launchAnim.t < 8) { update(dt); updateBackground(dt); }
+      // Velocidad x2 / x3 (de la tienda, solo jugando solo): pasos extra
+      for (let k = 1; k < speedNow(); k++) if (!launchAnim || launchAnim.t < 8) { update(dt); updateBackground(dt); }
       // De anfitrión, si el navegador frena los cuadros (pestaña tapada), se recupera el tiempo perdido:
       // si no, el mundo de todos va más lento y las fotos "borran" lo que los demás ya vieron
       if (NET.on && NET.role === 'host' && realDt > 0.1) {

@@ -19,7 +19,7 @@ const KEY_GROUPS = [
   ['wall', 'gate', 'turret', 'flameturret', 'laser', 'artillery'],
 ];
 const keyOf = (type) => { const i = KEY_GROUPS.findIndex((g) => g.includes(type)); return i < 0 ? '' : i === 9 ? 0 : i + 1; };
-const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos', 'gear'];
+const MODALS = ['help', 'research', 'stats', 'win', 'menu', 'newgame', 'ach', 'online', 'planos', 'gear', 'tienda', 'ropero', 'regalo'];
 
 // --------------------------- Íconos ---------------------------
 
@@ -602,7 +602,8 @@ function inspectorContent(e) {
         row('Combustible', `${VULCAN_FUEL} de cohete por viaje (tenés ${Math.floor(avail('rocket_fuel'))})`) +
         '<p class="muted small">Mientras estás en Vulcano, la Tierra queda en pausa. Hay gusanos gigantes: llevá armas.</p>' +
         (NET.on ? '<p class="muted small">Viajás solo vos: los demás siguen donde están y tu planeta sigue andando.</p>' : '') +
-        '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="vulcan">🌋 Viajar a Vulcano</button></div>';
+        (owns('vulcano') ? '<div class="actions"><button type="button" class="primary" data-act="travel" data-v="vulcan">🌋 Viajar a Vulcano</button></div>'
+          : '<p>🔒 <b>Vulcano es una expansión.</b> No hace falta para terminar el juego.</p><div class="actions"><button type="button" class="primary" data-shop-open="1">🛒 Ver en la Tienda</button></div>');
       break;
     case 'moonpad':
       h += `<p>Un cohete chico que te lleva a la Luna con tu mochila${S.player && S.player.pet && !S.player.pet.gone ? ' y tu perrito' : ''}. Allá hay <b>regolito</b> (se funde en aleación lunar), <b>hielo</b> y <b>Helio-3</b>.</p>` +
@@ -1501,6 +1502,9 @@ function openModal(id) {
   if (id === 'research') { researchHtml = ''; renderResearch(); }
   if (id === 'stats') { renderStats(); renderChartPicker(); renderChart(); }
   if (id === 'ach') renderAchievements();
+  if (id === 'tienda') renderShop();
+  if (id === 'ropero') renderWardrobe();
+  if (id === 'regalo') renderGift();
   if (id === 'online') netRenderModal();
   if (id === 'planos') renderBlueprints();
   if (id === 'gear') renderGearModal();

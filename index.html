@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Chakra+Petch:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=1792080788">
+  <link rel="stylesheet" href="style.css?v=1792081936">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -31,6 +31,8 @@
       <button id="alert" type="button" class="chip btn-chip alert" hidden>⚠️ Ataque</button>
       <button id="hero-chip" type="button" class="chip btn-chip player-only" title="Tu personaje y tu equipo">❤️ 100 · ⭐ 1</button>
       <button id="torch-chip" type="button" class="chip btn-chip player-only" title="Linterna (F)" hidden>🔦</button>
+      <button id="speed-chip" type="button" class="chip btn-chip" title="Velocidad del juego" hidden>⏩ x1</button>
+      <button id="gift-chip" type="button" class="chip btn-chip gift" title="La Nave te mandó un envío" hidden>🎁</button>
       <button id="net-chip" type="button" class="chip btn-chip" hidden title="Jugar en línea">🌐</button>
       <button id="chat-chip" type="button" class="chip btn-chip" hidden title="Chat">💬<span id="chat-badge" hidden></span></button>
     </div>
@@ -130,6 +132,8 @@
           <label class="check"><input type="checkbox" id="mute"> Silenciar todo</label>
         </div>
         <hr>
+        <button id="btn-tienda" type="button">🛒 Tienda</button>
+        <button id="btn-ropero" type="button">👕 Guardarropa</button>
         <button id="btn-gear" type="button" class="player-only">⚔️ Equipo y nivel</button>
         <button id="btn-pet" type="button">🐕 Perrito</button>
         <button id="btn-bp" type="button">📐 Planos</button>
@@ -243,6 +247,36 @@
     </div>
   </div>
 
+  <div id="tienda" class="modal" hidden>
+    <div class="modal-box panel wide">
+      <div class="modal-head">
+        <h1>🛒 Tienda</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="tienda-body"></div>
+    </div>
+  </div>
+
+  <div id="ropero" class="modal" hidden>
+    <div class="modal-box panel wide">
+      <div class="modal-head">
+        <h1>👕 Guardarropa</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="ropero-body"></div>
+    </div>
+  </div>
+
+  <div id="regalo" class="modal" hidden>
+    <div class="modal-box panel">
+      <div class="modal-head">
+        <h1>🎁 Envío de la Nave</h1>
+        <button type="button" class="close" data-close>✕</button>
+      </div>
+      <div id="regalo-body"></div>
+    </div>
+  </div>
+
   <div id="ach" class="modal" hidden>
     <div class="modal-box panel wide">
       <div class="modal-head">
@@ -282,38 +316,39 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=1792080788"></script>
-  <script src="js/world.js?v=1792080788"></script>
-  <script src="js/sim.js?v=1792080788"></script>
-  <script src="js/factions.js?v=1792080788"></script>
-  <script src="js/circuits.js?v=1792080788"></script>
-  <script src="js/weather.js?v=1792080788"></script>
-  <script src="js/enemies.js?v=1792080788"></script>
-  <script src="js/trains.js?v=1792080788"></script>
-  <script src="js/robots.js?v=1792080788"></script>
-  <script src="js/fluids.js?v=1792080788"></script>
-  <script src="js/player.js?v=1792080788"></script>
-  <script src="js/online.js?v=1792080788"></script>
-  <script src="js/p2p.js?v=1792080788"></script>
-  <script src="js/cloud.js?v=1792080788"></script>
-  <script src="js/server.js?v=1792080788"></script>
-  <script src="js/pet.js?v=1792080788"></script>
-  <script src="js/rpg.js?v=1792080788"></script>
-  <script src="js/render.js?v=1792080788"></script>
-  <script src="js/vehicles.js?v=1792080788"></script>
-  <script src="js/markers.js?v=1792080788"></script>
-  <script src="js/moon.js?v=1792080788"></script>
-  <script src="js/weapons.js?v=1792080788"></script>
-  <script src="js/suit.js?v=1792080788"></script>
-  <script src="js/vulcan.js?v=1792080788"></script>
-  <script src="js/surfaces.js?v=1792080788"></script>
-  <script src="js/rpgdraw.js?v=1792080788"></script>
-  <script src="js/audio.js?v=1792080788"></script>
-  <script src="js/ui.js?v=1792080788"></script>
-  <script src="js/progress.js?v=1792080788"></script>
-  <script src="js/blueprints.js?v=1792080788"></script>
-  <script src="js/input.js?v=1792080788"></script>
-  <script src="js/dragdrop.js?v=1792080788"></script>
-  <script src="js/main.js?v=1792080788"></script>
+  <script src="js/data.js?v=1792081936"></script>
+  <script src="js/world.js?v=1792081936"></script>
+  <script src="js/sim.js?v=1792081936"></script>
+  <script src="js/factions.js?v=1792081936"></script>
+  <script src="js/circuits.js?v=1792081936"></script>
+  <script src="js/weather.js?v=1792081936"></script>
+  <script src="js/enemies.js?v=1792081936"></script>
+  <script src="js/trains.js?v=1792081936"></script>
+  <script src="js/robots.js?v=1792081936"></script>
+  <script src="js/fluids.js?v=1792081936"></script>
+  <script src="js/player.js?v=1792081936"></script>
+  <script src="js/online.js?v=1792081936"></script>
+  <script src="js/p2p.js?v=1792081936"></script>
+  <script src="js/cloud.js?v=1792081936"></script>
+  <script src="js/server.js?v=1792081936"></script>
+  <script src="js/pet.js?v=1792081936"></script>
+  <script src="js/rpg.js?v=1792081936"></script>
+  <script src="js/render.js?v=1792081936"></script>
+  <script src="js/vehicles.js?v=1792081936"></script>
+  <script src="js/markers.js?v=1792081936"></script>
+  <script src="js/moon.js?v=1792081936"></script>
+  <script src="js/weapons.js?v=1792081936"></script>
+  <script src="js/suit.js?v=1792081936"></script>
+  <script src="js/vulcan.js?v=1792081936"></script>
+  <script src="js/surfaces.js?v=1792081936"></script>
+  <script src="js/rpgdraw.js?v=1792081936"></script>
+  <script src="js/audio.js?v=1792081936"></script>
+  <script src="js/ui.js?v=1792081936"></script>
+  <script src="js/progress.js?v=1792081936"></script>
+  <script src="js/tienda.js?v=1792081936"></script>
+  <script src="js/blueprints.js?v=1792081936"></script>
+  <script src="js/input.js?v=1792081936"></script>
+  <script src="js/dragdrop.js?v=1792081936"></script>
+  <script src="js/main.js?v=1792081936"></script>
 </body>
 </html>

@@ -67,7 +67,37 @@ Si no hacés este paso, la app funciona igual, pero se ve una barrita arriba.
 5. Pasados los 14 días con 12 testers: **Solicitar acceso a producción**, responder las preguntas sobre la prueba
    y publicar. Google la revisa (suele tardar de unas horas a unos días).
 
-## 6. Actualizaciones
+## 6. Compras dentro del juego
+
+El juego ya trae la tienda (🛒 en el menú): Pase Fundador, Sin anuncios, Velocidad x2/x3, Investigación +50 %,
+Expansión Vulcano y Pack de estilos. En la app de Play cobra con **Google Play Billing**; en la página web avisa que
+las compras están en la app.
+
+1. En Play Console: **Monetización → Productos → Productos integrados → Crear producto**, uno por cada ID de la tabla de `FICHA.md`
+   (los IDs tienen que ser exactos). Activalos.
+2. Al generar el paquete en PWABuilder, en las opciones de Android activá **"Play Billing"** (en la sección de funciones / features).
+3. Para probar sin pagar: en Play Console → Configuración → **Prueba de licencias**, agregá tu correo y el de los testers.
+   Así las compras se hacen con una tarjeta de prueba.
+4. **Verificar después de la primera compra de prueba** que la compra quede firme: Google exige que se "confirme" dentro de los 3 días
+   o la devuelve sola. Si en Play Console aparecen compras reembolsadas solas, avisame y lo ajustamos.
+
+**Códigos de regalo**: en la tienda hay "🎟️ Canjear código", que da el Pase Fundador. Sirve para amigos, testers o sorteos.
+
+## 7. Anuncios con recompensa (el regalo 🎁)
+
+Cada 8 minutos aparece 🎁 arriba: la Nave te manda unos 10 minutos de tu producción (o un empujón del 30 % a la investigación).
+Para cobrarlo se mira un anuncio; con "Sin anuncios" o el Pase Fundador llega al instante.
+
+Hoy, sin configurar, muestra un **anuncio de prueba** de 5 segundos. Para que sean anuncios de verdad (y paguen):
+
+1. Creá una cuenta en **Google AdSense** (https://adsense.google.com) con la dirección del juego.
+2. Pedí acceso a **AdSense para juegos (H5 Games Ads)**. Google lo revisa; puede tardar.
+3. Cuando te aprueben, AdSense te da un código `ca-pub-XXXXXXXXXXXXXXXX`. Ponelo en `index.html`, dentro del `<head>`:
+   `<script>window.ARCA_ADS = { client: 'ca-pub-XXXXXXXXXXXXXXXX' };</script>`
+   (para probar primero: `{ client: '…', test: true }`).
+4. En Play Console marcá que la app **contiene anuncios** y completá la sección de anuncios en "Seguridad de los datos".
+
+## 8. Actualizaciones
 
 - **Cambios del juego**: con subir a GitHub alcanza. La app abre la página, así que les llega sola a todos
   (la próxima vez que abran el juego con internet).

@@ -290,7 +290,7 @@ function netPlayerState() {
 
 function netSendPresence() {
   chatPrune();
-  const pres = { t: Date.now(), sf: surfName(), cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: SERVER.on ? null : netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
+  const pres = { t: Date.now(), sf: surfName(), sk: typeof mySuit === 'function' ? mySuit().id : null, cid: NET.cid, uid: NET.uid, n: NET.nick || null, pn: (S.player && S.player.pet && S.player.pet.name) || null, p: SERVER.on ? null : netPlayerState(), q: null, c: CHAT.out.length ? CHAT.out : null,
     hp: S.player && S.player.equip ? Math.round(100 * S.player.hp / playerStats(S.player).maxHp) : null, tl: S.player && S.player.torch === false ? 0 : 1, dv: (S.player && S.player.vehicle) || null, dvt: (S.player && S.player.vehicle && myVehicle() && myVehicle().type) || null };
   if (NET.role === 'host') {
     pres.host = 1;
@@ -856,7 +856,7 @@ function netUpdateAvatars(peers, dt) {
     // Se acerca suave a la última posición conocida (por el lado corto del mapa)
     const k = Math.min(1, dt * 12);
     a.x = wrapX(a.x + wdx(x - a.x) * k); a.y = wrapY(a.y + wdy(y - a.y) * k);
-    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n), torch: p.presence.tl === 0 ? 0 : 1, dv: p.presence.dv || null, dvt: p.presence.dvt || null });
+    Object.assign(a, { ang, moving: !!moving, mining: !!mining, step, by: p.by || p.presence.uid || null, host: p.presence.host === 1, nick: cleanNick(p.presence.n), sk: typeof p.presence.sk === 'string' ? p.presence.sk : null, torch: p.presence.tl === 0 ? 0 : 1, dv: p.presence.dv || null, dvt: p.presence.dvt || null });
     // Su perro: se acerca suave y, si lo acarician o come, salen corazones
     const pp = p.presence.p;
     if (pp.length >= 12 && Number.isFinite(pp[6]) && Number.isFinite(pp[7])) {
@@ -867,7 +867,7 @@ function netUpdateAvatars(peers, dt) {
       const px = pet.x;
       pet.x = wrapX(pet.x + wdx(pp[6] - pet.x) * k); pet.y = wrapY(pet.y + wdy(pp[7] - pet.y) * k);
       pet.step += Math.abs(wdx(pet.x - px)) * 3 + dt * (anim === 'walk' ? 8 : 0);
-      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(3, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
+      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(PET_COLORS.length - 1, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
     } else a.pet = null;
     chatReceive(p.peer, a, p.presence.c);
     a.hpr = Number.isFinite(p.presence.hp) ? p.presence.hp : 100;

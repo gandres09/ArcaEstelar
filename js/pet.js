@@ -10,6 +10,10 @@ const PET_COLORS = [
   { name: 'Negro', body: '#2e2c2b', dark: '#151413', ear: '#151413' },
   { name: 'Blanco', body: '#ece6da', dark: '#bdb4a3', ear: '#c9a27a' },
   { name: 'Dorado', body: '#d9a441', dark: '#a8772a', ear: '#a8772a' },
+  // Del Pack de estilos
+  { name: 'Plata', body: '#b8c2cc', dark: '#7d8894', ear: '#5f6a76', lock: 'estilos' },
+  { name: 'Cósmico', body: '#8a6bd9', dark: '#5a3fa8', ear: '#3fe0c5', lock: 'estilos' },
+  { name: 'Colorado', body: '#c8572a', dark: '#8f3a18', ear: '#f2e3c9', lock: 'estilos' },
 ];
 const PET_HUNGER_TIME = 1800;   // media hora de juego con la panza llena (se va vaciando)
 const PET_STARVE_TIME = 1800;   // media hora con hambre; después se escapa
@@ -178,7 +182,7 @@ function renderPetPanel() {
       <button type="button" data-pet="sit">${d.mode === 'sit' ? '🐾 Seguime' : '🪑 Sentate'}</button>
     </div>
     <div class="pick-title">Color</div>
-    <div class="picker">${PET_COLORS.map((c, i) => `<button type="button" class="pick pet-col${d.color === i ? ' on' : ''}" data-pet="color" data-v="${i}" title="${c.name}"><span class="sig-dot" style="background:${c.body}"></span>${c.name}</button>`).join('')}</div>`;
+    <div class="picker">${PET_COLORS.map((c, i) => { const lk = c.lock && !owns(c.lock); return `<button type="button" class="pick pet-col${d.color === i ? ' on' : ''}${lk ? ' locked' : ''}" data-pet="${lk ? 'locked' : 'color'}" data-v="${i}" title="${c.name}${lk ? ' (Pack de estilos)' : ''}"><span class="sig-dot" style="background:${c.body}"></span>${lk ? '🔒 ' : ''}${c.name}</button>`; }).join('')}</div>`;
 }
 
 function initPet() {
@@ -193,7 +197,8 @@ function initPet() {
       case 'feed': petFeed(); break;
       case 'pet': petPet(); break;
       case 'sit': petToggleSit(); break;
-      case 'color': if (d) d.color = Math.max(0, Math.min(3, +b.dataset.v | 0)); break;
+      case 'color': if (d) d.color = Math.max(0, Math.min(PET_COLORS.length - 1, +b.dataset.v | 0)); break;
+      case 'locked': toast('🔒 Ese color viene con el 🎨 Pack de estilos (🛒 Tienda).'); break;
       case 'name': {
         const v = cleanNick($('pet-name').value);
         if (d && v.length >= 2) { d.name = v; toast(`Ahora se llama <b>${escapeHtml(v)}</b>.`); }

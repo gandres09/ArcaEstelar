@@ -662,3 +662,27 @@ body.server-mode canvas { filter: brightness(0.25) blur(2px); }
 #server-panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 50; width: min(420px, calc(100vw - 32px)); padding: 18px 20px; }
 #server-panel h1 { margin: 0 0 8px; font-size: 20px; }
 #server-panel .row { display: flex; justify-content: space-between; margin: 4px 0; }
+
+/* --------------------------- Tienda, guardarropa y regalos --------------------------- */
+.shop-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.shop-card { display: flex; align-items: center; gap: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.shop-card.best { border-color: #ffb347; box-shadow: 0 0 0 1px rgba(255,179,71,0.35) inset; }
+.shop-card .grow { flex: 1; min-width: 0; }
+.shop-card button { white-space: nowrap; }
+.shop-icon { font-size: 28px; width: 40px; text-align: center; }
+.shop-card .tag { white-space: nowrap; font-size: 11px; background: #ffb347; color: #241a0a; border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+.gift-items { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 6px; font-weight: 600; }
+.gift-items span { display: inline-flex; align-items: center; gap: 4px; }
+.style-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.style-card { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; color: inherit; text-align: center; }
+.style-card.on { border-color: #ffb347; }
+.style-card.locked { opacity: 0.6; }
+.style-card img { image-rendering: auto; }
+.ship-swatch { position: relative; width: 56px; height: 34px; border-radius: 17px 24px 24px 17px; display: block; margin: 7px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+.ship-swatch i { position: absolute; left: 4px; right: 10px; top: 14px; height: 5px; border-radius: 3px; }
+.pick.locked { opacity: 0.55; }
+.chip.gift { animation: giftPulse 1.6s ease-in-out infinite; border-color: #ffb347; }
+@keyframes giftPulse { 50% { transform: scale(1.12); } }
+.chip.on { border-color: #ffb347; color: #ffcf7a; }
+.ad-fake .modal-box { text-align: center; }
+.ad-fake .ad-count { font: 700 42px 'Chakra Petch', sans-serif; margin: 8px 0 0; color: #ffcf7a; }

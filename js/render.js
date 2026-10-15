@@ -380,14 +380,15 @@ function drawCrashedShip(g, x0, y0, t) {
   g.fillStyle = 'rgba(0,0,0,0.25)'; g.beginPath(); g.moveTo(-30, 26); g.lineTo(-6, 22); g.lineTo(-10, 25); g.closePath(); g.fill();
   // Casco
   const hull = g.createLinearGradient(0, -18, 0, 18);
-  hull.addColorStop(0, '#dfe4ea'); hull.addColorStop(0.55, '#a9b2bd'); hull.addColorStop(1, '#6e7883');
+  const sty = myShip();
+  hull.addColorStop(0, sty.hull[0]); hull.addColorStop(0.55, sty.hull[1]); hull.addColorStop(1, sty.hull[2]);
   g.fillStyle = hull;
   g.beginPath();
   g.moveTo(-40, -10); g.quadraticCurveTo(-20, -19, 14, -16); g.quadraticCurveTo(40, -12, 46, 0);
   g.quadraticCurveTo(40, 12, 14, 15); g.quadraticCurveTo(-20, 18, -40, 10); g.closePath(); g.fill();
   g.strokeStyle = 'rgba(30,36,44,0.7)'; g.lineWidth = 1.5; g.stroke();
   // Franja naranja y paneles
-  g.fillStyle = '#e8963a'; g.beginPath(); g.moveTo(-36, -3); g.lineTo(30, -3); g.lineTo(28, 1); g.lineTo(-36, 1); g.closePath(); g.fill();
+  g.fillStyle = sty.stripe; g.beginPath(); g.moveTo(-36, -3); g.lineTo(30, -3); g.lineTo(28, 1); g.lineTo(-36, 1); g.closePath(); g.fill();
   g.strokeStyle = 'rgba(40,48,58,0.35)'; g.lineWidth = 1;
   for (const px of [-22, -4, 14]) { g.beginPath(); g.moveTo(px, -15); g.lineTo(px + 2, 14); g.stroke(); }
   // Abolladura y raspones
@@ -1542,13 +1543,13 @@ function drawPlayer(g, lod) {
     g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(mx + 3, my - 8, TILE - 6, 5);
     g.fillStyle = '#ffd34d'; g.fillRect(mx + 3, my - 8, (TILE - 6) * Math.min(1, p.mineT / (p.mine.tree ? CHOP_TIME : HAND_MINE_TIME)), 5);
   }
-  if (!p.vehicle) { drawAvatar(g, p, x, y, '#ffb347', '#d9782a'); drawPlayerCombat(g, p, x, y); }
+  if (!p.vehicle) { const st = mySuit(); drawAvatar(g, p, x, y, st.light, st.dark, st.visor); drawPlayerCombat(g, p, x, y); }
   if (NET.on) drawNameTag(g, x, y, NET.nick || 'Vos', '#ffb347', NET.role === 'host');
   if (NET.on && CHAT.mySay && performance.now() < CHAT.mySay.until) drawSpeech(g, x, y, CHAT.mySay.text);
 }
 
 // Un personaje visto de arriba (el propio en naranja; los demás con su color)
-function drawAvatar(g, p, x, y, light, dark) {
+function drawAvatar(g, p, x, y, light, dark, visor) {
   g.save();
   g.translate(x, y);
   g.fillStyle = 'rgba(0,0,0,0.3)';
@@ -1586,7 +1587,7 @@ function drawAvatar(g, p, x, y, light, dark) {
   // Casco con visor
   g.fillStyle = '#f2f2ee';
   g.beginPath(); g.arc(1, 0, 5.5, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#2f6fb0';
+  g.fillStyle = visor || '#2f6fb0';
   g.beginPath(); g.ellipse(4, 0, 2.2, 3.6, 0, 0, Math.PI * 2); g.fill();
   g.fillStyle = 'rgba(255,255,255,0.6)';
   g.beginPath(); g.arc(4.5, -1.2, 1, 0, Math.PI * 2); g.fill();
@@ -1599,7 +1600,8 @@ function drawRemotePlayers(g, lod) {
     const col = netColor(a.by);
     const x = a.x * TILE, y = a.y * TILE;
     if (lod) { g.fillStyle = col; g.beginPath(); g.arc(x, y, 14, 0, Math.PI * 2); g.fill(); continue; }
-    if (!a.dv) drawAvatar(g, a, x, y, col, shadeHex(col, -0.25));
+    const sk = a.sk && suitById(a.sk);   // su traje del guardarropa (si eligió uno)
+    if (!a.dv) { if (sk && a.sk !== 'naranja') drawAvatar(g, a, x, y, sk.light, sk.dark, sk.visor); else drawAvatar(g, a, x, y, col, shadeHex(col, -0.25)); }
     const pr = a.by && NET.profiles[a.by];
     drawNameTag(g, x, y, a.nick || (pr && pr.name) || 'Jugador', col, a.host);
     if (a.say && performance.now() < a.sayUntil) drawSpeech(g, x, y, a.say);

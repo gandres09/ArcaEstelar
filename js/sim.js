@@ -1144,7 +1144,7 @@ function update(dt) {
         const lfx = moduleFx(e);
         const lp = drawPower(e, def.power * lfx.power);
         e.active = lp > 0;
-        e.prog += dt * def.speed * mkMult(e) * lp * lfx.speed * labSpeedMult() / tech.time;
+        e.prog += dt * def.speed * mkMult(e) * lp * lfx.speed * labSpeedMult() * researchShopMult() / tech.time;
         if (e.prog >= 1) {
           e.prog = 0;
           e.working = false;

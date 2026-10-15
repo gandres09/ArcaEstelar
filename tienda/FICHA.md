@@ -35,7 +35,7 @@ Llegá al espacio, limpiá el planeta y armá el Arca estelar para escapar.
 🤝 CON AMIGOS
 Jugá en línea con amigos con un código de sala: compartan la misma base o armen bases separadas, como aliados o como enemigos.
 
-✔️ Sin publicidad. Sin compras dentro del juego. Se puede jugar sin internet.
+✔️ Gratis para terminar de punta a punta. Sin anuncios que te interrumpan: solo si querés un regalo de la Nave. Se puede jugar sin internet.
 
 ## Categoría
 
@@ -62,6 +62,20 @@ Play pide al menos 2 capturas de teléfono. Conviene sumar más con escenas real
 - Sitio web: `https://gandres09.github.io/ArcaEstelar/`
 - Correo de contacto: el de la cuenta de desarrollador (Play lo pide obligatorio).
 
+## Anuncios y compras (Play Console)
+
+- **¿Contiene anuncios?** Sí (solo anuncios con recompensa que el jugador elige mirar).
+- **Productos integrados en la app** (Monetización → Productos → Productos integrados), todos de **compra única (no consumibles)**. El ID tiene que ser exactamente este:
+
+| ID del producto | Nombre | Precio sugerido |
+|---|---|---|
+| `fundador` | Pase Fundador | US$ 4,99 |
+| `sin_anuncios` | Sin anuncios | US$ 1,99 |
+| `velocidad` | Velocidad x2 y x3 | US$ 1,99 |
+| `investigacion` | Investigación +50 % | US$ 1,49 |
+| `vulcano` | Expansión Vulcano | US$ 1,99 |
+| `estilos` | Pack de estilos | US$ 0,99 |
+
 ## Seguridad de los datos (formulario de Play Console)
 
 Respuestas sugeridas (revisalas con lo que pregunte el formulario en ese momento):
@@ -71,7 +85,9 @@ Respuestas sugeridas (revisalas con lo que pregunte el formulario en ese momento
 - **Mensajes en la app** (chat del juego): se envían a los otros jugadores de la sala. Opcional, mismo uso.
 - **¿Los datos se encriptan en tránsito?** Sí (las conexiones entre jugadores van cifradas).
 - **¿Se pueden borrar?** Sí: se borran al borrar los datos de la app.
-- Sin ubicación, contactos, fotos, identificadores de publicidad ni datos de pago.
+- **Anuncios** (si activás los anuncios de Google): Google recopila el **identificador de publicidad** y datos de uso del anuncio para mostrarlo y medirlo. Declaralo como "Identificadores del dispositivo" → compartido con Google, para "Publicidad".
+- **Compras**: las procesa Google Play; el juego no ve tus datos de pago.
+- Sin ubicación, contactos ni fotos.
 
 ## Clasificación de contenido (cuestionario IARC)
 

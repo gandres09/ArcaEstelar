@@ -135,6 +135,7 @@ function travelOverlay(text) {
 // Ir a la Luna (desde la plataforma) o volver a la Tierra (desde el módulo lunar)
 function travel(to) {
   if (!playerOn()) return false;
+  if (to === 'vulcan' && !owns('vulcano')) { toast('🌋 Vulcano es una expansión: se consigue en 🛒 Tienda (o con el Pase Fundador).'); openModal('tienda'); return false; }
   if (myVehicle()) exitVehicle(true);
   const from0 = S.surface || 'earth';
   const fuel = to === 'moon' ? MOON_FUEL : to === 'vulcan' ? VULCAN_FUEL : from0 === 'vulcan' ? 40 : MOON_BACK_FUEL;
