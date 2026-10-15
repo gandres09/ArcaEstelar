@@ -74,6 +74,7 @@ Play pide al menos 2 capturas de teléfono. Conviene sumar más con escenas real
 | `velocidad` | Velocidad x2 y x3 | US$ 1,99 |
 | `investigacion` | Investigación +50 % | US$ 1,49 |
 | `vulcano` | Expansión Vulcano | US$ 1,99 |
+| `mascotas` | Pack de mascotas | US$ 1,49 |
 | `estilos` | Pack de estilos | US$ 0,99 |
 
 ## Seguridad de los datos (formulario de Play Console)

@@ -284,7 +284,7 @@ function netPlayerState() {
   if (!p) return null;
   const r = (v) => Math.round(v * 100) / 100;
   const d = p.pet;
-  const pet = d && !d.gone ? [r(d.x), r(d.y), r(d.ang), Math.max(0, PET_ANIMS.indexOf(d.anim)), d.color | 0, Math.round(d.food * 100), d.level || 1] : [];
+  const pet = d && !d.gone ? [r(d.x), r(d.y), r(d.ang), Math.max(0, PET_ANIMS.indexOf(d.anim)), d.color | 0, Math.round(d.food * 100), d.level || 1, Math.max(0, PET_KINDS.indexOf(petKind(d)))] : [];
   return [r(p.x), r(p.y), r(p.ang), p.moving ? 1 : 0, p.mining ? 1 : 0, r(p.step || 0), ...pet];
 }
 
@@ -867,7 +867,7 @@ function netUpdateAvatars(peers, dt) {
       const px = pet.x;
       pet.x = wrapX(pet.x + wdx(pp[6] - pet.x) * k); pet.y = wrapY(pet.y + wdy(pp[7] - pet.y) * k);
       pet.step += Math.abs(wdx(pet.x - px)) * 3 + dt * (anim === 'walk' ? 8 : 0);
-      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(PET_COLORS.length - 1, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), name: cleanNick(p.presence.pn) || 'Perrito' });
+      Object.assign(pet, { ang: pp[8], anim, color: Math.max(0, Math.min(PET_COLORS.length - 1, pp[10] | 0)), food: (pp[11] | 0) / 100, level: Math.max(1, Math.min(10, pp[12] | 0)), kind: (PET_KINDS[pp[13] | 0] || PET_KINDS[0]).id, name: cleanNick(p.presence.pn) || 'Perrito' });
     } else a.pet = null;
     chatReceive(p.peer, a, p.presence.c);
     a.hpr = Number.isFinite(p.presence.hp) ? p.presence.hp : 100;

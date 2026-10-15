@@ -17,14 +17,15 @@ const GIFT_KEY = 'arca-regalo';
 const GIFT_EVERY = 8 * 60 * 1000;     // un regalo cada 8 minutos
 
 const SHOP = {
-  fundador:      { icon: '👑', name: 'Pase Fundador', price: 'US$ 4,99', desc: 'Todo, para siempre: sin anuncios, velocidad x2 y x3, investigación +50 %, Vulcano y todos los estilos. Y la insignia de Fundador.' },
+  fundador:      { icon: '👑', name: 'Pase Fundador', price: 'US$ 4,99', desc: 'Todo, para siempre: sin anuncios, velocidad x2 y x3, investigación +50 %, Vulcano, todas las mascotas y todos los estilos. Y la insignia de Fundador.' },
   sin_anuncios:  { icon: '🚫', name: 'Sin anuncios', price: 'US$ 1,99', desc: 'Los regalos 🎁 se cobran al instante, sin mirar nada.' },
   velocidad:     { icon: '⏩', name: 'Velocidad x2 y x3', price: 'US$ 1,99', desc: 'Acelerá todo el juego cuando jugás solo. Se cambia tocando ⏩ arriba.' },
   investigacion: { icon: '🔬', name: 'Investigación +50 %', price: 'US$ 1,49', desc: 'Tus laboratorios investigan un 50 % más rápido cuando jugás solo.' },
   vulcano:       { icon: '🌋', name: 'Expansión Vulcano', price: 'US$ 1,99', desc: 'El planeta de lava: fundición, tungsteno, taladro grande y cinta turbo. No hace falta para terminar el juego.' },
+  mascotas:      { icon: '🐾', name: 'Pack de mascotas', price: 'US$ 1,49', desc: 'Tres mascotas especiales: Robo-perro, Dragoncito (¡vuela y echa fueguito!) y Pingüino espacial con casco.' },
   estilos:       { icon: '🎨', name: 'Pack de estilos', price: 'US$ 0,99', desc: 'Todos los trajes, Naves y perritos especiales del guardarropa.' },
 };
-const SHOP_ORDER = ['fundador', 'sin_anuncios', 'velocidad', 'investigacion', 'vulcano', 'estilos'];
+const SHOP_ORDER = ['fundador', 'sin_anuncios', 'velocidad', 'investigacion', 'vulcano', 'mascotas', 'estilos'];
 
 // --------------------------- Lo comprado ---------------------------
 
@@ -272,12 +273,14 @@ try { Object.assign(styleSel, JSON.parse(localStorage.getItem(STYLE_KEY) || '{}'
 function styleUnlocked(u) {
   if (!u || u === 'free') return true;
   if (u === 'estilos') return owns('estilos');
+  if (u === 'mascotas') return owns('mascotas');
   if (u.startsWith('ach:')) { const a = typeof achStore === 'function' && S ? achStore() : {}; return a[u.slice(4)] !== undefined || owns('estilos'); }
   if (u.startsWith('stage:')) return (S && (S.stage || 1) >= +u.slice(6)) || owns('estilos');
   return false;
 }
 function unlockText(u) {
   if (u === 'estilos') return '🎨 Pack de estilos';
+  if (u === 'mascotas') return '🐾 Pack de mascotas';
   if (u.startsWith('ach:')) { const a = ACHIEVEMENTS.find((x) => x.id === u.slice(4)); return '🏆 Logro: ' + (a ? a.name : u.slice(4)); }
   if (u.startsWith('stage:')) return ['', '', '🚀 Llegá al espacio', '🌱 Limpiá el planeta'][+u.slice(6)] || 'Avanzá en el juego';
   return '';
@@ -291,6 +294,7 @@ const myShip = () => myStyle(SHIP_STYLES, 'nave');
 const suitById = (id) => SUIT_STYLES.find((x) => x.id === id) || null;
 
 function chooseStyle(key, id) {
+  if (key === 'mascota') { if (setPetKind(id)) renderWardrobe(); return; }
   const list = key === 'traje' ? SUIT_STYLES : SHIP_STYLES;
   const s = list.find((x) => x.id === id);
   if (!s) return;
@@ -312,6 +316,18 @@ function suitPreview(s) {
   return c.toDataURL();
 }
 
+// Muestrita de la mascota
+function petPreview(kind) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.scale(2.6, 2.6);
+  const t0 = time; time = 0;
+  drawPet(g, { x: 11 / TILE, y: 12.5 / TILE, ang: -Math.PI / 2, anim: 'idle', kind, color: 0, food: 1, level: 1 }, false);
+  time = t0;
+  return c.toDataURL();
+}
+
 function renderWardrobe() {
   const el = $('ropero-body');
   if (!el) return;
@@ -325,8 +341,16 @@ function renderWardrobe() {
   for (const s of SUIT_STYLES) h += card('traje', s, `<img src="${suitPreview(s)}" alt="" width="48" height="48">`);
   h += '</div><h3>🚀 Nave</h3><div class="style-grid">';
   for (const s of SHIP_STYLES) h += card('nave', s, `<span class="ship-swatch" style="background:linear-gradient(135deg, ${s.hull[0]}, ${s.hull[1]} 55%, ${s.hull[2]})"><i style="background:${s.stripe}"></i></span>`);
-  h += '</div><h3>🐕 Perrito</h3><p class="muted small">El color del perrito se elige en ☰ → 🐕 Perrito. Los especiales vienen con el Pack de estilos.</p>';
-  if (!owns('estilos')) h += `<div class="actions"><button type="button" class="primary" data-shop-open="1">🎨 Ver el Pack de estilos</button></div>`;
+  h += '</div><h3>🐾 Mascota</h3><div class="style-grid">';
+  const curPet = (S && S.player && S.player.pet && !S.player.pet.gone && S.player.pet.kind) || styleSel.mascota || 'perro';
+  for (const k of PET_KINDS) {
+    const ok = petKindOk(k), on = curPet === k.id;
+    h += `<button type="button" class="style-card${on ? ' on' : ''}${ok ? '' : ' locked'}" data-style="mascota" data-v="${k.id}">
+      <img src="${petPreview(k.id)}" alt="" width="48" height="48"><b>${k.name}</b><span class="small ${ok ? 'muted' : ''}">${on ? '✔ Usando' : ok ? 'Elegir' : '🔒 ' + unlockText(k.unlock)}</span></button>`;
+  }
+  h += '</div><p class="muted small">El nombre y el color se cambian en ☰ → 🐕 Perrito. Los colores especiales vienen con el Pack de estilos.</p>';
+  const packs = [!owns('mascotas') && '<button type="button" class="primary" data-shop-open="1">🐾 Ver el Pack de mascotas</button>', !owns('estilos') && '<button type="button" data-shop-open="1">🎨 Ver el Pack de estilos</button>'].filter(Boolean);
+  if (packs.length) h += `<div class="actions">${packs.join('')}</div>`;
   el.innerHTML = h;
 }
 

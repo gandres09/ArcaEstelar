@@ -70,7 +70,7 @@ Si no hacés este paso, la app funciona igual, pero se ve una barrita arriba.
 ## 6. Compras dentro del juego
 
 El juego ya trae la tienda (🛒 en el menú): Pase Fundador, Sin anuncios, Velocidad x2/x3, Investigación +50 %,
-Expansión Vulcano y Pack de estilos. En la app de Play cobra con **Google Play Billing**; en la página web avisa que
+Expansión Vulcano, Pack de mascotas y Pack de estilos. En la app de Play cobra con **Google Play Billing**; en la página web avisa que
 las compras están en la app.
 
 1. En Play Console: **Monetización → Productos → Productos integrados → Crear producto**, uno por cada ID de la tabla de `FICHA.md`

@@ -15,6 +15,19 @@ const PET_COLORS = [
   { name: 'Cósmico', body: '#8a6bd9', dark: '#5a3fa8', ear: '#3fe0c5', lock: 'estilos' },
   { name: 'Colorado', body: '#c8572a', dark: '#8f3a18', ear: '#f2e3c9', lock: 'estilos' },
 ];
+// Especies. unlock: 'free', 'ach:<logro>', 'stage:<n>' o un producto de la tienda.
+// pal: colores fijos (si no, usa el color elegido).
+const PET_KINDS = [
+  { id: 'perro', name: 'Perro', icon: '🐕', unlock: 'free' },
+  { id: 'gato', name: 'Gato', icon: '🐈', unlock: 'free' },
+  { id: 'conejo', name: 'Conejo', icon: '🐇', unlock: 'ach:steam' },
+  { id: 'zorro', name: 'Zorro', icon: '🦊', unlock: 'stage:2', pal: { body: '#d9692a', dark: '#8f3d14', ear: '#2b1a10' } },
+  { id: 'robo', name: 'Robo-perro', icon: '🤖', unlock: 'mascotas', pal: { body: '#9aa7b4', dark: '#4d5862', ear: '#3fe0f5' } },
+  { id: 'dragon', name: 'Dragoncito', icon: '🐉', unlock: 'mascotas', pal: { body: '#4caf6a', dark: '#2a7042', ear: '#f2c94c' } },
+  { id: 'pinguino', name: 'Pingüino espacial', icon: '🐧', unlock: 'mascotas', pal: { body: '#22262e', dark: '#111318', ear: '#f39c32' } },
+];
+const petKind = (d) => PET_KINDS.find((k) => k.id === (d && d.kind)) || PET_KINDS[0];
+const petKindOk = (k) => typeof styleUnlocked !== 'function' || styleUnlocked(k.unlock);
 const PET_HUNGER_TIME = 1800;   // media hora de juego con la panza llena (se va vaciando)
 const PET_STARVE_TIME = 1800;   // media hora con hambre; después se escapa
 const PET_MAX_LEVEL = 10;
@@ -33,6 +46,7 @@ function ensurePet(p) {
   if (!p.pet) p.pet = newPet(p.x - 1.2, p.y + 0.6);
   const d = p.pet;
   if (d.level === undefined) Object.assign(d, { xp: 0, level: 1, starve: 0, petCd: 0, warn: 0 });   // perros de antes
+  if (!d.kind) d.kind = (typeof styleSel !== 'undefined' && styleSel.mascota) || 'perro';
 }
 
 function petGainXp(d, n) {
@@ -107,6 +121,7 @@ function petAdopt() {
   if (!p) return;
   const old = p.pet;
   p.pet = newPet(p.x - 1.2, p.y + 0.6, 'Firulais', old ? old.color : 0);
+  p.pet.kind = old && old.kind || 'perro';
   spawnHearts(p.pet.x, p.pet.y, 5);
   toast('🐕 ¡Adoptaste un perrito! Ponele nombre y no te olvides de darle de comer.');
 }
@@ -169,7 +184,8 @@ function renderPetPanel() {
   const mood = d.food <= 0 ? 'está muy triste y con hambre 😢' : d.food < 0.25 ? 'tiene hambre 🥺' : d.happyT > 0 ? 'está feliz 💛' : d.mode === 'sit' ? 'está sentado esperando' : 'te acompaña';
   const lvFrom = petXpFor(d.level), lvTo = petXpFor(d.level + 1);
   const next = Object.keys(PET_PERKS).map(Number).find((l) => l > d.level);
-  box.innerHTML = `<div class="insp-head"><b>🐕 Tu perro · nivel ${d.level}</b><button type="button" class="close" data-pet="close">✕</button></div>
+  const kd = petKind(d);
+  box.innerHTML = `<div class="insp-head"><b>${kd.icon} Tu ${kd.name.toLowerCase()} · nivel ${d.level}</b><button type="button" class="close" data-pet="close">✕</button></div>
     <div class="net-nick"><input id="pet-name" type="text" maxlength="16" value="${escapeHtml(d.name)}" autocomplete="off" aria-label="Nombre"><button type="button" class="small-btn" data-pet="name">Llamarlo así</button></div>
     <p>${escapeHtml(d.name)} ${mood}.</p>
     <div class="row"><span>Panza</span><span>${food} %</span></div>${bar(d.food)}
@@ -181,8 +197,22 @@ function renderPetPanel() {
       <button type="button" data-pet="pet">✋ Acariciar</button>
       <button type="button" data-pet="sit">${d.mode === 'sit' ? '🐾 Seguime' : '🪑 Sentate'}</button>
     </div>
-    <div class="pick-title">Color</div>
-    <div class="picker">${PET_COLORS.map((c, i) => { const lk = c.lock && !owns(c.lock); return `<button type="button" class="pick pet-col${d.color === i ? ' on' : ''}${lk ? ' locked' : ''}" data-pet="${lk ? 'locked' : 'color'}" data-v="${i}" title="${c.name}${lk ? ' (Pack de estilos)' : ''}"><span class="sig-dot" style="background:${c.body}"></span>${lk ? '🔒 ' : ''}${c.name}</button>`; }).join('')}</div>`;
+    <div class="pick-title">Especie</div>
+    <div class="picker">${PET_KINDS.map((k) => { const lk = !petKindOk(k); return `<button type="button" class="pick pet-col${kd.id === k.id ? ' on' : ''}${lk ? ' locked' : ''}" data-pet="${lk ? 'kindlock' : 'kind'}" data-v="${k.id}" title="${k.name}${lk ? ' (' + unlockText(k.unlock) + ')' : ''}">${lk ? '🔒 ' : k.icon + ' '}${k.name}</button>`; }).join('')}</div>
+    ${kd.pal ? '' : `<div class="pick-title">Color</div>
+    <div class="picker">${PET_COLORS.map((c, i) => { const lk = c.lock && !owns(c.lock); return `<button type="button" class="pick pet-col${d.color === i ? ' on' : ''}${lk ? ' locked' : ''}" data-pet="${lk ? 'locked' : 'color'}" data-v="${i}" title="${c.name}${lk ? ' (Pack de estilos)' : ''}"><span class="sig-dot" style="background:${c.body}"></span>${lk ? '🔒 ' : ''}${c.name}</button>`; }).join('')}</div>`}`;
+}
+
+// Cambia la especie (y la recuerda para las partidas nuevas)
+function setPetKind(id) {
+  const k = PET_KINDS.find((x) => x.id === id);
+  if (!k) return false;
+  if (!petKindOk(k)) { toast(`🔒 Se desbloquea con: ${unlockText(k.unlock)}.`); return false; }
+  if (typeof styleSel !== 'undefined') { styleSel.mascota = id; try { localStorage.setItem(STYLE_KEY, JSON.stringify(styleSel)); } catch (_) { /* nada */ } }
+  const d = S && S.player && S.player.pet;
+  if (d && !d.gone) { d.kind = id; d.happyT = 1.5; }
+  if (typeof NET !== 'undefined' && NET.on) NET.presAt = 0;
+  return true;
 }
 
 function initPet() {
@@ -198,6 +228,8 @@ function initPet() {
       case 'pet': petPet(); break;
       case 'sit': petToggleSit(); break;
       case 'color': if (d) d.color = Math.max(0, Math.min(PET_COLORS.length - 1, +b.dataset.v | 0)); break;
+      case 'kind': setPetKind(b.dataset.v); break;
+      case 'kindlock': { const k = PET_KINDS.find((x) => x.id === b.dataset.v); if (k) toast(`🔒 ${k.name}: ${unlockText(k.unlock)}.`); break; }
       case 'locked': toast('🔒 Ese color viene con el 🎨 Pack de estilos (🛒 Tienda).'); break;
       case 'name': {
         const v = cleanNick($('pet-name').value);
@@ -218,7 +250,8 @@ function initPet() {
 
 // Un perrito visto de arriba. st: { x, y, ang, color, anim, step, name }
 function drawPet(g, st, showName) {
-  const c = PET_COLORS[st.color] || PET_COLORS[0];
+  const kd = petKind(st), K = kd.id;
+  const c = kd.pal || PET_COLORS[st.color] || PET_COLORS[0];
   const x = st.x * TILE, y = st.y * TILE;
   const anim = st.anim || 'idle';
   const sitting = anim === 'sit' || anim === 'rest' || anim === 'sad';
@@ -229,27 +262,60 @@ function drawPet(g, st, showName) {
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, 18, 0, Math.PI * 2); g.fill();
   }
   const wag = anim === 'happy' || anim === 'spin' ? Math.sin(time * 26) * 0.9 : anim === 'walk' ? Math.sin(time * 12) * 0.4 : anim === 'sad' ? 0.9 : Math.sin(time * 4) * 0.2;
+  // El conejo salta al caminar; el dragoncito flota
+  const hop = K === 'conejo' && anim === 'walk' ? Math.abs(Math.sin((st.step || 0) * 0.6)) * 3 : K === 'dragon' && !sitting ? 1.5 + Math.sin(time * 5) * 1 : 0;
   g.save();
   g.translate(x, y);
   g.fillStyle = 'rgba(0,0,0,0.28)';
-  g.beginPath(); g.ellipse(2, 4, 9, 6, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.ellipse(2 + hop * 0.5, 4 + hop * 0.5, 9 - hop * 0.6, 6 - hop * 0.4, 0, 0, Math.PI * 2); g.fill();
+  g.translate(0, -hop);
   g.rotate((st.ang || 0) + (anim === 'spin' ? time * 9 : 0));
+  g.lineCap = 'round';
   // Cola
   g.save();
   g.translate(-8, 0); g.rotate(Math.PI + wag);
-  g.strokeStyle = c.dark; g.lineWidth = 2.5; g.lineCap = 'round';
-  g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(4, -2, 7, 1); g.stroke();
+  if (K === 'gato') { g.strokeStyle = c.dark; g.lineWidth = 1.8; g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(4, -4, 7, 3, 10, -1); g.stroke(); }
+  else if (K === 'zorro') {
+    g.fillStyle = c.body; g.beginPath(); g.ellipse(5, 0, 6, 3.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f4ede2'; g.beginPath(); g.ellipse(9.5, 0, 2.2, 2.4, 0, 0, Math.PI * 2); g.fill();
+  } else if (K === 'conejo') { g.fillStyle = '#f4f1ea'; g.beginPath(); g.arc(1, 0, 2.6, 0, Math.PI * 2); g.fill(); }
+  else if (K === 'robo') {
+    g.strokeStyle = c.dark; g.lineWidth = 1.2; g.beginPath(); g.moveTo(0, 0); g.lineTo(6, 0); g.stroke();
+    g.fillStyle = Math.floor(time * 3) % 2 ? c.ear : '#e74c3c'; g.beginPath(); g.arc(6.5, 0, 1.4, 0, Math.PI * 2); g.fill();
+  } else if (K === 'dragon') {
+    g.strokeStyle = c.body; g.lineWidth = 2.6; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(5, -3, 9, 1); g.stroke();
+    g.fillStyle = c.ear; g.beginPath(); g.moveTo(8, -1); g.lineTo(12, 1.5); g.lineTo(8, 3); g.closePath(); g.fill();
+  } else if (K === 'pinguino') { g.fillStyle = c.dark; g.beginPath(); g.moveTo(0, -2); g.lineTo(3.5, 0); g.lineTo(0, 2); g.closePath(); g.fill(); }
+  else { g.strokeStyle = c.dark; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(4, -2, 7, 1); g.stroke(); }
   g.restore();
+  // Alas del dragoncito (aletean)
+  if (K === 'dragon') {
+    const f = sitting ? 0.3 : 0.6 + Math.sin(time * 14) * 0.5;
+    g.fillStyle = 'rgba(42,112,66,0.85)';
+    for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(2, sgn * 3); g.lineTo(-3, sgn * (6 + 6 * f)); g.lineTo(-6, sgn * (4 + 3 * f)); g.lineTo(-4, sgn * 3); g.closePath(); g.fill(); }
+  }
   // Patas
   if (!sitting) {
     const s = anim === 'walk' ? Math.sin(st.step || 0) * 2.5 : 0;
-    g.fillStyle = c.dark;
-    for (const [lx, ly, k] of [[5, -4, 1], [5, 4, -1], [-5, -4, -1], [-5, 4, 1]]) { g.beginPath(); g.ellipse(lx + s * k, ly * 1.15, 2, 1.6, 0, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = K === 'pinguino' ? c.ear : c.dark;
+    const legs = K === 'pinguino' ? [[3, -2.5, 1], [3, 2.5, -1]] : [[5, -4, 1], [5, 4, -1], [-5, -4, -1], [-5, 4, 1]];
+    for (const [lx, ly, k] of legs) { g.beginPath(); g.ellipse(lx + s * k, ly * 1.15, 2, 1.6, 0, 0, Math.PI * 2); g.fill(); }
   }
   // Cuerpo
   g.fillStyle = c.body;
-  g.beginPath(); g.ellipse(sitting ? -2 : 0, 0, sitting ? 6.5 : 8.5, 5.2, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath();
+  if (K === 'robo') rrect(g, sitting ? -8 : -8.5, -5, sitting ? 13 : 17, 10, 3);
+  else if (K === 'pinguino') g.ellipse(-1, 0, 7, 5.6, 0, 0, Math.PI * 2);
+  else g.ellipse(sitting ? -2 : 0, 0, sitting ? 6.5 : 8.5, K === 'gato' ? 4.6 : 5.2, 0, 0, Math.PI * 2);
+  g.fill();
   g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1; g.stroke();
+  if (K === 'robo') { g.fillStyle = c.dark; for (const bx of [-5, -1.5]) g.fillRect(bx, -3.6, 2, 7.2); }
+  if (K === 'pinguino') {   // aletas
+    g.fillStyle = c.dark;
+    const fl = anim === 'walk' || anim === 'happy' ? Math.sin(time * 14) * 0.4 : 0;
+    for (const sgn of [-1, 1]) { g.save(); g.translate(0, sgn * 5); g.rotate(sgn * (0.3 + fl)); g.beginPath(); g.ellipse(-2.5, 0, 4, 1.4, 0, 0, Math.PI * 2); g.fill(); g.restore(); }
+  }
+  if (K === 'dragon') { g.fillStyle = c.ear; for (const sx of [-5, -2, 1]) { g.beginPath(); g.moveTo(sx - 1.3, 0); g.lineTo(sx, -1.6); g.lineTo(sx + 1.3, 0); g.lineTo(sx, 1.6); g.closePath(); g.fill(); } }
   // Accesorios según el nivel: collar (2), medallita (4), pañuelo (6)
   const lv = st.level || 1;
   if (lv >= 6) { g.fillStyle = '#c0392b'; g.beginPath(); g.moveTo(4, -4.6); g.lineTo(4, 4.6); g.lineTo(0.5, 0); g.closePath(); g.fill(); }
@@ -257,19 +323,63 @@ function drawPet(g, st, showName) {
   if (lv >= 4) { g.fillStyle = '#f0c040'; g.beginPath(); g.arc(4.6, 0, 1.4, 0, Math.PI * 2); g.fill(); }
   // Cabeza (si come, baja la cabeza)
   const hx = anim === 'eat' ? 10 + Math.sin(time * 18) * 0.8 : 8;
+  // Orejas que van debajo de la cabeza
+  if (K === 'gato' || K === 'zorro') {
+    const big = K === 'zorro' ? 1.35 : 1;
+    g.fillStyle = c.body;
+    for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(hx - 2.5, sgn * 2.4); g.lineTo(hx - 3.2 * big, sgn * 6.4 * big); g.lineTo(hx + 1, sgn * 4); g.closePath(); g.fill(); }
+    g.fillStyle = c.ear;
+    for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(hx - 2.2, sgn * 3.4); g.lineTo(hx - 2.9 * big, sgn * 5.6 * big); g.lineTo(hx - 0.2, sgn * 4.2); g.closePath(); g.fill(); }
+  }
   g.fillStyle = c.body;
-  g.beginPath(); g.arc(hx, 0, 4.6, 0, Math.PI * 2); g.fill(); g.stroke();
-  // Orejas
-  g.fillStyle = c.ear;
-  g.beginPath(); g.ellipse(hx - 1.5, -4.2, 2.6, 1.6, -0.5, 0, Math.PI * 2); g.ellipse(hx - 1.5, 4.2, 2.6, 1.6, 0.5, 0, Math.PI * 2); g.fill();
-  // Hocico y nariz
-  g.fillStyle = c.dark;
-  g.beginPath(); g.ellipse(hx + 3.6, 0, 2.2, 1.9, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#111';
-  g.beginPath(); g.arc(hx + 5.2, 0, 1.1, 0, Math.PI * 2); g.fill();
+  g.beginPath();
+  if (K === 'robo') rrect(g, hx - 4.5, -4.3, 9, 8.6, 2.5);
+  else g.arc(hx, 0, K === 'gato' || K === 'conejo' ? 4.1 : 4.6, 0, Math.PI * 2);
+  g.fill(); g.stroke();
+  if (K === 'pinguino') { g.fillStyle = '#f4f6f8'; g.beginPath(); g.ellipse(hx + 1.6, 0, 2.6, 3.4, 0, 0, Math.PI * 2); g.fill(); }
+  if (K === 'zorro') { g.fillStyle = '#f4ede2'; g.beginPath(); g.ellipse(hx + 2.2, 0, 2.4, 3, 0, 0, Math.PI * 2); g.fill(); }
+  // Orejas, hocico y extras de cada especie
+  if (K === 'perro') {
+    g.fillStyle = c.ear;
+    g.beginPath(); g.ellipse(hx - 1.5, -4.2, 2.6, 1.6, -0.5, 0, Math.PI * 2); g.ellipse(hx - 1.5, 4.2, 2.6, 1.6, 0.5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c.dark; g.beginPath(); g.ellipse(hx + 3.6, 0, 2.2, 1.9, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(hx + 5.2, 0, 1.1, 0, Math.PI * 2); g.fill();
+  } else if (K === 'gato') {
+    g.fillStyle = '#e88a9a'; g.beginPath(); g.arc(hx + 3.6, 0, 0.9, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 0.5;
+    g.beginPath(); for (const sgn of [-1, 1]) for (const dy of [0.4, 1.4]) { g.moveTo(hx + 3, sgn * 1); g.lineTo(hx + 6.5, sgn * (1.5 + dy * 1.6)); } g.stroke();
+  } else if (K === 'zorro') {
+    g.fillStyle = c.body; g.beginPath(); g.moveTo(hx + 2.5, -2.2); g.lineTo(hx + 7, 0); g.lineTo(hx + 2.5, 2.2); g.closePath(); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.arc(hx + 6.8, 0, 0.9, 0, Math.PI * 2); g.fill();
+  } else if (K === 'conejo') {
+    const fl = sitting ? 0.25 : 0.12 + Math.sin(time * 3) * 0.05;
+    for (const sgn of [-1, 1]) {
+      g.save(); g.translate(hx - 1.5, sgn * 1.6); g.rotate(Math.PI + sgn * fl);
+      g.fillStyle = c.body; g.beginPath(); g.ellipse(4.5, 0, 5, 1.7, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#f2b8c4'; g.beginPath(); g.ellipse(4.5, 0, 3.6, 0.8, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    g.fillStyle = '#e88a9a'; g.beginPath(); g.arc(hx + 3.8, 0, 0.9, 0, Math.PI * 2); g.fill();
+  } else if (K === 'robo') {
+    g.strokeStyle = c.dark; g.lineWidth = 1; g.beginPath(); g.moveTo(hx - 2, 0); g.lineTo(hx - 5.5, -3); g.stroke();
+    g.fillStyle = c.ear; g.beginPath(); g.arc(hx - 5.5, -3, 1.1, 0, Math.PI * 2); g.fill();
+    g.fillStyle = c.dark; g.fillRect(hx - 2.4, -5.2, 2.6, 1.6); g.fillRect(hx - 2.4, 3.6, 2.6, 1.6);
+  } else if (K === 'dragon') {
+    g.fillStyle = c.ear;
+    for (const sgn of [-1, 1]) { g.beginPath(); g.moveTo(hx - 2, sgn * 2); g.lineTo(hx - 6, sgn * 4.5); g.lineTo(hx - 1, sgn * 3.6); g.closePath(); g.fill(); }
+    g.fillStyle = c.dark; g.beginPath(); g.ellipse(hx + 3.8, 0, 2.4, 2.4, 0, 0, Math.PI * 2); g.fill();
+    if (anim === 'happy' && Math.floor(time * 4) % 2) { g.fillStyle = 'rgba(255,150,40,0.85)'; g.beginPath(); g.moveTo(hx + 5.5, 0); g.lineTo(hx + 11, -2.5); g.lineTo(hx + 10, 0); g.lineTo(hx + 11, 2.5); g.closePath(); g.fill(); }
+  } else if (K === 'pinguino') {
+    g.fillStyle = c.ear; g.beginPath(); g.moveTo(hx + 3.6, -1.3); g.lineTo(hx + 6.8, 0); g.lineTo(hx + 3.6, 1.3); g.closePath(); g.fill();
+    // Casco espacial
+    g.strokeStyle = 'rgba(170,220,255,0.75)'; g.lineWidth = 0.9; g.beginPath(); g.arc(hx, 0, 6, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(170,220,255,0.12)'; g.fill();
+  }
   // Ojos (tristes: cerraditos)
-  if (anim === 'sad') { g.strokeStyle = '#111'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(hx + 1, -2.4); g.lineTo(hx + 2.2, -1.4); g.moveTo(hx + 1, 2.4); g.lineTo(hx + 2.2, 1.4); g.stroke(); }
-  else { g.beginPath(); g.arc(hx + 1.6, -1.8, 0.8, 0, Math.PI * 2); g.arc(hx + 1.6, 1.8, 0.8, 0, Math.PI * 2); g.fill(); }
+  const eye = K === 'robo' ? c.ear : K === 'gato' ? '#9be35a' : '#111';
+  if (anim === 'sad') { g.strokeStyle = eye; g.lineWidth = 0.8; g.beginPath(); g.moveTo(hx + 1, -2.4); g.lineTo(hx + 2.2, -1.4); g.moveTo(hx + 1, 2.4); g.lineTo(hx + 2.2, 1.4); g.stroke(); }
+  else if (K === 'robo') { g.fillStyle = eye; g.fillRect(hx + 1.6, -2.8, 1.6, 5.6); }
+  else { g.fillStyle = eye; g.beginPath(); g.arc(hx + 1.6, -1.8, 0.8, 0, Math.PI * 2); g.arc(hx + 1.6, 1.8, 0.8, 0, Math.PI * 2); g.fill(); }
   // Corona (nivel 10)
   if (lv >= 10) {
     g.fillStyle = '#f5c518';
