@@ -4,7 +4,7 @@
 //  y un "¡vengan acá!" para llamar a los amigos.
 // =====================================================================
 
-const MARKER_ICONS = ['📍', '⛏️', '💎', '⚔️', '🏠', '⚠️', '🌲', '⭐'];
+const MARKER_ICONS = ['📍', '⛏️', '💎', '⚔️', '🏠', '⚠️', '🌲', '⭐', '💀'];
 const PING_TIME = 60;   // segundos que dura un llamado
 let markMode = false;
 
@@ -38,6 +38,18 @@ function addMarker(x, y, extra = {}) {
   const m = { id: 'm' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), x: wrapX(x), y: wrapY(y),
     name: markerAutoName(Math.floor(x), Math.floor(y)), icon: markerAutoIcon(Math.floor(x), Math.floor(y)), by: NET.nick || null, ...extra };
   S.markers.push(m);
+  netPush({ k: 'mk', m });
+  renderMarkerList();
+  return m;
+}
+// Dónde caíste la última vez: queda marcado (una sola marca por jugador, se mueve a la última muerte)
+function markDeath(x, y, from) {
+  ensureMarkers();
+  const id = 'mdeath_' + String((typeof NET !== 'undefined' && NET.uid) || 'yo').replace(/[^\w-]/g, '').slice(0, 30);
+  const who = typeof NET !== 'undefined' && NET.on && NET.nick ? NET.nick + ' cayó' : 'Caíste acá';
+  const m = { id, x: wrapX(x), y: wrapY(y), icon: '💀', name: (who + (from ? ' · ' + from : '')).slice(0, 24), by: (typeof NET !== 'undefined' && NET.nick) || null };
+  const i = S.markers.findIndex((k) => k.id === id);
+  if (i >= 0) S.markers[i] = m; else S.markers.push(m);
   netPush({ k: 'mk', m });
   renderMarkerList();
   return m;

@@ -477,6 +477,7 @@ function hurtPlayer(dmg, from) {
 
 function playerDie(from) {
   const p = S.player;
+  markDeath(p.x, p.y, from);
   const items = { ...S.pinv };
   const has = Object.values(items).some((n) => n > 0);
   if (has) { p.bag = { x: p.x, y: p.y, items }; S.pinv = {}; }
@@ -488,7 +489,7 @@ function playerDie(from) {
   followCam = true;
   for (const k of S.creatures) k.angry = false;
   sfx('alarm');
-  toast(`💀 Te derrotó ${escapeHtml(from || 'un bicho')}. Volviste a la nave.${has ? ' Tu mochila quedó donde caíste (la marca 🎒 en el mapa).' : ''}`);
+  toast(`💀 Te derrotó ${escapeHtml(from || 'un bicho')}. Volviste a la nave. Quedó marcado 💀 en el mapa dónde caíste${has ? ', con tu mochila 🎒' : ''}.`);
 }
 
 // Ataque automático (se puede apagar: en modo manual atacás tocando al enemigo)
