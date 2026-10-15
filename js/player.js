@@ -299,7 +299,15 @@ let revealTimer = 0;
 function updatePlayer(dt) {
   if (!playerOn()) return;
   const p = S.player;
-  if (p.vehicle) { updatePet(p, dt); driveStep(dt); if (p.vehicle) return; }
+  if (p.vehicle) {
+    updatePet(p, dt); driveStep(dt);
+    if (p.vehicle) {
+      // Manejando también se descubre el terreno (más seguido: se va más rápido)
+      revealTimer += dt;
+      if (revealTimer > 0.2) { revealTimer = 0; reveal(p.x, p.y, REVEAL_RADIUS + 4); }
+      return;
+    }
+  }
   unstick(p);
   updatePet(p, dt);
   // La armadura (y sus bonus) cambian la velocidad
