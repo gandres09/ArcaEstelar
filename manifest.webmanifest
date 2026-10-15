@@ -1,0 +1,20 @@
+{
+  "name": "Arca Estelar",
+  "short_name": "Arca Estelar",
+  "description": "Te estrellaste en un planeta desconocido: levantá una fábrica cada vez más grande, investigá, defendete y escapá en un Arca estelar. Solo o con amigos.",
+  "lang": "es",
+  "id": "./",
+  "start_url": "./?origen=app",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "categories": ["games", "strategy", "simulation"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

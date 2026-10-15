@@ -163,6 +163,11 @@ function readMapOpts() {
   return o;
 }
 
+// Instalable como app (y sin internet, jugando solo). No en Claude ni en el servidor de la laptop.
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && window.top === window && !window.ARCA_SERVER) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+
 function startNewGame(seed, peaceful, character = true, opts = null) {
   const sz = (opts && MAP_SIZES[opts.size]) || MAP_SIZE;
   setMapSize(sz[0], sz[1]);
@@ -438,9 +443,9 @@ async function init() {
   });
   $('btn-server').addEventListener('click', () => startServerMode(false));
   // Fuera de Claude (GitHub): entrar con un botón al mundo de la compu servidor
-  $('btn-public').hidden = !(typeof P2P !== 'undefined' && P2P.standalone);
-  if (ARCA_SERVER) $('btn-public').textContent = '🌍 Entrar al servidor';
-  $('btn-public').addEventListener('click', () => { closeModals(); if (ARCA_SERVER) { wsConnect(false); return; } toast('Conectando al servidor público…'); p2pJoin(P2P_PUBLIC).then((ok) => { if (!ok) { toast('No encuentro el servidor público: fijate que la laptop esté prendida, con internet y con el servidor abierto. Sigo intentando solo unos minutos…'); p2pRetry(P2P_PUBLIC, 0); } }); });
+  // Solo en el juego servido por un servidor dedicado: entrar a ese servidor
+  $('btn-public').hidden = !ARCA_SERVER;
+  $('btn-public').addEventListener('click', () => { closeModals(); wsConnect(false); });
 
   let last = performance.now();
   function frame(now) {

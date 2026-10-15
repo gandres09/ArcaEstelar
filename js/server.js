@@ -16,7 +16,12 @@ async function startServerMode(auto) {
   if (auto && NET.available && NET.worlds[myWorldId()] && netWorldHostAlive(myWorldId())) return false;
   // Fuera de Claude (GitHub): la sala con código, siempre el mismo código
   if (!NET.available && typeof P2P !== 'undefined' && P2P.standalone) {
-    if (!(await p2pCreate(P2P_PUBLIC))) { toast('No se pudo abrir la sala del servidor. Revisá internet y probá de nuevo.'); return false; }
+    // Código privado de esta compu (siempre el mismo, así los que ya lo tienen siguen entrando)
+    let code = P2P_PUBLIC;
+    if (!code) { try { code = localStorage.getItem(SERVER_CODE_KEY); } catch (_) { /* nada */ } }
+    if (!code || code.length !== 8) code = p2pNewCode();
+    try { localStorage.setItem(SERVER_CODE_KEY, code); } catch (_) { /* nada */ }
+    if (!(await p2pCreate(code))) { toast('No se pudo abrir la sala del servidor. Revisá internet y probá de nuevo.'); return false; }
   }
   if (!NET.available) { toast('No se pudo conectar el juego en línea.'); return false; }
   if (NET.on && NET.role !== 'host') { toast('Para ser servidor tenés que estar en tu propio mundo (salí del mundo de tu amigo).'); return false; }
@@ -132,8 +137,8 @@ function renderServerPanel() {
     <div class="row"><span>Prendido hace</span><b>${hh} h ${mm} min</b></div>
     <div class="row"><span>Jugadores conectados</span><b>${players}</b></div>
     <div class="row"><span>Tiempo de juego del mundo</span><b>${Math.floor(S.playTime / 3600)} h ${Math.floor((S.playTime % 3600) / 60)} min</b></div>
-    ${NET.p2p && P2P.code ? `<p>🌍 <b>Servidor público.</b> Desde sus compus abran el juego y toquen <b>🌐 → Entrar al servidor público</b>.</p>
-    <p class="muted small">Esta compu no tiene personaje: los únicos que juegan son los que entran.</p>`
+    ${NET.p2p && P2P.code ? `<div class="row"><span>Código para entrar</span><b>${p2pPretty(P2P.code)}</b></div>
+    <p class="muted small">Desde sus compus o celulares: <b>🌐 → ¿Te pasaron un código?</b> y escriben este código. No cambia aunque se reinicie el servidor. Esta compu no tiene personaje: los únicos que juegan son los que entran.</p>`
     : '<p class="muted small">Ustedes entran desde el celular o desde otra compu: vos con <b>🌐 → Entrar a mi mundo</b>, tu amigo con <b>🌐 → Unirme</b>.</p>'}
     <p class="muted small">Dejá esta pestaña abierta (la podés minimizar) y configurá la compu para que no se suspenda.</p>
     <div class="actions"><button type="button" data-srv="stop">Dejar de ser servidor</button>${multiBase() ? '<button type="button" data-srv="reset">🧹 Empezar de cero con los jugadores</button>' : ''}</div>`;

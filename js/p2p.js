@@ -283,8 +283,8 @@ function p2pPeerOptions(host) {
   }
   return o;
 }
-// El servidor público: siempre el mismo código, así se entra con un botón
-const P2P_PUBLIC = window.P2P_PUBLIC_CODE || 'ARCASERV';
+// Código de prueba (lo usan las pruebas automáticas); el modo servidor usa su propio código privado
+const P2P_PUBLIC = window.P2P_PUBLIC_CODE || null;
 
 function p2pOnHostMessage(conn, m) {
   const peer = conn.peer;
@@ -570,36 +570,8 @@ async function wsConnect(admin) {
   return false;
 }
 
-// Faro: el servidor de la laptop atiende el botón "Entrar al servidor público" de la página de
-// GitHub y le dice a dónde ir (su dirección de Tailscale), así nadie tiene que acordársela
-let beaconPeer = null;
-async function wsBeacon() {
-  if (beaconPeer) return;
-  if (!window.ARCA_URL) {
-    try { window.ARCA_URL = (await (await fetch('/estado', { cache: 'no-store' })).json()).direccion || ''; } catch (_) { /* nada */ }
-    if (!window.ARCA_URL) { setTimeout(wsBeacon, 60000); return; }
-  }
-  try { await p2pLoadLib(); } catch (_) { setTimeout(wsBeacon, 60000); return; }
-  const open = () => new Promise((res) => {
-    const peer = new window.Peer(P2P_PREFIX + P2P_PUBLIC, p2pPeerOptions(true));
-    const t = setTimeout(() => { try { peer.destroy(); } catch (_) { /* nada */ } res(null); }, 20000);
-    peer.on('open', () => { clearTimeout(t); res(peer); });
-    peer.on('error', () => { clearTimeout(t); try { peer.destroy(); } catch (_) { /* nada */ } res(null); });
-  });
-  const peer = await open();
-  if (!peer) { setTimeout(wsBeacon, 30000); return; }
-  beaconPeer = peer;
-  peer.on('connection', (conn) => {
-    conn.on('open', () => { p2pSend(conn, { t: 'go', url: window.ARCA_URL }); setTimeout(() => { try { conn.close(); } catch (_) { /* nada */ } }, 4000); });
-  });
-  peer.on('disconnected', () => { try { if (!peer.destroyed) peer.reconnect(); } catch (_) { /* nada */ } });
-  peer.on('close', () => { if (beaconPeer === peer) { beaconPeer = null; setTimeout(wsBeacon, 5000); } });
-  setInterval(() => { if (beaconPeer === peer && (peer.destroyed || peer.disconnected)) { try { peer.destroy(); } catch (_) { /* nada */ } beaconPeer = null; wsBeacon(); } }, 30000);
-}
-
 // La pestaña del servidor: carga el mundo guardado (o arma uno nuevo) y lo lleva
 async function wsBootServer() {
-  setTimeout(wsBeacon, 3000);
   await new Promise((r) => setTimeout(r, 1500));   // que lleguen los mundos guardados
   const wid = Object.keys(NET.worlds || {})[0];
   if (wid) await netJoin(wid);
@@ -659,9 +631,7 @@ function p2pPanelHtml() {
     h += `<p>🟢 Conectado a la sala <b>${p2pPretty(P2P.code)}</b>.</p><div class="actions"><button type="button" data-p2p="close">Salir de la sala</button></div>`;
   } else {
     h += (ARCA_SERVER ? '<div class="actions"><button type="button" class="primary" data-p2p="ws">🌍 Entrar al servidor</button></div>' : '') +
-      '<div class="actions"><button type="button" class="primary" data-p2p="public">🌍 Entrar al servidor público</button></div>' +
-      '<p class="muted small">Es el mundo que mantiene la compu servidor. Si no entra, fijate que esté prendida con el modo servidor.</p>' +
-      '<p>O sin servidor: uno crea la sala y el otro escribe el código.</p>' +
+      '<p>Uno crea la sala y el otro escribe el código. Si tienen una compu servidor, el código está en su panel.</p>' +
       '<div class="actions"><button type="button" class="primary" data-p2p="create">Crear sala con mi partida</button></div>' +
       '<div class="net-nick"><label for="p2p-in">¿Te pasaron un código?</label><input id="p2p-in" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX"><button type="button" class="small-btn primary" data-p2p="join">Unirme</button></div>';
   }
@@ -676,7 +646,6 @@ document.addEventListener('click', async (ev) => {
   const a = b.dataset.p2p;
   if (a === 'create') p2pCreate();
   else if (a === 'join') p2pJoin($('p2p-in').value);
-  else if (a === 'public') p2pJoin(P2P_PUBLIC);
   else if (a === 'ws') wsConnect(false);
   else if (a === 'close') p2pClose();
   else if (a === 'copy') {
