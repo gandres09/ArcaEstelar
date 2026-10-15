@@ -661,6 +661,8 @@ window.addEventListener('blur', () => keys.clear());
 function handGround(t) {
   const o = oreAt(t.x, t.y);
   stopPlayerTasks();
+  if (pickAtkTarget(t.x, t.y)) { followCam = true; return; }
+  if (S.player) S.player.atkTarget = null;
   if (o && !isLiquidO(o) && o !== 'oil' && tileExplored(t.x, t.y)) startMining(t.x, t.y);
   else if (!o && !at(t.x, t.y) && treeAt(t.x, t.y) && tileExplored(t.x, t.y)) startMining(t.x, t.y);
   else if (cliffAt(t.x, t.y) && tileExplored(t.x, t.y)) useCliffExplosives(t.x, t.y);

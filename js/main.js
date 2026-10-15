@@ -406,6 +406,8 @@ async function init() {
     if (useCombatItem(b.dataset.combat)) { combatKey = ''; updateCombatBar(); }
   });
   $('torch-chip').addEventListener('click', toggleTorch);
+  $('atk-chip').addEventListener('click', toggleAutoAttack);
+  updateAtkChip();
   $('weather').addEventListener('click', () => {
     const n = weatherNow(), nx = WEATHERS[n.next];
     toast(`${n.w.icon} <b>${n.w.name}</b>. ${n.w.desc}<br><span class="muted">Después: ${nx.icon} ${nx.name}, en unos ${Math.ceil(n.left / 60)} min.</span>`);

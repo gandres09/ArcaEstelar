@@ -491,7 +491,43 @@ function playerDie(from) {
   toast(`💀 Te derrotó ${escapeHtml(from || 'un bicho')}. Volviste a la nave.${has ? ' Tu mochila quedó donde caíste (la marca 🎒 en el mapa).' : ''}`);
 }
 
-// Ataque automático al enemigo más cercano que esté al alcance
+// Ataque automático (se puede apagar: en modo manual atacás tocando al enemigo)
+const ATK_KEY = 'arca-ataque';
+let autoAttack = true;
+try { autoAttack = localStorage.getItem(ATK_KEY) !== 'manual'; } catch (_) { /* nada */ }
+function toggleAutoAttack() {
+  autoAttack = !autoAttack;
+  try { localStorage.setItem(ATK_KEY, autoAttack ? 'auto' : 'manual'); } catch (_) { /* nada */ }
+  if (S.player) S.player.atkTarget = null;
+  updateAtkChip();
+  toast(autoAttack ? '⚔️ Ataque automático: tu personaje ataca solo al enemigo más cercano.' : '🎯 Ataque manual: tocá un enemigo para atacarlo. Así podés pasar cerca de los bichos sin pelear.');
+}
+function updateAtkChip() {
+  const c = $('atk-chip');
+  if (!c) return;
+  c.textContent = autoAttack ? '⚔️ Auto' : '🎯 Manual';
+  c.classList.toggle('off', !autoAttack);
+}
+// ¿Sigue vivo el enemigo marcado?
+function atkTargetAlive(t) {
+  if (!t) return false;
+  if (t.kind === 'c') return S.creatures.includes(t.o);
+  if (t.kind === 'b') return !t.o.dead && S.biters.includes(t.o);
+  if (t.kind === 'n') return S.entities.includes(t.o);
+  if (t.kind === 'p') return t.o.hpr > 0;
+  return false;
+}
+// Modo manual: tocar un enemigo lo marca como objetivo
+function pickAtkTarget(tx, ty) {
+  if (autoAttack || !playerOn()) return false;
+  const near = targetsNear(tx + 0.5, ty + 0.5, 0.9).filter((t) => tileExplored(Math.floor(t.x), Math.floor(t.y)));
+  if (!near.length) return false;
+  near.sort((a, b) => a.d - b.d);
+  S.player.atkTarget = { kind: near[0].kind, o: near[0].o };
+  return true;
+}
+
+// Ataque al enemigo más cercano que esté al alcance (o al marcado, en modo manual)
 function playerCombat(dt) {
   const p = S.player;
   ensureRpg(p);
@@ -506,6 +542,16 @@ function playerCombat(dt) {
   if (p.atkCd > 0) return;
   let w = st.wpn;
   let tgts = targetsNear(p.x, p.y, w.range).filter((t) => tileExplored(Math.floor(t.x), Math.floor(t.y)));
+  if (!autoAttack) {
+    const m = p.atkTarget;
+    if (!atkTargetAlive(m)) { p.atkTarget = null; return; }
+    tgts = tgts.filter((t) => t.o === m.o);
+    if (!tgts.length) {   // lejos: ir hacia él
+      const mx = m.kind === 'n' ? m.o.x + sizeOf(m.o.type) / 2 : m.o.x, my = m.kind === 'n' ? m.o.y + sizeOf(m.o.type) / 2 : m.o.y;
+      if (!p.path && !p.mine) walkTo(Math.floor(mx), Math.floor(my), Math.max(0.6, w.range - 0.6));
+      return;
+    }
+  }
   if (!tgts.length) return;
   // Munición: si no hay, a las piñas (si está cerca)
   if (w.ammo) {
@@ -541,7 +587,8 @@ function petCombat(dt) {
   const p = S.player, d = p.pet;
   if (!d || d.gone || d.mode === 'sit') return;
   d.biteCd = Math.max(0, (d.biteCd || 0) - dt);
-  const t = targetsNear(p.x, p.y, 6).find((x) => x.kind !== 'n');
+  // En modo manual, el perrito también ataca solo al enemigo que marcaste
+  const t = targetsNear(p.x, p.y, 6).find((x) => x.kind !== 'n' && (autoAttack || (p.atkTarget && x.o === p.atkTarget.o)));
   if (!t) { d.fight = null; return; }
   d.fight = { x: t.x, y: t.y };
   if (wdist(d.x, d.y, t.x, t.y) < 1 && d.biteCd <= 0) {

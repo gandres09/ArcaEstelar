@@ -686,3 +686,4 @@ body.server-mode canvas { filter: brightness(0.25) blur(2px); }
 .chip.on { border-color: #ffb347; color: #ffcf7a; }
 .ad-fake .modal-box { text-align: center; }
 .ad-fake .ad-count { font: 700 42px 'Chakra Petch', sans-serif; margin: 8px 0 0; color: #ffcf7a; }
+#atk-chip.off { color: #ffcf7a; border-color: rgba(255,207,122,0.5); }
