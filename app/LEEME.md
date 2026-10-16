@@ -52,14 +52,8 @@ Si se pierde, no es grave: con la firma de apps de Play (viene activada) se pide
 3. Copiá el **ID de la app** (`ca-app-pub-4866807668376242~XXXXXXXXXX`, con `~`).
 4. En la app: **Bloques de anuncios → Agregar → Recompensado**. Nombre: *Regalo de la Nave*. Recompensa: 1, *regalo*.
 5. Copiá el **ID del bloque** (`ca-app-pub-4866807668376242/XXXXXXXXXX`, con `/`).
-6. En GitHub, pestaña **Variables** → **New repository variable**:
-
-| Nombre | Valor |
-|---|---|
-| `ADMOB_APP_ID` | el ID de la app (con `~`) |
-| `ADMOB_REWARDED_ID` | el ID del bloque recompensado (con `/`) |
-
-7. **Actions → App de Android → Run workflow** para armarla con los anuncios reales.
+6. Pasale los dos ID a Claude, o escribilos vos en `app/admob.json` (`appId` y `rewardedId`) y subí el cambio.
+   No son secretos: pueden quedar en el repositorio. La app se vuelve a armar sola con los anuncios reales.
 
 > ⚠️ Con los anuncios reales, **no toques tus propios anuncios** (ni pidas a amigos que lo hagan para ganar plata):
 > AdMob cierra la cuenta. Para probar, usá el APK sin las variables (anuncios de prueba).

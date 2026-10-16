@@ -13,7 +13,10 @@ for (const f of ['index.html', 'style.css', 'privacidad.html', 'manifest.webmani
 }
 // Configuración de la app: el anuncio con recompensa de AdMob. Sin ADMOB_REWARDED_ID
 // se usan los anuncios de prueba de Google (sirven para probar, no pagan).
-const cfg = { rewarded: process.env.ADMOB_REWARDED_ID || '', test: !process.env.ADMOB_REWARDED_ID };
+// Los ID de AdMob van en app/admob.json (no son secretos); una variable de entorno los pisa.
+const admob = JSON.parse(readFileSync(join(app, 'admob.json'), 'utf8'));
+const rewarded = process.env.ADMOB_REWARDED_ID || admob.rewardedId || '';
+const cfg = { rewarded, test: !rewarded };
 const index = join(www, 'index.html');
 writeFileSync(index, readFileSync(index, 'utf8').replace('<head>', `<head>\n  <script>window.ARCA_APP = ${JSON.stringify(cfg)};</script>`));
 console.log('Juego copiado a', www, cfg.test ? '(anuncios de prueba)' : '(anuncios reales)');

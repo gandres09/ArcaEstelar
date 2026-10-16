@@ -11,7 +11,8 @@ android {
         versionCode((project.findProperty('VERSION_CODE') ?: '1') as Integer)
         versionName(project.findProperty('VERSION_NAME') ?: '1.0')
         // ID de la app en AdMob. Sin él, el de prueba de Google.
-        manifestPlaceholders = [admobAppId: project.findProperty('ADMOB_APP_ID') ?: 'ca-app-pub-3940256099942544~3347511713']
+        def admobCfg = new groovy.json.JsonSlurper().parse(file('../../admob.json'))
+        manifestPlaceholders = [admobAppId: project.findProperty('ADMOB_APP_ID') ?: (admobCfg.appId ?: 'ca-app-pub-3940256099942544~3347511713')]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
