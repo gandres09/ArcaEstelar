@@ -759,7 +759,7 @@ function pushTo(e, dir, item, lane = -1) {
   return !!t && t !== e && !isEnemyB(t) && accept(t, item, e, false, lane);
 }
 
-// En qué carril de la cinta t cae algo que viene de src (-1: cualquiera), como en Factorio:
+// En qué carril de la cinta t cae algo que viene de src (-1: cualquiera):
 //  - de atrás: el mismo carril
 //  - cinta que entra por un costado (carga lateral): el carril de ese lado
 //  - curva (una sola cinta entra de costado y nada de atrás): conserva el carril

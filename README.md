@@ -1,6 +1,6 @@
 # Arca Estelar
 
-Un juego de automatización para el navegador, inspirado en Factorio. Te estrellaste en un planeta
+Un juego de automatización para el navegador. Te estrellaste en un planeta
 desconocido y la única forma de salir es levantar una fábrica cada vez más grande. El juego tiene
 **tres etapas**: llegar al espacio, limpiar el planeta y escapar del sistema solar en un **Arca estelar**.
 
@@ -42,7 +42,7 @@ navegador (doble clic alcanza). Funciona con mouse y teclado, y en el celular.
 - **Polución y enemigos**: las máquinas contaminan, la nube se expande y cuando llega a los nidos los bichos atacan.
   Evolucionan con el tiempo y aparecen nidos nuevos. Te defendés con muros, torretas con munición y torretas láser.
   Se puede jugar en modo pacífico.
-- **Cintas de dos carriles** como en Factorio: carga lateral, curvas que conservan el carril, brazos que dejan en el
+- **Cintas de dos carriles**: carga lateral, curvas que conservan el carril, brazos que dejan en el
   carril de enfrente; subterráneas, divisores y filtros conservan el carril.
 - **Robots logísticos**: cofres de provisión y cofres de pedido (con objetos y cantidades); los robots traen lo
   pedido desde los cofres de provisión o la Nave, dentro de la zona de los puertos.
@@ -153,9 +153,9 @@ El juego también funciona como página común, por ejemplo en GitHub Pages
 escribe en **Unirme**. La conexión es directa entre los navegadores (WebRTC con
 PeerJS para el primer contacto); la compu de quien crea la sala lleva la partida.
 
-## Máquinas de Factorio
+## Más máquinas
 
-Además de las básicas: brazo largo, brazo de carga, horno de acero, Ensambladora 3, Refinería (2×2), Faro (reparte la mitad del efecto de sus módulos a 3 casillas), Bomba de cañería, poste mediano, Subestación (2×2), Compuerta, torreta lanzallamas (petróleo) y torreta de artillería (proyectiles, contra nidos a 60 casillas). Los carriles de las cintas siguen las reglas de Factorio: los brazos dejan en el carril lejano y una T con dos laterales llena un carril con cada uno.
+Además de las básicas: brazo largo, brazo de carga, horno de acero, Ensambladora 3, Refinería (2×2), Faro (reparte la mitad del efecto de sus módulos a 3 casillas), Bomba de cañería, poste mediano, Subestación (2×2), Compuerta, torreta lanzallamas (petróleo) y torreta de artillería (proyectiles, contra nidos a 60 casillas). Los carriles de las cintas funcionan así: los brazos dejan en el carril lejano y una T con dos laterales llena un carril con cada uno.
 
 ## Vehículos, marcadores, Mk y la Luna
 

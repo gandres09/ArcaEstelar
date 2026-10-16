@@ -632,7 +632,7 @@ const TECHS = {
   laser_turrets:     { name: 'Torretas láser',       packs: ['sci_red', 'sci_green', 'sci_blue'], units: 100, time: 20, req: ['batteries', 'defense'],
                        desc: 'Torretas que no necesitan munición.' },
   combinators:       { name: 'Combinadores',         packs: ['sci_red', 'sci_green'], units: 80, time: 15, req: ['signal_network'],
-                       desc: 'Cables rojo y verde para unir edificios, y combinadores constante, aritmético y de decisión: como los circuitos de Factorio.' },
+                       desc: 'Cables rojo y verde para unir edificios, y combinadores constante, aritmético y de decisión, para que la fábrica tome decisiones sola.' },
   signal_network:    { name: 'Red de señales',      packs: ['sci_red', 'sci_green'], units: 60, time: 12, req: ['electricity'],
                        desc: 'Sensores que mandan valores a 8 canales de colores, y condiciones para prender o apagar máquinas, brazos, cintas, bombas y lámparas.' },
   logistic_robots:   { name: 'Robots logísticos',    packs: ['sci_red', 'sci_green', 'sci_blue'], units: 150, time: 20, req: ['construction_robots'],

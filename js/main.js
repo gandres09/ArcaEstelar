@@ -126,7 +126,7 @@ function load() {
   }
 }
 
-// --------------------------- Opciones del mapa (como en Factorio) ---------------------------
+// --------------------------- Opciones del mapa ---------------------------
 const MAP_OPT_STEPS = [[0, 'Nada'], [0.33, 'Muy poco'], [0.5, 'Poco'], [1, 'Normal'], [1.5, 'Bastante'], [2, 'Mucho'], [3, 'Muchísimo']];
 const MAP_OPT_ROWS = [
   ...MAP_OPT_RES.map((k) => ({ k, name: ITEMS[k === 'oil' ? 'oil' : k].name, res: true })),

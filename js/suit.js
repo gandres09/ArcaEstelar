@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  Armadura con grilla de equipo (como en Factorio). Es aparte del equipo RPG:
+//  Armadura con grilla de equipo. Es aparte del equipo RPG:
 //  la armadura da casillas, y en cada casilla va un equipo que genera, guarda
 //  o gasta energía.
 // =====================================================================

@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  Armas del personaje (como en Factorio): granadas, cápsulas, robots de
+//  Armas del personaje: granadas, cápsulas, robots de
 //  combate, lanzacohetes y bomba atómica. Se usan desde la barra de combate:
 //  apuntan solas al enemigo más cercano que esté a tiro.
 // =====================================================================

@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  Cables rojo y verde, y combinadores (como en Factorio)
+//  Cables rojo y verde, y combinadores
 //  Cada cable une dos edificios. Los edificios unidos por cables del mismo
 //  color forman una red: todo lo que se pone en la red se suma.
 //  Los combinadores tienen entrada (atrás) y salida (adelante); el resultado

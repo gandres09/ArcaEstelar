@@ -88,7 +88,7 @@ Arriba a la derecha: flechita al lado de tu nombre → **Upload new project**. C
 
 ## 4. Después de publicarlo
 
-- Compartí el link en Reddit (r/incremental_games, r/factorio, r/WebGames, r/IndieGaming) y en grupos de juegos indie.
+- Compartí el link en Reddit (r/incremental_games, r/WebGames, r/IndieGaming) y en grupos de juegos indie.
 - En el **Devlog** de itch.io (pestaña *Devlog* de tu juego) contá cada novedad: itch.io muestra los devlogs y te trae visitas.
 - Pedí en los comentarios gente con Android que quiera probarlo en Google Play: así juntás los 12 testers.
 

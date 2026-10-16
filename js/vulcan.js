@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  Vulcano: un planeta volcánico (como Vulcanus en Factorio Space Age).
+//  Vulcano: un planeta volcánico.
 //  Ríos y lagos de lava que no se cruzan, mucho carbón, calcita y
 //  tungsteno. La bomba de agua puesta al lado de la lava saca lava, y la
 //  Fundición la convierte en placas con calcita. Lo cuidan gusanos gigantes.

@@ -37,7 +37,7 @@ const oreAt = (x, y) => ORE_IDS[oreType[tIdx(x, y)]];
 const oreAmountAt = (x, y) => oreAmt[tIdx(x, y)];
 
 // --------------------------- Opciones del mapa, biomas y acantilados ---------------------------
-// Como el menú de Factorio: frecuencia, tamaño y riqueza de cada recurso, más agua, árboles, acantilados y nidos
+// Opciones del mapa: frecuencia, tamaño y riqueza de cada recurso, más agua, árboles, acantilados y nidos
 const MAP_OPT_RES = ['iron_ore', 'copper_ore', 'coal', 'stone', 'quartz', 'titanium_ore', 'uranium_ore', 'oil'];
 function defaultMapOpts() {
   const o = { size: 'normal', res: {}, water: 1, trees: 1, cliffs: 1, enemies: 1, biomes: true };
@@ -259,7 +259,7 @@ function generateMap(seed) {
   // Pozos de petróleo: grupos de casillas sueltas
   const oilField = (px, py) => {
     if (g7) {
-      // Como en Factorio: pozos sueltos, separados entre sí, cada uno con su rendimiento
+      // Pozos sueltos, separados entre sí, cada uno con su rendimiento
       const oo = opts.res.oil, wells = [];
       const want = Math.max(2, Math.round((5 + rnd() * 6) * oo.size)), spread = 6 + 3 * Math.sqrt(oo.size);
       for (let t = 0; t < 60 && wells.length < want; t++) {

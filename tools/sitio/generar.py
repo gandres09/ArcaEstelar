@@ -117,7 +117,7 @@ page('index.html', 'Juego de fábricas y supervivencia', 'Arca Estelar: constru�
 <p class="muted">Funciona en la compu y en el celular. No hace falta registrarse. La partida se guarda en tu dispositivo.</p>
 
 <h2>¿De qué se trata?</h2>
-<p>Arca Estelar es un juego de <b>construcción y automatización</b> inspirado en clásicos como Factorio. Empezás extrayendo piedra, hierro y carbón con la mano. Con eso armás un horno; con las placas del horno, un taladro que extrae solo; y con el tiempo, líneas de producción enteras con cintas transportadoras, brazos mecánicos, ensambladoras, trenes y robots que trabajan mientras vos explorás.</p>
+<p>Arca Estelar es un juego de <b>construcción y automatización</b> con un toque de aventura y supervivencia. Empezás extrayendo piedra, hierro y carbón con la mano. Con eso armás un horno; con las placas del horno, un taladro que extrae solo; y con el tiempo, líneas de producción enteras con cintas transportadoras, brazos mecánicos, ensambladoras, trenes y robots que trabajan mientras vos explorás.</p>
 <p>La fábrica contamina, y la contaminación despierta a los bichos del planeta: nidos que mandan oleadas, escupidores que atacan de lejos y gusanos que defienden su territorio. Además, lejos de la Nave hay criaturas, ruinas con cofres y guaridas con jefes. Tu personaje sube de nivel, se equipa con armas y armaduras, y tiene una mascota que pelea a su lado.</p>
 
 <h2>Lo que vas a encontrar</h2>
@@ -488,7 +488,7 @@ FAQ = [
   ('¿En qué dispositivos funciona?', 'En cualquier navegador moderno de compu o celular (Chrome, Edge, Firefox, Safari). En Android además se puede instalar como app.'),
   ('¿Dónde se guarda mi partida?', 'En tu dispositivo, en el almacenamiento del navegador o de la app. Si borrás los datos del navegador, se borra. Jugando en línea, el mundo compartido lo guarda quien creó la sala.'),
   ('¿Necesito internet?', 'Solo la primera vez que lo abrís y para jugar en línea. Después se puede jugar sin conexión.'),
-  ('¿Se parece a Factorio?', 'Está inspirado en Factorio y en juegos de automatización parecidos, con agregados propios: personaje con nivel y equipo, mascotas, clima, viajes a otros planetas y un final en tres etapas.'),
+  ('¿Qué lo hace distinto?', 'Además de la fábrica tiene personaje con nivel y equipo, mascotas, clima, viajes a otros planetas y un final en tres etapas.'),
   ('Los bichos me atacan demasiado, ¿qué hago?', 'Poné torretas con munición y muros antes de expandirte, y contaminá menos (hornos eléctricos, energía solar, dejar bosques). Si preferís construir tranquilo, empezá una partida en modo pacífico.'),
   ('Mi personaje pelea solo y no quiero', 'Tocá el botón ⚔️ Auto arriba para pasarlo a 🎯 Manual: solo vas a atacar a los enemigos que toques.'),
   ('¿Cómo juego con un amigo?', 'Uno crea una sala desde 🌐 y le pasa el código al otro. Está todo explicado en la guía de multijugador.'),
